@@ -36,8 +36,8 @@ msbuild.wrn
 ## NuGet
 *.nupkg
 *.snupkg
-**/[Pp]ackages/*
-!**/[Pp]ackages/build/
+# Do not ignore repo-root packages/ — this monorepo stores shared libraries there.
+# Legacy solution-level restore output is covered by bin/ and obj/ ignores above.
 *.nuget.props
 *.nuget.targets
 project.lock.json
