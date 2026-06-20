@@ -117,8 +117,12 @@ A market data interval with open, high, low, close, and volume values. Strategie
 _Avoid_: Candle, tick
 
 **Normalized Bar**:
-A Bar represented in StockMountain's canonical market data format, independent of the external data provider that supplied it. The first version persists Normalized Bars as its durable historical market data.
+A Bar represented in StockMountain's canonical market data format, independent of the external data provider that supplied it. Each Normalized Bar includes a timestamp for the bar-period start in UTC, open, high, low, close, volume, volume-weighted average price, and transaction count. The first version persists Normalized Bars as its durable historical market data.
 _Avoid_: Provider bar, raw tick
+
+**Bar Series**:
+The set of Normalized Bars for one Supported Security at one Timeframe and one price adjustment policy. Catalog metadata and stored bar files describe a Bar Series; individual Normalized Bars do not repeat Timeframe or adjustment policy.
+_Avoid_: Dataset, aggregate request
 
 **Split-Adjusted Bar**:
 A Normalized Bar whose prices account for stock splits but not dividend adjustments. Split-Adjusted Bars are the default for Strategy evaluation and Chart Data in the first version.
@@ -133,7 +137,7 @@ A Normalized Bar whose Timeframe interval is still open and may change before co
 _Avoid_: Live candle, partial candle
 
 **Timeframe**:
-The interval length represented by a Bar, such as one minute or one day.
+The interval length of a Bar Series, such as one minute or one day. Timeframe identifies which Bar Series is being read or written; it is not repeated on each Normalized Bar.
 _Avoid_: Resolution, period
 
 **Evaluation Timeframe**:
@@ -157,7 +161,7 @@ A US equity or ETF that StockMountain supports in the first version.
 _Avoid_: Option, crypto, forex, future
 
 **Market Session Scope**:
-The market sessions included when evaluating a Strategy, such as regular market hours or extended hours. The first version defaults to regular market hours.
+The market sessions included when evaluating a Strategy, such as regular market hours or extended hours. Market Session Scope is a Backtest Run or Paper Bot configuration applied when reading or evaluating a Bar Series; it is not part of Bar Series identity. The first version defaults to regular market hours.
 _Avoid_: Hours filter, trading session
 
 **Backtest Run**:

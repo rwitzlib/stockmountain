@@ -1,0 +1,91 @@
+## Build outputs
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uild/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+## Visual Studio / Visual Studio Code
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+## JetBrains Rider
+.idea/
+*.sln.iml
+*.DotSettings.user
+
+## NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## .NET tooling
+.dotnet/
+.tools/
+*.dotnetUserLevelCache
+
+## Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+TestResults/
+
+## Publish / deployment
+publish/
+*.Publish.xml
+*.pubxml
+*.publishproj
+
+## ASP.NET / IIS
+*.log
+*.cache
+ScaffoldingReadMe.txt
+
+## Secrets and local config
+appsettings.*.local.json
+secrets.json
+*.pfx
+*.key
+.env
+.env.*
+!.env.example
+
+## OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+## Temporary files
+*~
+*.tmp
+*.temp
+*.swp
+*.bak

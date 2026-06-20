@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/packages/" />
+  <Folder Name="/packages/market-data/">
+    <Project Path="packages/market-data/StockMountain.MarketData.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/market-data-tests/">
+    <Project Path="tests/market-data-tests/StockMountain.MarketData.Tests.csproj" />
+  </Folder>
+</Solution>
