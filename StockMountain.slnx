@@ -1,10 +1,23 @@
 <Solution>
+  <Folder Name="/apps/" />
+  <Folder Name="/apps/market-data-ingestor/">
+    <Project Path="apps/market-data-ingestor/StockMountain.MarketData.Ingestor.csproj" />
+  </Folder>
   <Folder Name="/packages/" />
   <Folder Name="/packages/market-data/">
     <Project Path="packages/market-data/StockMountain.MarketData.csproj" />
   </Folder>
+  <Folder Name="/packages/market-data-ingestion/">
+    <Project Path="packages/market-data-ingestion/StockMountain.MarketData.Ingestion.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/market-data-tests/">
     <Project Path="tests/market-data-tests/StockMountain.MarketData.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/market-data-ingestion-tests/">
+    <Project Path="tests/market-data-ingestion-tests/StockMountain.MarketData.Ingestion.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/integration-tests/">
+    <Project Path="tests/integration-tests/StockMountain.IntegrationTests.csproj" />
   </Folder>
 </Solution>
