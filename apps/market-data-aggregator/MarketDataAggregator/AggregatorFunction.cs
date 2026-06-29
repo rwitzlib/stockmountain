@@ -20,18 +20,18 @@ using System.Text.Json;
 
 namespace MarketDataAggregator;
 
-public class Function(IServiceProvider serviceProvider)
+public class AggregatorFunction(IServiceProvider serviceProvider)
 {
     private readonly IPolygonClient _polygonClient = serviceProvider.GetRequiredService<IPolygonClient>();
     private readonly IAmazonS3 _s3Client = serviceProvider.GetRequiredService<IAmazonS3>();
     private readonly IAmazonDynamoDB _dynamoDb = serviceProvider.GetRequiredService<IAmazonDynamoDB>();
-    private readonly ILogger<Function> _logger = serviceProvider.GetRequiredService<ILogger<Function>>();
+    private readonly ILogger<AggregatorFunction> _logger = serviceProvider.GetRequiredService<ILogger<AggregatorFunction>>();
 
     private readonly int _batchSize = int.TryParse(Environment.GetEnvironmentVariable("BATCH_SIZE"), out var batchCount) ? batchCount : 30;
     private readonly string _marketDataBucketName = Environment.GetEnvironmentVariable("MARKET_DATA_BUCKET_NAME") ?? MarketDataStorageContract.DefaultBucketName;
     private readonly TimeZoneInfo _timeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
 
-    public Function() : this(Startup.ConfigureServices()) { }
+    public AggregatorFunction() : this(Startup.ConfigureServices()) { }
 
     public async Task FunctionHandler(MarketDataAggregatorRequest? request, ILambdaContext context)
     {

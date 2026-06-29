@@ -1,0 +1,115 @@
+name: Deploy Market Data Aggregator
+
+on:
+  push:
+    paths:
+      - apps/market-data-aggregator/**
+      - packages/marketviewer-contracts/**
+      - tests/market-data-aggregator-unit-tests/**
+      - infra/tf/market-data*.tf
+      - infra/tf/ecr.tf
+      - infra/tf/data.tf
+      - infra/tf/locals.tf
+      - infra/dev.tfvars
+      - global.json
+      - .github/workflows/market-data-aggregator-deploy.yml
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy to
+        required: true
+        type: choice
+        options:
+          - dev
+        default: dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build and test
+        run: |
+          dotnet restore tests/market-data-aggregator-unit-tests/MarketDataAggregator.UnitTests/MarketDataAggregator.UnitTests.csproj
+          dotnet build tests/market-data-aggregator-unit-tests/MarketDataAggregator.UnitTests/MarketDataAggregator.UnitTests.csproj -c Release --no-restore
+          dotnet test tests/market-data-aggregator-unit-tests/MarketDataAggregator.UnitTests/MarketDataAggregator.UnitTests.csproj -c Release --no-build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Docker Build Push
+        uses: rwitzlib/github-action-templates/.github/actions/docker-build-push@v1.0.0
+        with:
+          ecr_repo: stockmountain-${{ inputs.environment || 'dev' }}-market-data-aggregator
+          dockerfile: apps/market-data-aggregator/Dockerfile
+          context: .
+        env:
+          AWS_REGION: us-east-2
+          AWS_DEPLOYMENT_ROLE: ${{ secrets.AWS_DEPLOYMENT_ROLE }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'master'
+    environment: ${{ inputs.environment || 'dev' }}
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      TF_ENV: ${{ inputs.environment || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          mask-aws-account-id: true
+          role-duration-seconds: 900
+          role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE }}
+          role-session-name: gha-stockmountain-${{ github.run_id }}
+          aws-region: us-east-2
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Write deploy tfvars
+        working-directory: infra
+        run: |
+          REF_NAME=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
+          cat > "${TF_ENV}.tfvars" <<EOF
+          environment = "${TF_ENV}"
+          region = "us-east-2"
+          team = "stockmountain"
+          image_tag = "${REF_NAME}"
+          deploy_run_id = "${{ github.run_id }}"
+          deploy_actor = "${{ github.actor }}"
+          enable_web_deploy = false
+          EOF
+
+      - name: Terraform deploy
+        working-directory: infra/tf
+        run: |
+          terraform init -backend-config="config/${TF_ENV}.backend.hcl"
+          terraform apply -auto-approve \
+            -var-file="../${TF_ENV}.tfvars" \
+            -target='aws_ecr_repository.this["market-data-aggregator"]' \
+            -target='aws_ecr_lifecycle_policy.expire_count["market-data-aggregator"]' \
+            -target=aws_s3_bucket.market_data \
+            -target=aws_s3_bucket_public_access_block.market_data \
+            -target=aws_s3_bucket_server_side_encryption_configuration.market_data \
+            -target=aws_dynamodb_table.market_data \
+            -target=aws_iam_role.market_data_aggregator_lambda \
+            -target=aws_lambda_function.market_data_aggregator \
+            -target=aws_lambda_function.market_data_orchestrator \
+            -target=aws_cloudwatch_event_rule.market_data_aggregator_daily \
+            -target=aws_cloudwatch_event_target.market_data_aggregator_minute \
+            -target=aws_cloudwatch_event_target.market_data_aggregator_hour \
+            -target=aws_cloudwatch_event_target.market_data_aggregator_day \
+            -target=aws_lambda_permission.market_data_aggregator_cloudwatch

@@ -16,7 +16,7 @@ using Xunit;
 
 namespace MarketDataAggregator.UnitTests;
 
-public class FunctionTest
+public class AggregatorFunctionTest
 {
     private readonly AutoMocker _autoMocker = new();
 
@@ -38,10 +38,10 @@ public class FunctionTest
         services.AddSingleton(_autoMocker.GetMock<IAmazonS3>().Object);
         services.AddSingleton(_autoMocker.GetMock<IAmazonDynamoDB>().Object);
         services.AddSingleton(_autoMocker.GetMock<IPolygonClient>().Object);
-        services.AddSingleton<ILogger<Function>>(_autoMocker.GetMock<ILogger<Function>>().Object);
+        services.AddSingleton<ILogger<AggregatorFunction>>(_autoMocker.GetMock<ILogger<AggregatorFunction>>().Object);
         var serviceProvider = services.BuildServiceProvider();
 
-        var function = new Function(serviceProvider);
+        var function = new AggregatorFunction(serviceProvider);
         var context = new TestLambdaContext();
 
         await function.FunctionHandler(request, context);
