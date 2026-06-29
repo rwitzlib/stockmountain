@@ -51,7 +51,12 @@ public class Program
         };
 
         builder.Services.AddMediatR(q => q.RegisterServicesFromAssemblies(microserviceApplicationAssemblies))
-            .AddAutoMapper(microserviceApplicationAssemblies)
+            .AddAutoMapper(cfg =>
+            {
+                cfg.LicenseKey = builder.Configuration["AutoMapper:LicenseKey"]
+                    ?? Environment.GetEnvironmentVariable("AUTOMAPPER_LICENSE_KEY")
+                    ?? string.Empty;
+            }, microserviceApplicationAssemblies)
             .AddMemoryCache(options => options.TrackStatistics = true)
             .AddHttpClient()
             .RegisterStudies()

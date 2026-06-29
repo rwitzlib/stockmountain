@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
@@ -8,16 +8,16 @@
     <None Remove="Services\mockMinuteResponse.json" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="13.0.1" />
-    <PackageReference Include="AWSSDK.S3" Version="4.0.0.7" />
-    <PackageReference Include="MemoryPack" Version="1.21.3" />
-    <PackageReference Include="MemoryPack.Streaming" Version="1.21.3" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
-    <PackageReference Include="AWSSDK.Lambda" Version="4.0.0.4" />
+    <PackageReference Include="AutoMapper" Version="16.1.1" />
+    <PackageReference Include="AWSSDK.S3" Version="4.0.25.3" />
+    <PackageReference Include="MemoryPack" Version="1.21.4" />
+    <PackageReference Include="MemoryPack.Streaming" Version="1.21.4" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
+    <PackageReference Include="AWSSDK.Lambda" Version="4.0.19.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\marketviewer-contracts\MarketViewer.Contracts\MarketViewer.Contracts.csproj" />

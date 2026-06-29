@@ -11,7 +11,6 @@ using MarketViewer.Contracts.Requests.Market.Backtest;
 using MarketViewer.Contracts.Responses.Market.Backtest;
 using MarketViewer.Contracts.Records;
 using Microsoft.Extensions.Logging;
-using Sprache;
 using MarketViewer.Contracts.Models.Strategy;
 
 namespace Backtest.Lambda;

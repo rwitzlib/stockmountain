@@ -7,7 +7,6 @@ using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Requests.Market.Backtest;
 using Microsoft.Extensions.DependencyInjection;
-using Sprache;
 
 namespace Backtest.Lambda.UnitTests.Services;
 
