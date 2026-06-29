@@ -1,0 +1,82 @@
+meta {
+  name: Create
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{marketViewer_url}}/api/backtest
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "start": "2025-11-01",
+    "end": "2025-11-07",
+    "PositionSettings":
+    {
+        "StartingBalance": 5000,
+        "AllowSimultaneous": false,
+        "MaxConcurrentPositions": 1000,
+        "Model":
+        {
+            "Type": "Fixed",
+            "Size": 1000
+        },
+        "Cooldown": {
+          "Multiplier": 1,
+          "Timespan": "minute"
+        }
+    },
+    "EntrySettings":
+    {
+        "Filters":
+        [
+            "adv() > 1000000 [1d]",
+            "macd(12,26,9,ema) > 1 [1m]"
+        ]
+    },
+    "ExitSettings":
+    {
+        "TakeProfit":
+        {
+            "CandleType": "PreviousCandle",
+            "Type": "percent",
+            "Value": 10,
+            "PriceActionType": "close"
+        },
+        "StopLoss":
+        {
+            "CandleType": "PreviousCandle",
+            "Type": "percent",
+            "Value": -10,
+            "PriceActionType": "close"
+        },
+        "TimedExit":
+        {
+            "Timeframe": {
+              "Multiplier": 5,
+              "Timespan": "minute"
+            }
+        }
+    }
+  }
+}
+
+vars:post-response {
+  backtestId: id
+}
+
+script:post-response {
+  let data = res.getBody();
+  console.log(data);
+  
+  bru.setVar("backtestId", data.id)
+  
+  
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Ticker Details
+  type: http
+  seq: 6
+}
+
+get {
+  url: https://api.polygon.io/v3/reference/tickers/MARA
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{polygonToken}}
+}

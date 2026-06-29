@@ -1,0 +1,24 @@
+meta {
+  name: Optimize
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{marketViewer_url}}/api/strategy/optimize/6f1c8ea1-de4c-456d-9386-2ef1640b999d
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "Filters": [
+      "close > 15",
+      "adv() > 3000000"
+    ]
+  }
+}

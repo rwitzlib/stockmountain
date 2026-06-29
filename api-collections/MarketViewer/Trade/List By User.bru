@@ -1,0 +1,19 @@
+meta {
+  name: List By User
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{marketViewer_url}}/api/trade?user=rob.witzlib@gmail.com
+  body: none
+  auth: bearer
+}
+
+params:query {
+  user: rob.witzlib@gmail.com
+}
+
+auth:bearer {
+  token: {{jwt}}
+}

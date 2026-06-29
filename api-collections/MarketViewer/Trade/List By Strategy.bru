@@ -1,0 +1,20 @@
+meta {
+  name: List By Strategy
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{marketViewer_url}}/api/trade?strategy=cfca75d754c84b13b2381c67794e351a
+  body: none
+  auth: bearer
+}
+
+params:query {
+  strategy: cfca75d754c84b13b2381c67794e351a
+  ~status: Open
+}
+
+auth:bearer {
+  token: {{jwt}}
+}

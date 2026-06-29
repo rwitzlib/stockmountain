@@ -1,0 +1,18 @@
+meta {
+  name: Kesha
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:9000/2015-03-31/functions/function/invocations
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "Market": "stocks",
+    "Date": "2024-08-30"
+  }
+}

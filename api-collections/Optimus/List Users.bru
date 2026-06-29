@@ -1,0 +1,15 @@
+meta {
+  name: List Users
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/user
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}

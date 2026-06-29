@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>MarketViewer.Filters</PackageId>
+    <Version>0.0.0-preview.10</Version>
+    <Authors>Robert Witzlib</Authors>
+    <Description>
+		Filters for MarketViewer.
+	</Description>
+    <Product>MarketViewer.Filters</Product>
+    <PackageProjectUrl>https://github.com/rwitzlib/stockmountain-marketviewer</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/rwitzlib/stockmountain-marketviewer</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\marketviewer-contracts\MarketViewer.Contracts\MarketViewer.Contracts.csproj" />
+  </ItemGroup>
+</Project>

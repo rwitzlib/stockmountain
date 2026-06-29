@@ -1,0 +1,164 @@
+meta {
+  name: Scan Live
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{marketViewer_url}}/api/tools/scan
+  body: json
+  auth: none
+}
+
+headers {
+  Accept: */*
+  Authorization: Bearer {{jwt}}
+}
+
+body:json {
+  {
+    "ticker": "OKLO",
+    "timestamp": "2025-02-26T09:30:00-05:00",
+    "argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "ANY",
+          "FirstOperand": {
+            "Study": "rsi",
+            "Parameters": "14,70,30,ema",
+            "Modifier": "Slope",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 4,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Study": "rsi",
+            "Parameters": "14,70,30,ema",
+            "Modifier": "Slope",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 3,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Study": "macd",
+            "Modifier": "Slope",
+            "Parameters": "12,26,9,ema",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 3,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Study": "macd",
+            "Modifier": "Value",
+            "Parameters": "12,26,9,ema",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 2,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "PriceAction": "Volume",
+            "Modifier": "Value",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 100000
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "PriceAction": "Vwap",
+            "Modifier": "Value",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 2
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "PriceAction": "Vwap",
+            "Modifier": "Value",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Value": 600
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        }
+      ]
+    }
+  }
+}
+
+body:form-urlencoded {
+  Ticker: AES
+  Multiplier: 1
+  Timespan: hour
+  From: 2024-09-27
+  To: 2024-11-28
+  _study: macd:12,26,9,EMA
+  ~_study: vwap
+  ~_study: ema:9
+  ~_study: ema:21
+  ~_study: ema:200
+}

@@ -1,0 +1,318 @@
+using Amazon.DynamoDBv2;
+using Amazon.Lambda.Core;
+using Amazon.S3;
+using Amazon.S3.Model;
+using MarketViewer.Contracts.Enums;
+using MarketViewer.Contracts.MarketData;
+using MarketViewer.Contracts.Records.MarketData;
+using MarketViewer.Contracts.Responses.Market;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Polygon.Client.Interfaces;
+using Polygon.Client.Models;
+using Polygon.Client.Requests;
+using Polygon.Client.Responses;
+using System.Diagnostics;
+using System.Net;
+using System.Text.Json;
+
+[assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
+
+namespace MarketDataAggregator;
+
+public class Function(IServiceProvider serviceProvider)
+{
+    private readonly IPolygonClient _polygonClient = serviceProvider.GetRequiredService<IPolygonClient>();
+    private readonly IAmazonS3 _s3Client = serviceProvider.GetRequiredService<IAmazonS3>();
+    private readonly IAmazonDynamoDB _dynamoDb = serviceProvider.GetRequiredService<IAmazonDynamoDB>();
+    private readonly ILogger<Function> _logger = serviceProvider.GetRequiredService<ILogger<Function>>();
+
+    private readonly int _batchSize = int.TryParse(Environment.GetEnvironmentVariable("BATCH_SIZE"), out var batchCount) ? batchCount : 30;
+    private readonly string _marketDataBucketName = Environment.GetEnvironmentVariable("MARKET_DATA_BUCKET_NAME") ?? MarketDataStorageContract.DefaultBucketName;
+    private readonly TimeZoneInfo _timeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+
+    public Function() : this(Startup.ConfigureServices()) { }
+
+    public async Task FunctionHandler(MarketDataAggregatorRequest? request, ILambdaContext context)
+    {
+        _logger.LogInformation("Starting Market Data Aggregator: {date}, {multiplier}, {timespan}", request?.Date, request?.Multiplier, request?.Timespan);
+
+        var startedAt = DateTimeOffset.UtcNow;
+        if (request is null)
+        {
+            _logger.LogInformation("Invalid request. Must contain a type or date.");
+            return;
+        }
+
+        if (!IsRequestValid(request))
+        {
+            return;
+        }
+
+        var catalog = new MarketDataCatalogWriter(_dynamoDb, _logger);
+        var key = MarketDataStorageContract.BuildAggregateKey(request.Date, request.Multiplier, request.Timespan);
+
+        await catalog.PutInventoryRecord(new MarketDataInventoryRecord
+        {
+            Date = request.Date,
+            Multiplier = request.Multiplier,
+            Timespan = request.Timespan,
+            Bucket = _marketDataBucketName,
+            Key = key,
+            Status = MarketDataStatus.Running,
+            StartedAt = startedAt,
+            Source = request.Source,
+            RunId = request.RunId
+        });
+
+        try
+        {
+            var tickers = await GetAndUploadTickers();
+            var result = await GetAndUploadAggregates(request, tickers);
+
+            await catalog.PutInventoryRecord(new MarketDataInventoryRecord
+            {
+                Date = request.Date,
+                Multiplier = request.Multiplier,
+                Timespan = request.Timespan,
+                Bucket = _marketDataBucketName,
+                Key = key,
+                Status = MarketDataStatus.Succeeded,
+                ObjectSize = result.ObjectSize,
+                ETag = result.ETag,
+                RecordCount = result.RecordCount,
+                StartedAt = startedAt,
+                CompletedAt = DateTimeOffset.UtcNow,
+                Source = request.Source,
+                RunId = request.RunId
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred during Market Data Aggregator.");
+            await catalog.PutInventoryRecord(new MarketDataInventoryRecord
+            {
+                Date = request.Date,
+                Multiplier = request.Multiplier,
+                Timespan = request.Timespan,
+                Bucket = _marketDataBucketName,
+                Key = key,
+                Status = MarketDataStatus.Failed,
+                StartedAt = startedAt,
+                CompletedAt = DateTimeOffset.UtcNow,
+                Source = request.Source,
+                RunId = request.RunId,
+                Error = ex.Message
+            });
+        }
+    }
+
+    private async Task<List<TickerDetails>> GetAndUploadTickers()
+    {
+        var timer = Stopwatch.StartNew();
+
+        var tickers = new List<TickerDetails>();
+        var stocksTickersResponse = await _polygonClient.GetTickers(new PolygonGetTickersRequest
+        {
+            Market = "stocks",
+            Active = true,
+            Type = "CS"
+        });
+        tickers.AddRange(stocksTickersResponse.Results);
+
+        var etfTickersResponse = await _polygonClient.GetTickers(new PolygonGetTickersRequest
+        {
+            Market = "stocks",
+            Active = true,
+            Type = "ETF"
+        });
+        tickers.AddRange(etfTickersResponse.Results);
+
+        _logger.LogInformation("Found {count} tickers.", tickers.Count);
+
+        var tickerDetailsList = new List<TickerDetails>();
+
+        foreach (var batch in tickers.Chunk(_batchSize))
+        {
+            var results = await Task.WhenAll(batch.Select(tickerDetails => GetTickerDetailsAsync(tickerDetails.Ticker)));
+            var validResults = results.OfType<TickerDetails>();
+            _logger.LogInformation("Found {count} valid TickerDetails results.", validResults.Count());
+
+            tickerDetailsList.AddRange(validResults);
+        }
+
+        if (tickerDetailsList.Count <= 0)
+        {
+            return [];
+        }
+
+        var json = JsonSerializer.Serialize(tickerDetailsList);
+        var response = await _s3Client.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = _marketDataBucketName,
+            Key = MarketDataStorageContract.TickerDetailsKey,
+            ContentType = "application/json",
+            ContentBody = json
+        });
+
+        timer.Stop();
+
+        if (response is not null && response.HttpStatusCode.Equals(HttpStatusCode.OK))
+        {
+            _logger.LogInformation("Successfully uploaded ticker details for {date} in {elapsed} ms.", DateTimeOffset.Now.Date.ToString("yyyy-MM-dd"), timer.ElapsedMilliseconds);
+        }
+        else
+        {
+            _logger.LogInformation("Failed to upload ticker details for {date} in {elapsed} ms.", DateTimeOffset.Now.Date.ToString("yyyy-MM-dd"), timer.ElapsedMilliseconds);
+        }
+
+        return tickerDetailsList;
+    }
+
+    private async Task<AggregateUploadResult> GetAndUploadAggregates(MarketDataAggregatorRequest request, List<TickerDetails> tickers)
+    {
+        var stocksResponses = new List<StocksResponse>();
+
+        foreach (var batch in tickers.Chunk(_batchSize))
+        {
+            var results = await Task.WhenAll(batch.Select(ticker => GetAggregateAsync(request, ticker)));
+            var validResults = results.OfType<PolygonAggregateResponse>();
+
+            _logger.LogInformation("Found {count} valid aggregate results.", validResults.Count());
+
+            stocksResponses.AddRange(validResults.Select(MapToStocksResponse));
+        }
+
+        _logger.LogInformation("Found {count} aggregate responses.", stocksResponses.Count);
+
+        var json = JsonSerializer.Serialize(stocksResponses);
+        var response = await _s3Client.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = _marketDataBucketName,
+            Key = MarketDataStorageContract.BuildAggregateKey(request.Date, request.Multiplier, request.Timespan),
+            ContentType = "application/json",
+            ContentBody = json
+        });
+
+        if (response is not null && response.HttpStatusCode.Equals(HttpStatusCode.OK))
+        {
+            _logger.LogInformation("Successfully uploaded market data for {date}.", request.Date.Date);
+        }
+        else
+        {
+            throw new InvalidOperationException($"Failed to upload market data for {request.Date.Date:yyyy-MM-dd}.");
+        }
+
+        return new AggregateUploadResult(stocksResponses.Count, response.ETag, json.Length);
+    }
+
+    private bool IsRequestValid(MarketDataAggregatorRequest request)
+    {
+        if (request.Type is null)
+        {
+            if (request.Multiplier <= 0 || request.Multiplier > 30)
+            {
+                _logger.LogInformation("Invalid request. Multiplier must be between 1 and 30.");
+                return false;
+            }
+        }
+        else if (request.Type.Equals("auto", StringComparison.InvariantCultureIgnoreCase))
+        {
+            request.Date = DateTimeOffset.Now.Date.AddDays(-1);
+            request.Source = "schedule";
+        }
+        else
+        {
+            _logger.LogInformation("Invalid request. Must either contain a type of \"auto\" or a date range.");
+            return false;
+        }
+
+        if (request.Timespan is not (Timespan.minute or Timespan.hour or Timespan.day))
+        {
+            _logger.LogInformation("Invalid request. Timespan {Timespan} is not supported.", request.Timespan);
+            return false;
+        }
+
+        if (request.Date.DayOfWeek.Equals(DayOfWeek.Saturday) || request.Date.DayOfWeek.Equals(DayOfWeek.Sunday))
+        {
+            _logger.LogInformation("No market data to gather on {date}.", request.Date.DayOfWeek);
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task<TickerDetails?> GetTickerDetailsAsync(string ticker)
+    {
+        if (string.IsNullOrEmpty(ticker))
+        {
+            return null;
+        }
+
+        try
+        {
+            var response = await _polygonClient.GetTickerDetails(ticker);
+
+            return response?.TickerDetails;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving TickerDetails for ticker: {ticker}", ticker);
+            return null;
+        }
+    }
+
+    private async Task<PolygonAggregateResponse?> GetAggregateAsync(MarketDataAggregatorRequest request, TickerDetails ticker)
+    {
+        var endOfDay = GetEndDate(request.Date).ToUnixTimeMilliseconds();
+
+        var response = await _polygonClient.GetAggregates(new PolygonAggregateRequest
+        {
+            Ticker = ticker.Ticker,
+            Multiplier = request.Multiplier,
+            Timespan = request.Timespan.ToString(),
+            From = GetStartDate(request.Timespan, request.Date).ToString(),
+            To = endOfDay.ToString()
+        });
+
+        if (response?.Results is null)
+        {
+            return null;
+        }
+
+        return response;
+    }
+
+    private long GetStartDate(Timespan timespan, DateTimeOffset date)
+    {
+        var offset = _timeZone.GetUtcOffset(date);
+
+        var startDate = timespan switch
+        {
+            Timespan.minute => new DateTimeOffset(date.Year, date.Month, date.Day, 0, 0, 0, offset),
+            Timespan.hour => new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, offset),
+            Timespan.day => new DateTimeOffset(date.Year, 1, 1, 0, 0, 0, offset),
+            _ => throw new NotSupportedException($"Timespan {timespan} is not supported.")
+        };
+
+        return startDate.ToUnixTimeMilliseconds();
+    }
+
+    private DateTimeOffset GetEndDate(DateTimeOffset date)
+    {
+        var offset = _timeZone.GetUtcOffset(date);
+        return new DateTimeOffset(date.Year, date.Month, date.Day, 23, 59, 0, offset);
+    }
+
+    private static StocksResponse MapToStocksResponse(PolygonAggregateResponse response)
+    {
+        return new StocksResponse
+        {
+            Ticker = response.Ticker,
+            Status = response.Status,
+            Results = response.Results.ToList()
+        };
+    }
+
+    private record AggregateUploadResult(int RecordCount, string ETag, long ObjectSize);
+}

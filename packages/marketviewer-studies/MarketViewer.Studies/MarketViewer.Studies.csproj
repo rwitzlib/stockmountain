@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageId>MarketViewer.Studies</PackageId>
+    <Version>3.2.0-preview.2</Version>
+    <Authors>Robert Witzlib</Authors>
+    <Description>
+		Studies for MarketViewer.
+	</Description>
+    <Product>MarketViewer.Studies</Product>
+    <PackageProjectUrl>https://github.com/rwitzlib/stockmountain-marketviewer</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/rwitzlib/stockmountain-marketviewer</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\marketviewer-contracts\MarketViewer.Contracts\MarketViewer.Contracts.csproj" />
+  </ItemGroup>
+</Project>

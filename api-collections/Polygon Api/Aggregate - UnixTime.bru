@@ -1,0 +1,20 @@
+meta {
+  name: Aggregate - UnixTime
+  type: http
+  seq: 3
+}
+
+get {
+  url: https://api.polygon.io/v2/aggs/ticker/OKLO/range/1/hour/1740578400000/1740578400000?limit=50000
+  body: multipartForm
+  auth: bearer
+}
+
+params:query {
+  limit: 50000
+  ~sort: desc
+}
+
+auth:bearer {
+  token: {{polygonToken}}
+}

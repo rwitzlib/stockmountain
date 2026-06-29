@@ -1,0 +1,65 @@
+meta {
+  name: Backtest V2 - Another
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:13000/2015-03-31/functions/function/invocations
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "Timestamp": "2024-03-05",
+    "DetailedResponse": false,
+    "PositionSize": 1000,
+    "Timespan": "minute",
+    "Multiplier": 15,
+    "Argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "Study",
+            "Modifier": "Slope",
+            "Type": "rsi",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 3
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "Study",
+            "Modifier": "Slope",
+            "Type": "macd",
+            "Parameters": "12,26,9,ema",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 3,
+            "Timespan": "minute"
+          }
+        }
+      ]
+    }
+  }
+}

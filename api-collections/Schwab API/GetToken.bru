@@ -1,0 +1,27 @@
+meta {
+  name: GetToken
+  type: http
+  seq: 1
+}
+
+post {
+  url: https://api.schwabapi.com/v1/oauth/token
+  body: formUrlEncoded
+  auth: basic
+}
+
+params:query {
+  ~response_type: code
+  ~scope: readonly
+}
+
+auth:basic {
+  username: pVWryF5uJ5276gqF2pm8ck5UAR2vxHej
+  password: b5FiBABihsnSRrCW
+}
+
+body:form-urlencoded {
+  grant_type: authorization_code
+  code: C0.b2F1dGgyLmNkYy5zY2h3YWIuY29t.XLAzkx0TwaXmRyrJNi6Hk5o5UU5Kq2NXjMT_YOAlGps@
+  redirect_uri: https://127.0.0.1
+}

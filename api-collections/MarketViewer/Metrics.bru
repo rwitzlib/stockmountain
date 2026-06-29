@@ -1,0 +1,40 @@
+meta {
+  name: Metrics
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{marketViewer_url}}/metrics
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer asdf
+}
+
+body:json {
+  {
+    "ticker": "SPY",
+    "Multiplier": 1,
+    "Timespan": "minute",
+    "From": "2025-06-20",
+    "To": "2025-06-20",
+    "Limit": 3
+  }
+}
+
+body:form-urlencoded {
+  Ticker: AES
+  Timespan: hour
+  From: 2024-09-27
+  To: 2024-11-28
+  _study: macd:12,26,9,EMA
+  UserId: asdf
+  ~Multiplier: 1
+  ~_study: vwap
+  ~_study: ema:9
+  ~_study: ema:21
+  ~_study: ema:200
+}

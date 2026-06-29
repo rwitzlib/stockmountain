@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Optimus",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

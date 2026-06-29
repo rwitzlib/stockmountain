@@ -1,0 +1,11 @@
+@Management_HostAddress = https://localhost:7009
+
+POST {{Management_HostAddress}}/webhook/deploy
+Content-Type: application/json
+
+{
+    "name": "marketviewer-api",
+    "image": "100008144700.dkr.ecr.us-east-2.amazonaws.com/lad-dev-marketviewer-api:add-healthcheck@sha256:6563cd841ff76f02fb8e8b3955920f4c86994fa0f767b6d9e8bf0948570f161b",
+}
+
+###

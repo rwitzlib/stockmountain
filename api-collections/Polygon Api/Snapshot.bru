@@ -1,0 +1,19 @@
+meta {
+  name: Snapshot
+  type: http
+  seq: 7
+}
+
+get {
+  url: https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~tickers: SPY
+}
+
+auth:bearer {
+  token: {{polygonToken}}
+}

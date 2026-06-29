@@ -1,0 +1,18 @@
+meta {
+  name: Backtest API (remote)
+  type: http
+  seq: 1
+}
+
+post {
+  url: https://147.93.116.198:17000/backtest
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "Date": "2025-05-27",
+    "Filter": "macd(12,26,9,ema) > 2 [1m]"
+  }
+}

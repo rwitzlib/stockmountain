@@ -1,0 +1,42 @@
+meta {
+  name: Filter
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{marketViewer_url}}/api/tools/filter
+  body: json
+  auth: none
+}
+
+headers {
+  Accept: */*
+  Authorization: Bearer {{jwt}}
+}
+
+body:json {
+  {
+    "Ticker": "SPY",
+    "Multiplier": 1,
+    "Timespan": "hour",
+    "From": "2025-10-20",
+    "To": "2025-10-25",
+    "Filters": [
+      "macd(12,26,9,ema) > 0.5 [1m]"
+    ]
+  }
+}
+
+body:form-urlencoded {
+  Ticker: AES
+  Multiplier: 1
+  Timespan: hour
+  From: 2024-09-27
+  To: 2024-11-28
+  _study: macd:12,26,9,EMA
+  ~_study: vwap
+  ~_study: ema:9
+  ~_study: ema:21
+  ~_study: ema:200
+}

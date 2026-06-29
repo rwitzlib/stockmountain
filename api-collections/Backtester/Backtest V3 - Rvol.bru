@@ -1,0 +1,59 @@
+meta {
+  name: Backtest V3 - Rvol
+  type: http
+  seq: 8
+}
+
+post {
+  url: http://localhost:14000/2015-03-31/functions/function/invocations
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "Date": "2024-09-30",
+    "PositionInfo": {
+      "StartingBalance": 20000,
+      "MaxConcurrentPositions": 1000,
+      "PositionSize": 1000
+    },
+    "Exit": {
+      "StopLoss": {
+        "Type": "percent",
+        "Value": -5
+      },
+      "ProfitTarget": {
+        "Type": "percent",
+        "Value": 12.5
+      },
+      "Timeframe": {
+        "Multiplier": 5,
+        "Timespan": "day"
+      }
+    },
+    "DetailedResponse": true,
+    "Argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "ANY",
+          "FirstOperand": {
+            "Study": "rvol",
+            "Modifier": "value",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 1
+          },
+          "Timeframe": {
+            "Multiplier": 4,
+            "Timespan": "minute"
+          }
+        }
+      ]
+    }
+  }
+}

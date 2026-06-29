@@ -1,10 +1,92 @@
 <Solution>
+  <Folder Name="/apps/" />
+  <Folder Name="/apps/market-data-aggregator/">
+    <Project Path="apps/market-data-aggregator/MarketDataAggregator/MarketDataAggregator.csproj" />
+  </Folder>
+  <Folder Name="/apps/api/">
+    <Project Path="apps/api/MarketViewer.Api/MarketViewer.Api.csproj" />
+  </Folder>
+  <Folder Name="/apps/backtest-worker/">
+    <Project Path="apps/backtest-worker/Backtest.Lambda/Backtest.Lambda.csproj" />
+  </Folder>
+  <Folder Name="/apps/backtester-api/">
+    <Project Path="apps/backtester-api/Backtester.Api/Backtester.Api.csproj" />
+  </Folder>
+  <Folder Name="/apps/kesha/">
+    <Project Path="apps/kesha/Kesha/Kesha.csproj" />
+  </Folder>
+  <Folder Name="/apps/management-api/">
+    <Project Path="apps/management-api/Management/Management.csproj" />
+  </Folder>
+  <Folder Name="/apps/paper-bot-runner/">
+    <Project Path="apps/paper-bot-runner/Optimus/Optimus.csproj" />
+  </Folder>
   <Folder Name="/packages/" />
-  <Folder Name="/packages/market-data/">
-    <Project Path="packages/market-data/StockMountain.MarketData.csproj" />
+  <Folder Name="/packages/marketviewer-application/">
+    <Project Path="packages/marketviewer-application/MarketViewer.Application/MarketViewer.Application.csproj" />
+  </Folder>
+  <Folder Name="/packages/marketviewer-clients/">
+    <Project Path="packages/marketviewer-clients/MarketViewer.Clients/MarketViewer.Clients.csproj" />
+  </Folder>
+  <Folder Name="/packages/marketviewer-contracts/">
+    <Project Path="packages/marketviewer-contracts/MarketViewer.Contracts/MarketViewer.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/packages/marketviewer-core/">
+    <Project Path="packages/marketviewer-core/MarketViewer.Core/MarketViewer.Core.csproj" />
+  </Folder>
+  <Folder Name="/packages/marketviewer-filters/">
+    <Project Path="packages/marketviewer-filters/MarketViewer.Filters/MarketViewer.Filters.csproj" />
+  </Folder>
+  <Folder Name="/packages/marketviewer-infrastructure/">
+    <Project Path="packages/marketviewer-infrastructure/MarketViewer.Infrastructure/MarketViewer.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/packages/marketviewer-studies/">
+    <Project Path="packages/marketviewer-studies/MarketViewer.Studies/MarketViewer.Studies.csproj" />
+  </Folder>
+  <Folder Name="/packages/optimus-adapter/">
+    <Project Path="packages/optimus-adapter/Optimus.Adapter/Optimus.Adapter.csproj" />
+  </Folder>
+  <Folder Name="/packages/optimus-infrastructure/">
+    <Project Path="packages/optimus-infrastructure/Optimus.Infrastructure/Optimus.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/packages/schwab-api/">
+    <Project Path="packages/schwab-api/SchwabApi/SchwabApi.csproj" />
   </Folder>
   <Folder Name="/tests/" />
-  <Folder Name="/tests/market-data-tests/">
-    <Project Path="tests/market-data-tests/StockMountain.MarketData.Tests.csproj" />
+  <Folder Name="/tests/market-data-aggregator-unit-tests/">
+    <Project Path="tests/market-data-aggregator-unit-tests/MarketDataAggregator.UnitTests/MarketDataAggregator.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/backtest-lambda-unit-tests/">
+    <Project Path="tests/backtest-lambda-unit-tests/Backtest.Lambda.UnitTests/Backtest.Lambda.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/kesha-unit-tests/">
+    <Project Path="tests/kesha-unit-tests/Kesha.UnitTests/Kesha.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/marketviewer-api-unit-tests/">
+    <Project Path="tests/marketviewer-api-unit-tests/MarketViewer.Api.UnitTests/MarketViewer.Api.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/marketviewer-application-unit-tests/">
+    <Project Path="tests/marketviewer-application-unit-tests/MarketViewer.Application.UnitTests/MarketViewer.Application.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/marketviewer-contracts-unit-tests/">
+    <Project Path="tests/marketviewer-contracts-unit-tests/MarketViewer.Contracts.UnitTests/MarketViewer.Contracts.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/marketviewer-core-unit-tests/">
+    <Project Path="tests/marketviewer-core-unit-tests/MarketViewer.Core.UnitTests/MarketViewer.Core.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/marketviewer-filters-unit-tests/">
+    <Project Path="tests/marketviewer-filters-unit-tests/MarketViewer.Filters.UnitTests/MarketViewer.Filters.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/marketviewer-infrastructure-unit-tests/">
+    <Project Path="tests/marketviewer-infrastructure-unit-tests/MarketViewer.Infrastructure.UnitTests/MarketViewer.Infrastructure.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/marketviewer-integration-tests/">
+    <Project Path="tests/marketviewer-integration-tests/MarketViewer.IntegrationTests/MarketViewer.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/marketviewer-studies-unit-tests/">
+    <Project Path="tests/marketviewer-studies-unit-tests/MarketViewer.Studies.UnitTests/MarketViewer.Studies.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/optimus-unit-tests/">
+    <Project Path="tests/optimus-unit-tests/Optimus.UnitTests/Optimus.UnitTests.csproj" />
   </Folder>
 </Solution>
