@@ -1,0 +1,68 @@
+meta {
+  name: Scan - Study + Volume
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{marketViewer_url}}/api/scan
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJFUzI1NiIsImtpZCI6IjkxOGJiZjFmLWFkYWEtNGJkYS1hMWFhLWU1YTcwNjk0M2EzYSIsInR5cCI6IkpXVCJ9.eyJtb2RlIjoiYWNjZXNzIiwidHlwZSI6InVzZXIiLCJwcm9wZXJ0aWVzIjp7InVzZXJuYW1lIjoicm9iLndpdHpsaWJAZ21haWwuY29tIiwicm9sZSI6IkFkbWluIn0sImF1ZCI6InJlYWN0IiwiaXNzIjoiaHR0cDovL2F1dGguc3RvY2ttb3VudGFpbi5pbyIsInN1YiI6InVzZXI6OTY5MmFlZjAwMjA5NTMzMSIsImV4cCI6MTc1MjQxNTY3NC43NjV9.HcImD1ayHHak7Ps4IgBcpWVVwMXykH1xuWfqfH4IpcXEheWucmGIsn7p1DgLNVkZB0xx8zIdKitZZDvRBIAYug
+}
+
+body:json {
+  {
+    "Argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Type": "Study",
+            "Name": "rsi",
+            "Parameters": "14,70,30,ema",
+            "Modifier": "value",
+            "Timeframe": {
+              "Multiplier": 1,
+              "Timespan": "hour"
+            }
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Type": "Fixed",
+            "Value": 50
+          },
+          "Timeframe": {
+            "Multiplier": 2,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Type": "PriceAction",
+            "Name": "Volume",
+            "Modifier": "Value",
+            "Timeframe": {
+              "Multiplier": 1,
+              "Timespan": "hour"
+            }
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Type": "Fixed",
+            "Value": 100000
+          },
+          "Timeframe": {
+            "Multiplier": 1,
+            "Timespan": "minute"
+          }
+        }
+      ]
+    }
+  }
+}

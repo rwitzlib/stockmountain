@@ -1,0 +1,29 @@
+meta {
+  name: Health
+  type: http
+  seq: 4
+}
+
+get {
+  url: https://api.stockmountain.io/health
+  body: formUrlEncoded
+  auth: none
+}
+
+headers {
+  Accept: */*
+  Authorization: Bearer {{jwt}}
+}
+
+body:form-urlencoded {
+  Ticker: MARA
+  Multiplier: 1
+  Timespan: minute
+  From: 2024-03-05T08:30:00-06:00
+  To: 2024-03-05T08:45:00-06:00
+  ~_study: vwap
+  ~_study: macd:12,26,9,EMA
+  ~_study: ema:9
+  ~_study: ema:21
+  ~_study: ema:200
+}

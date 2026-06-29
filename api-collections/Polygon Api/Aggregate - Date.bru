@@ -1,0 +1,25 @@
+meta {
+  name: Aggregate - Date
+  type: http
+  seq: 9
+}
+
+get {
+  url: https://api.polygon.io/v2/aggs/ticker/SPY/range/1/minute/1699423200000/1699595940000?adjusted=True&sort=asc&limit=5000
+  body: multipartForm
+  auth: bearer
+}
+
+params:query {
+  adjusted: True
+  sort: asc
+  limit: 5000
+}
+
+headers {
+  Connection: close
+}
+
+auth:bearer {
+  token: {{polygonToken}}
+}

@@ -1,0 +1,64 @@
+meta {
+  name: Update
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{marketViewer_url}}/api/strategy/f74e9fac9d694994854e1b4f35f25cb6
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "id": "f74e9fac9d694994854e1b4f35f25cb6",
+    "name": "RSI + Volume Hourly - (24 hr)",
+    "state": "Active",
+    "visibility": "Public",
+    "type": "Paper",
+    "integration": "Default",
+    "positionSettings": {
+      "startingBalance": 100000,
+      "maxConcurrentPositions": 1000,
+      "model": {
+        "type": "Fixed",
+        "size": 1000
+      },
+      "allowSimultaneous": false
+    },
+    "exitSettings": {
+      "stopLoss": {
+        "candleType": "PreviousCandle",
+        "priceActionType": "close",
+        "type": "percent",
+        "value": -10
+      },
+      "takeProfit": {
+        "candleType": "PreviousCandle",
+        "priceActionType": "close",
+        "type": "percent",
+        "value": 20
+      },
+      "timedExit": {
+        "avoidOvernight": false,
+        "timeframe": {
+          "multiplier": 1,
+          "timespan": "day"
+        }
+      }
+    },
+    "entrySettings": {
+      "filters": [
+        "rsi(14,70,30,ema) < 20 [1m]",
+        "volume > 1000000 [1h, 3, any]",
+        "vwap > 5 [1m]",
+        "vwap < 21 [1m]"
+      ]
+    }
+  }
+}

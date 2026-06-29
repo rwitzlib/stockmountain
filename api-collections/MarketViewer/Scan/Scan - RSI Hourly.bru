@@ -1,0 +1,46 @@
+meta {
+  name: Scan - RSI Hourly
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{marketViewer_url}}/api/scan
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "Argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Type": "PriceAction",
+            "Name": "Volume",
+            "Modifier": "Value",
+            "Timeframe": {
+              "Multiplier": 1,
+              "Timespan": "hour"
+            }
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Type": "Fixed",
+            "Value": 148000
+          },
+          "Timeframe": {
+            "Multiplier": 1,
+            "Timespan": "minute"
+          }
+        }
+      ]
+    }
+  }
+}

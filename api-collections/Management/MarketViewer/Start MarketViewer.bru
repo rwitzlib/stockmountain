@@ -1,0 +1,25 @@
+meta {
+  name: Start MarketViewer
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{managementUrl}}/api/deploy/start
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{deployToken}}
+}
+
+body:json {
+  {
+    "environment": "dev",
+    "repository": "stockmountain-marketviewer",
+    "file": "deploy.docker-compose.yml",
+    "image": "100008144700.dkr.ecr.us-east-2.amazonaws.com/lad-dev-marketviewer-api:master",
+    "actor": "local"
+  }
+}

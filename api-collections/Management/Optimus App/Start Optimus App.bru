@@ -1,0 +1,25 @@
+meta {
+  name: Start Optimus App
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{managementUrl}}/api/deploy/start
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: n`K6aBV2+~c*{kA4F3J,mxAC^S4=e79m_2s&`f;(Y#tqn/f>x,a5SX7+3UpW[&rG^wtZmp${9?T;AF'M3V#S:@-BFa<'f(bNd@Yj7!t_:9"m,n
+}
+
+body:json {
+  {
+    "environment": "dev",
+    "repository": "stockmountain-optimus",
+    "file": "deploy.docker-compose.yml",
+    "image": "100008144700.dkr.ecr.us-east-2.amazonaws.com/lad-dev-optimus:master",
+    "actor": "local"
+  }
+}

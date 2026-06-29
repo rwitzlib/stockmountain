@@ -1,0 +1,58 @@
+meta {
+  name: Create
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{marketViewer_url}}/api/strategy
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+   "State": "active",
+   "EntrySettings": {
+    "Filters": [
+     "vwap > 5 [1m]"
+    ]
+   },
+   "ExitSettings": {
+    "StopLoss": {
+     "CandleType": "PreviousCandle",
+     "PriceActionType": "close",
+     "Type": "percent",
+     "Value": -10
+    },
+    "TakeProfit": {
+     "CandleType": "PreviousCandle",
+     "PriceActionType": "close",
+     "Type": "percent",
+     "Value": 20
+    },
+    "TimedExit": {
+     "Timeframe": {
+      "Multiplier": 1,
+      "Timespan": "day"
+     }
+    }
+   },
+   "Integration": "Default",
+   "Visibility": "public",
+   "Name": "Price Greater than 5 (minute)",
+   "PositionSettings": {
+    "MaxConcurrentPositions": 1000,
+    "Model": {
+     "Size": 1000,
+     "Type": "Fixed"
+    },
+    "StartingBalance": 100000
+   },
+   "Type": "Paper"
+  }
+}

@@ -1,0 +1,40 @@
+meta {
+  name: Stocks
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{marketViewer_url}}/api/stocks
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+body:json {
+  {
+    "ticker": "SPY",
+    "Multiplier": 1,
+    "Timespan": "day",
+    "From": "2025-12-19",
+    "To": "2025-12-19",
+    "Limit": 5000
+  }
+}
+
+body:form-urlencoded {
+  Ticker: AES
+  Timespan: hour
+  From: 2024-09-27
+  To: 2024-11-28
+  _study: macd:12,26,9,EMA
+  UserId: asdf
+  ~Multiplier: 1
+  ~_study: vwap
+  ~_study: ema:9
+  ~_study: ema:21
+  ~_study: ema:200
+}

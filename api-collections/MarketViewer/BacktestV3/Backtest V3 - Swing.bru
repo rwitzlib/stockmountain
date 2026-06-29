@@ -1,0 +1,208 @@
+meta {
+  name: Backtest V3 - Swing
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{marketViewer_url}}/api/backtest/v3
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+body:json {
+  {
+    "Start": "2025-01-01",
+    "End": "2025-02-26",
+    "PositionInfo": {
+      "StartingBalance": 24000,
+      "MaxConcurrentPositions": 100,
+      "PositionSize": 4000
+    },
+    "Exit": {
+      "StopLoss": {
+        "Type": "percent",
+        "Value": -5
+      },
+      "ProfitTarget": {
+        "Type": "percent",
+        "Value": 10
+      },
+      "Other": [
+        {
+          "CollectionModifier": "any",
+          "FirstOperand": {
+            "Study": "macd",
+            "Parameters": "12,26,14,ema",
+            "Modifier": "value",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 7,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "any",
+          "FirstOperand": {
+            "Study": "rsi",
+            "Parameters": "14,70,30,ema",
+            "Modifier": "value",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 70
+          },
+          "Timeframe": {
+            "Multiplier": 7,
+            "Timespan": "minute"
+          }
+        }
+      ],
+      "Timeframe": {
+        "Multiplier": 5,
+        "Timespan": "day"
+      }
+    },
+    "DetailedResponse": true,
+    "Argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "ANY",
+          "FirstOperand": {
+            "Study": "rsi",
+            "Parameters": "14,70,30,ema",
+            "Modifier": "Slope",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 4,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Study": "rsi",
+            "Parameters": "14,70,30,ema",
+            "Modifier": "Slope",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 3,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Study": "macd",
+            "Modifier": "Slope",
+            "Parameters": "12,26,9,ema",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 3,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Study": "macd",
+            "Modifier": "Value",
+            "Parameters": "12,26,9,ema",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 2,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "PriceAction": "Volume",
+            "Modifier": "Value",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 1000000
+          },
+          "Timeframe": {
+            "Multiplier": 1,
+            "Timespan": "hour"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "PriceAction": "Vwap",
+            "Modifier": "Value",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Value": 2
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "PriceAction": "Vwap",
+            "Modifier": "Value",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Value": 600
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        }
+      ]
+    }
+  }
+}

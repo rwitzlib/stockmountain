@@ -1,0 +1,18 @@
+meta {
+  name: Get Token
+  type: http
+  seq: 2
+}
+
+post {
+  url: https://auth.stockmountain.io/token
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  client_id: asdf
+  client_secret: asdf
+  grant_type: client_credentials
+  provider: github
+}

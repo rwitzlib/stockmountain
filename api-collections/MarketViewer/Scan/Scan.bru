@@ -1,0 +1,23 @@
+meta {
+  name: Scan
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{marketViewer_url}}/api/scan
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "Filters": [
+      "close > 5 [1m]"
+    ]
+  }
+}

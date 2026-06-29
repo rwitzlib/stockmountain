@@ -1,0 +1,68 @@
+meta {
+  name: Scan - RSI Daily
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{marketViewer_url}}/api/scan
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "Argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Type": "Study",
+            "Name": "macd",
+            "Parameters": "12,26,9,ema",
+            "Modifier": "Value",
+            "Timeframe": {
+              "Multiplier": 1,
+              "Timespan": "day"
+            }
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Type": "Fixed",
+            "Value": -20
+          },
+          "Timeframe": {
+            "Multiplier": 2,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Type": "PriceAction",
+            "Name": "Volume",
+            "Modifier": "Value",
+            "Timeframe": {
+              "Multiplier": 1,
+              "Timespan": "day"
+            }
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Type": "Fixed",
+            "Value": 1000000
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        }
+      ]
+    }
+  }
+}

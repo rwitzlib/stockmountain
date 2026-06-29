@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\marketviewer-contracts\MarketViewer.Contracts\MarketViewer.Contracts.csproj" />
+    <ProjectReference Include="..\..\marketviewer-core\MarketViewer.Core\MarketViewer.Core.csproj" />
+    <ProjectReference Include="..\..\marketviewer-filters\MarketViewer.Filters\MarketViewer.Filters.csproj" />
+    <ProjectReference Include="..\..\marketviewer-infrastructure\MarketViewer.Infrastructure\MarketViewer.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.1" />
+    <PackageReference Include="AWSSDK.Lambda" Version="4.0.0.4" />
+    <PackageReference Include="AWSSDK.SQS" Version="4.0.2.4" />
+    <PackageReference Include="FluentValidation" Version="11.10.0" />
+    <PackageReference Include="ILGPU" Version="1.5.3" />
+    <PackageReference Include="MemoryPack" Version="1.21.3" />
+    <PackageReference Include="MemoryPack.Streaming" Version="1.21.3" />
+  </ItemGroup>
+</Project>

@@ -1,91 +1,41 @@
-## Build outputs
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
-[Dd]ebug/
-[Rr]elease/
-x64/
-x86/
-[Aa][Rr][Mm]/
-[Aa][Rr][Mm]64/
-bld/
-[Bb]uild/
-msbuild.log
-msbuild.err
-msbuild.wrn
+# Build
+**/bin/
+**/obj/
+**/out/
 
-## Visual Studio / Visual Studio Code
+# IDE
 .vs/
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-*.suo
 *.user
-*.userosscache
-*.sln.docstates
-*.rsuser
-
-## JetBrains Rider
-.idea/
-*.sln.iml
+*.suo
 *.DotSettings.user
 
-## NuGet
-*.nupkg
-*.snupkg
-# Do not ignore repo-root packages/ — this monorepo stores shared libraries there.
-# Legacy solution-level restore output is covered by bin/ and obj/ ignores above.
-*.nuget.props
-*.nuget.targets
-project.lock.json
-project.fragment.lock.json
-artifacts/
+# Node
+node_modules/
+dist/
+*.local
 
-## .NET tooling
-.dotnet/
-.tools/
-*.dotnetUserLevelCache
-
-## Test results
-[Tt]est[Rr]esult*/
-[Bb]uild[Ll]og.*
-*.trx
-*.coverage
-*.coveragexml
-coverage/
-TestResults/
-
-## Publish / deployment
-publish/
-*.Publish.xml
-*.pubxml
-*.publishproj
-
-## ASP.NET / IIS
-*.log
-*.cache
-ScaffoldingReadMe.txt
-
-## Secrets and local config
-appsettings.*.local.json
-secrets.json
-*.pfx
-*.key
+# Env
 .env
 .env.*
 !.env.example
+*.env
+local.env
+dev.env
 
-## OS files
+# OS
 .DS_Store
 Thumbs.db
-Desktop.ini
 
-## Temporary files
-*~
-*.tmp
-*.temp
-*.swp
-*.bak
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.*
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+
+# Logs
+*.log

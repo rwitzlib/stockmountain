@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Schwab API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

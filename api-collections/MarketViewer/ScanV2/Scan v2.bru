@@ -1,0 +1,86 @@
+meta {
+  name: Scan v2
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{marketViewer_url}}/api/scan/v2
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "Timestamp": "2024-03-05T08:30:00-06:00",
+    "Argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "PriceAction",
+            "Modifier": "Value",
+            "Type": "Close",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 5
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "Study",
+            "Modifier": "Value",
+            "Type": "macd",
+            "Parameters": "12,26,9,EMA",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        }
+        
+      ],
+      "Argument": {
+        "Operator": "AND",
+        "Filters": [
+          {
+            "CollectionModifier": "ALL",
+            "FirstOperand": {
+              "Name": "PriceAction",
+              "ValueType": "Value",
+              "Type": "Close",
+              "Multiplier": 1,
+              "Timespan": "minute"
+            },
+            "Operator": "lt",
+            "SecondOperand": {
+              "Name": "Value",
+              "Value": 10      
+            },
+            "Timeframe": {
+              "Multiplier": 5,
+              "Timespan": "minute"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

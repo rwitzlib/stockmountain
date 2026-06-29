@@ -1,0 +1,28 @@
+meta {
+  name: Populate
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{marketViewer_url}}/tickers/populate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "Markets": [
+      "stocks"
+    ],
+    "Active": true,
+    "Types": [
+      "CS",
+      "ETF"
+    ]
+  }
+}

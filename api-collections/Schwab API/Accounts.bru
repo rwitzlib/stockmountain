@@ -1,0 +1,19 @@
+meta {
+  name: Accounts
+  type: http
+  seq: 3
+}
+
+get {
+  url: https://api.schwabapi.com/trader/v1/accounts?fields=positions
+  body: none
+  auth: bearer
+}
+
+query {
+  fields: positions
+}
+
+auth:bearer {
+  token: I0.b2F1dGgyLmJkYy5zY2h3YWIuY29t.ajGQcMG9MnEYggJ_K39QvGqKAt6Vmgl_qNhS_WLUE5M@
+}

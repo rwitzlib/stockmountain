@@ -1,0 +1,26 @@
+meta {
+  name: RefreshToken
+  type: http
+  seq: 2
+}
+
+post {
+  url: https://api.schwabapi.com/v1/oauth/token
+  body: formUrlEncoded
+  auth: basic
+}
+
+params:query {
+  ~response_type: code
+  ~scope: readonly
+}
+
+auth:basic {
+  username: pVWryF5uJ5276gqF2pm8ck5UAR2vxHej
+  password: b5FiBABihsnSRrCW
+}
+
+body:form-urlencoded {
+  grant_type: refresh_token
+  refresh_token: DFE4jPLaMaJ0_7G0Wf-nxc5P29H6q2IoGiBVeMGBOoudsaB22NwSa5Uq2TTTJijQeoQWilocYUoOfbcdRPosxyfKyLUhHilEZ04LnAvrkH5Mfo4mhdu49-JRRr7m1pt4BLIj-YYx0Oo@
+}

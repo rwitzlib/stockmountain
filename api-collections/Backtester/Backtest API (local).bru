@@ -1,0 +1,19 @@
+meta {
+  name: Backtest API (local)
+  type: http
+  seq: 11
+}
+
+post {
+  url: https://localhost:7284/backtest/2025-05-27
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "Filters": [
+      "support_resistance().support_distance_pct < 0.8 [1h]"
+    ]
+  }
+}

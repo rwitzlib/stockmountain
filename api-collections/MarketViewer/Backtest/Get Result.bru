@@ -1,0 +1,32 @@
+meta {
+  name: Get Result
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{marketViewer_url}}/api/backtest/result/1de5f8e5-38fa-4cb5-b593-20446a1c1d2c
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: */*
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:form-urlencoded {
+  Ticker: AES
+  Multiplier: 1
+  Timespan: hour
+  From: 2024-09-27
+  To: 2024-11-28
+  _study: macd:12,26,9,EMA
+  ~_study: vwap
+  ~_study: ema:9
+  ~_study: ema:21
+  ~_study: ema:200
+}

@@ -1,0 +1,150 @@
+meta {
+  name: Backtest API
+  type: http
+  seq: 10
+}
+
+post {
+  url: https://localhost:7174/api/backtest
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "Start": "2025-05-22",
+    "End": "2025-05-22",
+    "PositionInfo": {
+      "StartingBalance": 5000,
+      "MaxConcurrentPositions": 1000,
+      "PositionSize": 1001
+    },
+    "Exit": {
+      "StopLoss": {
+        "Type": "percent",
+        "Value": -2.5
+      },
+      "ProfitTarget": {
+        "Type": "percent",
+        "Value": 15
+      },
+      "Timeframe": {
+        "Multiplier": 5,
+        "Timespan": "minute"
+      }
+    },
+    "DetailedResponse": true,
+    "IncludeSnapshot": true,
+    "Argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Type": "Study",
+            "Name": "rsi",
+            "Parameters": "14,70,30,ema",
+            "Modifier": "value",
+            "Timeframe": {
+              "Multiplier": 1,
+              "Timespan": "minute"
+            }
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Type": "Fixed",
+            "Value": 70
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Type": "PriceAction",
+            "Name": "Volume",
+            "Modifier": "Value",
+            "Timeframe": {
+              "Multiplier": 1,
+              "Timespan": "hour"
+            }
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Type": "Fixed",
+            "Value": 5000000
+          },
+          "Timeframe": {
+            "Multiplier": 1,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Type": "PriceAction",
+            "Name": "Volume",
+            "Modifier": "Value",
+            "Timeframe": {
+              "Multiplier": 1,
+              "Timespan": "minute"
+            }
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Type": "Fixed",
+            "Value": 50000
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Type": "Study",
+            "Name": "rvol",
+            "Modifier": "value",
+            "Timeframe": {
+              "Multiplier": 1,
+              "Timespan": "minute"
+            }
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Type": "Fixed",
+            "Value": 3
+          },
+          "Timeframe": {
+            "Multiplier": 1,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Type": "PriceAction",
+            "Name": "Vwap",
+            "Modifier": "value",
+            "Timeframe": {
+              "Multiplier": 1,
+              "Timespan": "minute"
+            }
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Type": "Fixed",
+            "Value": 1
+          },
+          "Timeframe": {
+            "Multiplier": 1,
+            "Timespan": "minute"
+          }
+        }
+      ]
+    }
+  }
+}

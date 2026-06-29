@@ -1,0 +1,25 @@
+meta {
+  name: Stop Auth
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{managementUrl}}/api/deploy/stop
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{deployToken}}
+}
+
+body:json {
+  {
+    "Environment": "dev",
+    "Repository": "authentication",
+    "File": "deploy.docker-compose.yml",
+    "Image": "100008144700.dkr.ecr.us-east-2.amazonaws.com/lad-dev-authentication:latest",
+    "Actor": "local"
+  }
+}

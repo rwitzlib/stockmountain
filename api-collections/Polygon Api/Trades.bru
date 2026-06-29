@@ -1,0 +1,15 @@
+meta {
+  name: Trades
+  type: http
+  seq: 5
+}
+
+get {
+  url: https://api.polygon.io/v3/trades/AAPL
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{polygonToken}}
+}

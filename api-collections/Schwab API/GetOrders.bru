@@ -1,0 +1,20 @@
+meta {
+  name: GetOrders
+  type: http
+  seq: 4
+}
+
+get {
+  url: https://api.schwabapi.com/trader/v1/accounts/321B8C4D8A6A840B09D3C6A6FF3C0476426255EE8B7400D95A30EE996FB4C9C1/orders?fromEnteredTime=2024-09-28T15:00:00Z&toEnteredTime=2024-10-01T00:00:00Z
+  body: none
+  auth: bearer
+}
+
+query {
+  fromEnteredTime: 2024-09-28T15:00:00Z
+  toEnteredTime: 2024-10-01T00:00:00Z
+}
+
+auth:bearer {
+  token: I0.b2F1dGgyLmNkYy5zY2h3YWIuY29t.842RPJcvw2FYBiVP2ZWm5gnkqA0_6HBjBq6RALPy49s@
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Aggregate - Next
+  type: http
+  seq: 2
+}
+
+get {
+  url: https://api.polygon.io/v2/aggs/ticker/SPY/range/1/hour/1755720000000/2025-09-27?cursor=bGltaXQ9NTAwMDAmc29ydD1hc2M
+  body: multipartForm
+  auth: bearer
+}
+
+params:query {
+  cursor: bGltaXQ9NTAwMDAmc29ydD1hc2M
+  ~sort: desc
+  ~adjusted: True
+}
+
+headers {
+  Connection: close
+}
+
+auth:bearer {
+  token: {{polygonToken}}
+}

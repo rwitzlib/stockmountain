@@ -1,0 +1,19 @@
+meta {
+  name: Snapshot
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{marketViewer_url}}/api/snapshot?tickers=GWH,SPY
+  body: none
+  auth: none
+}
+
+params:query {
+  tickers: GWH,SPY
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Get
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{marketViewer_url}}/api/strategy/f74e9fac9d694994854e1b4f35f25cb6
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}

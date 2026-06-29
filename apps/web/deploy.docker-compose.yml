@@ -1,0 +1,11 @@
+name: stockmountain-app
+services:
+  stockmountain-app:
+    container_name: stockmountain-app
+    image: ${IMAGE}
+    ports:
+      - "8100:8080"
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - ../${ENVIRONMENT}.env

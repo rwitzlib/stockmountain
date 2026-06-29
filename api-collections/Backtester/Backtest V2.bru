@@ -1,0 +1,201 @@
+meta {
+  name: Backtest V2
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:13000/2015-03-31/functions/function/invocations
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "Timestamp": "2024-03-07",
+    "PositionSize": 1000,
+    "Timespan": "minute",
+    "Multiplier": 2,
+    "DetailedResponse": true,
+    "Argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "AVERAGE",
+          "FirstOperand": {
+            "Name": "Study",
+            "Modifier": "Slope",
+            "Type": "rsi",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 3,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "Study",
+            "Modifier": "Value",
+            "Type": "rsi",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 50
+          },
+          "Timeframe": {
+            "Multiplier": 3,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "Study",
+            "Modifier": "Slope",
+            "Type": "macd",
+            "Parameters": "12,26,9,ema",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 3,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "PriceAction",
+            "Modifier": "Value",
+            "Type": "Volume",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 10000
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "AVERAGE",
+          "FirstOperand": {
+            "Name": "PriceAction",
+            "Modifier": "Value",
+            "Type": "Volume",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 100000
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "PriceAction",
+            "Modifier": "Value",
+            "Type": "Volume",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 5000
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "PriceAction",
+            "Modifier": "Value",
+            "Type": "Vwap",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Name": "Study",
+            "Modifier": "Value",
+            "Type": "vwap",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Timeframe": {
+            "Multiplier": 3,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "PriceAction",
+            "Modifier": "Value",
+            "Type": "Vwap",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "gt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 2
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        },
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Name": "PriceAction",
+            "Modifier": "Value",
+            "Type": "Vwap",
+            "Multiplier": 1,
+            "Timespan": "minute"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Name": "Value",
+            "Value": 25
+          },
+          "Timeframe": {
+            "Multiplier": 5,
+            "Timespan": "minute"
+          }
+        }
+      ]
+    }
+  }
+}

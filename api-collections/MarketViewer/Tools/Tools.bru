@@ -1,0 +1,29 @@
+meta {
+  name: Tools
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{marketViewer_url}}/api/tools/stats
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: */*
+  Authorization: Bearer {{jwt}}
+}
+
+body:form-urlencoded {
+  Ticker: AES
+  Multiplier: 1
+  Timespan: hour
+  From: 2024-09-27
+  To: 2024-11-28
+  _study: macd:12,26,9,EMA
+  ~_study: vwap
+  ~_study: ema:9
+  ~_study: ema:21
+  ~_study: ema:200
+}

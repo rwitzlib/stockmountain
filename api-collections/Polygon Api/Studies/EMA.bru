@@ -1,0 +1,28 @@
+meta {
+  name: EMA
+  type: http
+  seq: 3
+}
+
+get {
+  url: https://api.polygon.io/v1/indicators/ema/TSLA?timestamp=2025-02-26&timespan=minute&window=9&series_type=close&order=asc&limit=5000
+  body: multipartForm
+  auth: bearer
+}
+
+params:query {
+  timestamp: 2025-02-26
+  timespan: minute
+  window: 9
+  series_type: close
+  order: asc
+  limit: 5000
+}
+
+headers {
+  Connection: close
+}
+
+auth:bearer {
+  token: {{polygonToken}}
+}

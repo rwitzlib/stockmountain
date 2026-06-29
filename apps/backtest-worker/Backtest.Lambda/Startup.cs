@@ -1,0 +1,80 @@
+﻿using Amazon;
+using Amazon.DynamoDBv2;
+using Amazon.Lambda;
+using Amazon.Lambda.Core;
+using Amazon.S3;
+using Amazon.SQS;
+using Backtest.Lambda;
+using Backtest.Lambda.Config;
+using Backtest.Lambda.Repository;
+using Backtest.Lambda.Services;
+using DotNetEnv.Configuration;
+using MarketViewer.Contracts.Caching;
+using MarketViewer.Filters;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Polygon.Client.DependencyInjection;
+using System.Diagnostics.CodeAnalysis;
+
+[assembly: LambdaSerializer(typeof(CustomSerializer))]
+
+namespace Backtest.Lambda;
+
+[ExcludeFromCodeCoverage]
+public static class Startup
+{
+    private static readonly RegionEndpoint Region = RegionEndpoint.USEast2;
+
+    public static IServiceProvider ConfigureServices()
+    {
+        var services = new ServiceCollection();
+
+        var directory = Directory.GetCurrentDirectory();
+
+        var configuration = new ConfigurationBuilder()
+            .AddJsonFile("appsettings.json", optional: true)
+            .AddDotNetEnv("../../../../../docker.env")
+            .AddEnvironmentVariables()
+            .Build();
+
+        var token = Environment.GetEnvironmentVariable("POLYGON_TOKEN") ?? configuration.GetSection("Tokens").GetValue<string>("PolygonApi");
+
+        var lambdaConfig = new AmazonLambdaConfig
+        {
+            Timeout = TimeSpan.FromMinutes(15),
+            RegionEndpoint = Region
+        };
+
+        services.AddMemoryCache()
+            //.AddScoped<IValidator<BacktestLambdaRequest>, BacktestRequestValidator>()
+            .AddSingleton<IAmazonS3, AmazonS3Client>(client => new AmazonS3Client(Region))
+            .AddSingleton<IAmazonLambda, AmazonLambdaClient>(client => new AmazonLambdaClient(lambdaConfig))
+            .AddSingleton<IAmazonDynamoDB, AmazonDynamoDBClient>(client => new AmazonDynamoDBClient(Region))
+            .AddSingleton<IAmazonSQS, AmazonSQSClient>(client => new AmazonSQSClient(Region))
+            .AddPolygonClient(token)
+            .AddSingleton<ScannerService>()
+            .AddSingleton<IMarketCache, MemoryMarketCache>()
+            .AddSingleton<BacktestConfig>(configuration.GetSection("BacktestConfig").Get<BacktestConfig>())
+            .AddSingleton<UserConfig>(configuration.GetSection("UserConfig").Get<UserConfig>())
+            .AddSingleton<UserRepository>()
+            .AddSingleton<IndicatorExpressionEngine>()
+            .AddSingleton<BacktestRepository>() 
+            .AddSingleton<DataCache>()
+            .AddLogging();
+
+        services.ConfigureLogging(configuration);
+
+        return services.BuildServiceProvider();
+    }
+
+    private static void ConfigureLogging(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddLogging(loggingBuilder =>
+        {
+            loggingBuilder.ClearProviders();
+            loggingBuilder.AddConfiguration(configuration.GetSection("Logging"));
+            loggingBuilder.AddJsonConsole();
+        });
+    }
+}

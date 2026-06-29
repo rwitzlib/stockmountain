@@ -1,0 +1,42 @@
+meta {
+  name: Scan v2 - Simple
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{marketViewer_url}}/api/scan/v2
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "Argument": {
+      "Operator": "AND",
+      "Filters": [
+        {
+          "CollectionModifier": "ALL",
+          "FirstOperand": {
+            "Study": "macd",
+            "Modifier": "slope",
+            "Parameters": "12,26,9,ema",
+            "Multiplier": 1,
+            "Timespan": "hour"
+          },
+          "Operator": "lt",
+          "SecondOperand": {
+            "Value": 0
+          },
+          "Timeframe": {
+            "Multiplier": 5
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,34 @@
+meta {
+  name: CreateOrder
+  type: http
+  seq: 5
+}
+
+post {
+  url: https://api.schwabapi.com/trader/v1/accounts/321B8C4D8A6A840B09D3C6A6FF3C0476426255EE8B7400D95A30EE996FB4C9C1/orders
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: I0.b2F1dGgyLmJkYy5zY2h3YWIuY29t.bJyGEa_he5Ua3AbBECtp2-g1sdWw66Fc-rvyziVB3ko@
+}
+
+body:json {
+  {
+    "session": "NORMAL",
+    "duration": "DAY",
+    "orderType": "MARKET",
+    "orderLegCollection": [
+      {
+        "instrument": {
+          "symbol": "RIOT",
+          "assetType": "EQUITY"
+        },
+        "instruction": "BUY",
+        "quantity": 1
+      }
+    ],
+    "orderStrategyType": "SINGLE"
+  }
+}

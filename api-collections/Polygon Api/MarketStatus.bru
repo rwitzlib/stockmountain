@@ -1,0 +1,19 @@
+meta {
+  name: MarketStatus
+  type: http
+  seq: 10
+}
+
+get {
+  url: https://api.polygon.io/v1/marketstatus/now
+  body: multipartForm
+  auth: bearer
+}
+
+headers {
+  Connection: close
+}
+
+auth:bearer {
+  token: {{polygonToken}}
+}

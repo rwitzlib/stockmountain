@@ -1,0 +1,25 @@
+meta {
+  name: Aggregate - DateTime
+  type: http
+  seq: 1
+}
+
+get {
+  url: https://api.polygon.io/v2/aggs/ticker/GTEC/range/1/minute/2025-05-27/2025-05-27?limit=50000
+  body: multipartForm
+  auth: bearer
+}
+
+params:query {
+  limit: 50000
+  ~sort: desc
+  ~adjusted: True
+}
+
+headers {
+  Connection: close
+}
+
+auth:bearer {
+  token: {{polygonToken}}
+}

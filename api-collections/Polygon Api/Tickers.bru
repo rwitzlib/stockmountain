@@ -1,0 +1,23 @@
+meta {
+  name: Tickers
+  type: http
+  seq: 4
+}
+
+get {
+  url: https://api.polygon.io/v3/reference/tickers?market=stocks&active=true&limit=1000
+  body: none
+  auth: bearer
+}
+
+params:query {
+  market: stocks
+  active: true
+  limit: 1000
+  ~date: 2024-04-03
+  ~type: CS,ETF
+}
+
+auth:bearer {
+  token: {{polygonToken}}
+}
