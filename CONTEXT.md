@@ -216,6 +216,14 @@ _Avoid_: Cron fetch, preload
 An import of missing historical market data needed for a specific requested use, such as a Backtest Run.
 _Avoid_: On-demand ingestion, data repair
 
+**Backfill Job**:
+A queued unit of Backfill work for one Bar Series over one contiguous date range. Enqueueing an identical pending or running Backfill Job returns the existing job instead of creating a duplicate.
+_Avoid_: Ingest task, fetch job
+
+**Backfill Job Status**:
+The lifecycle state of a Backfill Job: pending, running, completed, or failed. A failed Backfill Job does not retry automatically; the same range may be enqueued again as a new job.
+_Avoid_: Job state, task status
+
 **Chart Data**:
 Historical or live Normalized Bars presented to users in charts.
 _Avoid_: Provider chart data
@@ -429,6 +437,10 @@ _Avoid_: Pending charge, precharge
 **Developer**: Does Backfill consume the requesting User Account's Credits?
 
 **Domain Expert**: No. Credits are consumed by Backtest Run execution, not by Backfill.
+
+**Developer**: Is a Backfill Job tied to one Backtest Run?
+
+**Domain Expert**: No. A Backfill Job is platform work for one Bar Series and date range. A Backtest Run waits until catalog coverage is satisfied, not until a specific job completes.
 
 **Developer**: Should charts use market data directly from the external provider?
 
