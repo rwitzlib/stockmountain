@@ -1,31 +1,25 @@
-﻿using AutoMapper;
-using MarketViewer.Contracts.Enums;
-using MarketViewer.Contracts.Interfaces;
+﻿using MarketViewer.Contracts.Interfaces;
 using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Contracts.Responses.Market;
+using MarketViewer.Infrastructure.Mapping;
 using Microsoft.Extensions.Logging;
 using Polygon.Client.Interfaces;
-using Polygon.Client.Models;
-using Polygon.Client.Requests;
-using Polygon.Client.Responses;
-using System.Net;
 
 namespace MarketViewer.Infrastructure.Services
 {
     public class MarketDataRepository(
         IPolygonClient polygonClient,
-        IMapper mapper,
         ILogger<MarketDataRepository> logger) : IMarketDataRepository
     {
         public async Task<StocksResponse> GetStockDataAsync(StocksRequest request)
         {
             try
             {
-                var aggregateRequest = mapper.Map<StocksRequest, PolygonAggregateRequest>(request);
+                var aggregateRequest = AggregateMapper.ToPolygonRequest(request);
 
                 var polygonResponse = await polygonClient.GetAggregates(aggregateRequest);
 
-                var stocksResponse = mapper.Map<PolygonAggregateResponse, StocksResponse>(polygonResponse);
+                var stocksResponse = AggregateMapper.ToStocksResponse(polygonResponse);
 
                 return stocksResponse;
             }

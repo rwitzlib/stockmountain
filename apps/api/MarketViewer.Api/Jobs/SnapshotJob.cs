@@ -1,4 +1,3 @@
-using AutoMapper;
 using MarketViewer.Api.HostedServices;
 using MarketViewer.Api.Services;
 using MarketViewer.Contracts.Caching;

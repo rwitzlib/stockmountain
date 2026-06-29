@@ -1,5 +1,4 @@
 ﻿using AutoFixture;
-using AutoMapper;
 using Moq;
 using Xunit;
 using FluentAssertions;
