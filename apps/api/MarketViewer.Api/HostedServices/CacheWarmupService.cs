@@ -1,6 +1,5 @@
 using Amazon.S3;
 using Amazon.S3.Model;
-using AutoMapper;
 using MarketViewer.Api.Jobs;
 using MarketViewer.Api.Services;
 using MarketViewer.Application.Handlers.Data.Tickers;
@@ -9,8 +8,8 @@ using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.MarketData;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Snapshot;
-using MarketViewer.Contracts.Responses.Market;
 using MarketViewer.Contracts.Responses.Tools;
+using MarketViewer.Infrastructure.Mapping;
 using Microsoft.Extensions.Caching.Memory;
 using Polygon.Client.Interfaces;
 using Polygon.Client.Models;
@@ -31,7 +30,6 @@ namespace MarketViewer.Api.HostedServices
         ISchedulerFactory schedulerFactory,
         IMemoryCache memoryCache,
         IPolygonClient polygonClient,
-        IMapper mapper,
         CacheWarmupState warmupState,
         BarCacheService barCacheService,
         ILogger<CacheWarmupService> logger) : IHostedLifecycleService
@@ -259,7 +257,7 @@ namespace MarketViewer.Api.HostedServices
                         };
 
                         var polygonAggregateResponse = await polygonClient.GetAggregates(polygonAggregateRequest);
-                        var stocksResponse = mapper.Map<StocksResponse>(polygonAggregateResponse);
+                        var stocksResponse = AggregateMapper.ToStocksResponse(polygonAggregateResponse);
 
                         marketCache.SetStocksResponse(stocksResponse, timeframe, date);
                     }

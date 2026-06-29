@@ -1,5 +1,4 @@
-﻿using AutoMapper.Configuration.Annotations;
-using FluentAssertions;
+﻿using FluentAssertions;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Enums.Strategy;
 using MarketViewer.Contracts.Records;

@@ -9,7 +9,6 @@
     <ProjectReference Include="..\..\marketviewer-infrastructure\MarketViewer.Infrastructure\MarketViewer.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="16.1.1" />
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.21.7" />
     <PackageReference Include="AWSSDK.Lambda" Version="4.0.19.1" />
     <PackageReference Include="AWSSDK.SQS" Version="4.0.3.8" />

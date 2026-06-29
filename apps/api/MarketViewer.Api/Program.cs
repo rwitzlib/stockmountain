@@ -14,7 +14,7 @@ using MarketViewer.Core.DependencyInjection;
 using MarketViewer.Core.Services;
 using MarketViewer.Filters;
 using MarketViewer.Infrastructure.DependencyInjection;
-using MarketViewer.Infrastructure.Mapping;
+using MarketViewer.Infrastructure.Services;
 using MarketViewer.Studies.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -46,17 +46,11 @@ public class Program
         var microserviceApplicationAssemblies = new[]
         {
             typeof(StocksHandler).Assembly,
-            typeof(AggregateProfile).Assembly,
+            typeof(MarketDataRepository).Assembly,
             typeof(IBacktestRepository).Assembly
         };
 
         builder.Services.AddMediatR(q => q.RegisterServicesFromAssemblies(microserviceApplicationAssemblies))
-            .AddAutoMapper(cfg =>
-            {
-                cfg.LicenseKey = builder.Configuration["AutoMapper:LicenseKey"]
-                    ?? Environment.GetEnvironmentVariable("AUTOMAPPER_LICENSE_KEY")
-                    ?? string.Empty;
-            }, microserviceApplicationAssemblies)
             .AddMemoryCache(options => options.TrackStatistics = true)
             .AddHttpClient()
             .RegisterStudies()
