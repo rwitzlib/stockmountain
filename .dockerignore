@@ -6,14 +6,6 @@
 **/obj
 **/node_modules
 **/TestResults
-apps/web
-apps/management-api
-apps/api
-apps/backtest-worker
-apps/backtester-api
-apps/kesha
-apps/marketviewer-web
-apps/paper-bot-runner
 tests
 api-collections
-infra/tf/bootstrap/.terraform
+infra/tf

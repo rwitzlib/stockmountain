@@ -1,0 +1,55 @@
+name: stockmountain
+
+# Build all images:
+#   docker compose build
+#
+# Run local web + management API (omit market-data-aggregator — Lambda image is build-only):
+#   docker compose up stockmountain-app management-api
+#
+# Override local image tags (matches ECR naming when pushing):
+#   IMAGE_TAG=dev docker compose build
+
+services:
+  # stockmountain-app:
+  #   build:
+  #     context: ./apps/web
+  #     dockerfile: Dockerfile
+  #   image: stockmountain-${ENVIRONMENT:-dev}-stockmountain-app:${IMAGE_TAG:-local}
+  #   ports:
+  #     - "${WEB_PORT:-8100}:8080"
+  #   environment:
+  #     NODE_ENV: development
+
+  # management-api:
+  #   build:
+  #     context: ./apps/management-api
+  #     dockerfile: Dockerfile
+  #   image: stockmountain-${ENVIRONMENT:-dev}-management-api:${IMAGE_TAG:-local}
+  #   ports:
+  #     - "${MANAGEMENT_API_PORT:-8080}:8080"
+
+  market-data-orchestrator:
+    build:
+      context: .
+      dockerfile: apps/market-data-aggregator/Dockerfile
+    image: stockmountain-${ENVIRONMENT:-dev}-market-data-orchestrator:${IMAGE_TAG:-local}
+    command: ["MarketDataAggregator::MarketDataAggregator.OrchestratorFunction::FunctionHandler"]
+    ports:
+      - 10000:8080
+    volumes:
+      - ~/.aws:/root/.aws
+    env_file:
+      - local.env
+
+  market-data-aggregator:
+    build:
+      context: .
+      dockerfile: apps/market-data-aggregator/Dockerfile
+    image: stockmountain-${ENVIRONMENT:-dev}-market-data-aggregator:${IMAGE_TAG:-local}
+    command: ["MarketDataAggregator::MarketDataAggregator.AggregatorFunction::FunctionHandler"]
+    ports:
+      - 10001:8080
+    volumes:
+      - ~/.aws:/root/.aws
+    env_file:
+      - local.env

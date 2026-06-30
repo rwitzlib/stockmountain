@@ -2,6 +2,8 @@ using Amazon.DynamoDBv2;
 using Amazon.Lambda;
 using Amazon.Lambda.Core;
 using Amazon.Lambda.Model;
+using FluentValidation;
+using MarketDataAggregator.Validation;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Records.MarketData;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +17,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
     private readonly IAmazonLambda _lambda = serviceProvider.GetRequiredService<IAmazonLambda>();
     private readonly IAmazonDynamoDB _dynamoDb = serviceProvider.GetRequiredService<IAmazonDynamoDB>();
     private readonly ILogger<OrchestratorFunction> _logger = serviceProvider.GetRequiredService<ILogger<OrchestratorFunction>>();
+    private readonly IValidator<MarketDataOrchestratorRequest> _requestValidator = serviceProvider.GetRequiredService<IValidator<MarketDataOrchestratorRequest>>();
     private readonly string _aggregatorFunctionName = System.Environment.GetEnvironmentVariable("MARKET_DATA_AGGREGATOR_FUNCTION_NAME") ?? string.Empty;
 
     public OrchestratorFunction() : this(Startup.ConfigureServices()) { }
@@ -24,21 +27,27 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
         var startedAt = DateTimeOffset.UtcNow;
         var catalog = new MarketDataCatalogWriter(_dynamoDb, _logger);
 
-        if (!IsRequestValid(request))
+        if (request is null)
         {
-            await catalog.PutRunRecord(new MarketDataRunRecord
-            {
-                RunId = request?.RunId ?? Guid.NewGuid().ToString("N"),
-                Start = request?.Start ?? DateTimeOffset.UtcNow,
-                End = request?.End ?? DateTimeOffset.UtcNow,
-                Timespans = request?.Timespans ?? [],
-                Multiplier = request?.Multiplier ?? 1,
-                Source = request?.Source ?? "backfill",
-                Status = MarketDataStatus.Failed,
-                StartedAt = startedAt,
-                CompletedAt = DateTimeOffset.UtcNow,
-                Error = "Invalid market data orchestrator request."
-            });
+            _logger.LogInformation("Invalid request. Request is required.");
+            await WriteFailedRunRecord(catalog, null, startedAt, "Invalid market data orchestrator request.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_aggregatorFunctionName))
+        {
+            _logger.LogInformation("Invalid configuration. MARKET_DATA_AGGREGATOR_FUNCTION_NAME is required.");
+            await WriteFailedRunRecord(catalog, request, startedAt, "Invalid market data orchestrator request.");
+            return;
+        }
+
+        MarketDataRequestNormalizer.NormalizeOrchestratorRequest(request);
+
+        var validationResult = _requestValidator.Validate(request);
+        if (!validationResult.IsValid)
+        {
+            LogValidationErrors(validationResult);
+            await WriteFailedRunRecord(catalog, request, startedAt, "Invalid market data orchestrator request.");
             return;
         }
 
@@ -98,43 +107,33 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
         });
     }
 
-    private bool IsRequestValid(MarketDataOrchestratorRequest request)
+    private async Task WriteFailedRunRecord(
+        MarketDataCatalogWriter catalog,
+        MarketDataOrchestratorRequest? request,
+        DateTimeOffset startedAt,
+        string error)
     {
-        if (request is null)
+        await catalog.PutRunRecord(new MarketDataRunRecord
         {
-            _logger.LogInformation("Invalid request. Request is required.");
-            return false;
-        }
+            RunId = request?.RunId ?? Guid.NewGuid().ToString("N"),
+            Start = request?.Start ?? DateTimeOffset.UtcNow,
+            End = request?.End ?? DateTimeOffset.UtcNow,
+            Timespans = request?.Timespans ?? [],
+            Multiplier = request?.Multiplier ?? 1,
+            Source = request?.Source ?? "backfill",
+            Status = MarketDataStatus.Failed,
+            StartedAt = startedAt,
+            CompletedAt = DateTimeOffset.UtcNow,
+            Error = error
+        });
+    }
 
-        if (string.IsNullOrWhiteSpace(_aggregatorFunctionName))
+    private void LogValidationErrors(FluentValidation.Results.ValidationResult validationResult)
+    {
+        foreach (var error in validationResult.Errors)
         {
-            _logger.LogInformation("Invalid configuration. MARKET_DATA_AGGREGATOR_FUNCTION_NAME is required.");
-            return false;
+            _logger.LogInformation("Invalid request. {Message}", error.ErrorMessage);
         }
-
-        if (request.Start.Date > request.End.Date)
-        {
-            _logger.LogInformation("Invalid request. Start must be before or equal to end.");
-            return false;
-        }
-
-        if (request.Multiplier <= 0 || request.Multiplier > 30)
-        {
-            _logger.LogInformation("Invalid request. Multiplier must be between 1 and 30.");
-            return false;
-        }
-
-        if (request.MaxConcurrency <= 0)
-        {
-            request.MaxConcurrency = 1;
-        }
-
-        request.Timespans = request.Timespans
-            .Where(timespan => timespan is Timespan.minute or Timespan.hour or Timespan.day)
-            .Distinct()
-            .ToList();
-
-        return request.Timespans.Count > 0;
     }
 
     private static IEnumerable<MarketDataAggregatorRequest> BuildWorkItems(MarketDataOrchestratorRequest request)

@@ -15,12 +15,23 @@ on:
 jobs:
   deploy:
     uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@v1.6.0
+    permissions:
+      id-token: write
+      contents: read
+      packages: read
+      actions: read
     with:
       environment: ${{ inputs.environment || 'dev' }}
       docker: |
         [
           {
             "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-market-data-aggregator",
+            "dockerfile": "apps/market-data-aggregator/Dockerfile",
+            "context": ".",
+            "build-args": ""
+          },
+          {
+            "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-market-data-orchestrator",
             "dockerfile": "apps/market-data-aggregator/Dockerfile",
             "context": ".",
             "build-args": ""

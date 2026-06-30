@@ -2,6 +2,8 @@ using Amazon.DynamoDBv2;
 using Amazon.Lambda.Core;
 using Amazon.S3;
 using Amazon.S3.Model;
+using FluentValidation;
+using MarketDataAggregator.Validation;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.MarketData;
 using MarketViewer.Contracts.Records.MarketData;
@@ -26,6 +28,7 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
     private readonly IAmazonS3 _s3Client = serviceProvider.GetRequiredService<IAmazonS3>();
     private readonly IAmazonDynamoDB _dynamoDb = serviceProvider.GetRequiredService<IAmazonDynamoDB>();
     private readonly ILogger<AggregatorFunction> _logger = serviceProvider.GetRequiredService<ILogger<AggregatorFunction>>();
+    private readonly IValidator<MarketDataAggregatorRequest> _requestValidator = serviceProvider.GetRequiredService<IValidator<MarketDataAggregatorRequest>>();
 
     private readonly int _batchSize = int.TryParse(Environment.GetEnvironmentVariable("BATCH_SIZE"), out var batchCount) ? batchCount : 30;
     private readonly string _marketDataBucketName = Environment.GetEnvironmentVariable("MARKET_DATA_BUCKET_NAME") ?? MarketDataStorageContract.DefaultBucketName;
@@ -44,8 +47,16 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
             return;
         }
 
-        if (!IsRequestValid(request))
+        if (!MarketDataRequestNormalizer.TryPrepareAggregatorRequest(request))
         {
+            _logger.LogInformation("Invalid request. Must either contain a type of \"auto\" or a date range.");
+            return;
+        }
+
+        var validationResult = _requestValidator.Validate(request);
+        if (!validationResult.IsValid)
+        {
+            LogValidationErrors(validationResult);
             return;
         }
 
@@ -206,40 +217,16 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
         return new AggregateUploadResult(stocksResponses.Count, response.ETag, json.Length);
     }
 
-    private bool IsRequestValid(MarketDataAggregatorRequest request)
+    private void LogValidationErrors(FluentValidation.Results.ValidationResult validationResult)
     {
-        if (request.Type is null)
+        foreach (var error in validationResult.Errors)
         {
-            if (request.Multiplier <= 0 || request.Multiplier > 30)
-            {
-                _logger.LogInformation("Invalid request. Multiplier must be between 1 and 30.");
-                return false;
-            }
-        }
-        else if (request.Type.Equals("auto", StringComparison.InvariantCultureIgnoreCase))
-        {
-            request.Date = DateTimeOffset.Now.Date.AddDays(-1);
-            request.Source = "schedule";
-        }
-        else
-        {
-            _logger.LogInformation("Invalid request. Must either contain a type of \"auto\" or a date range.");
-            return false;
-        }
+            var message = error.ErrorMessage.StartsWith("No market data to gather on", StringComparison.Ordinal)
+                ? error.ErrorMessage
+                : $"Invalid request. {error.ErrorMessage}";
 
-        if (request.Timespan is not (Timespan.minute or Timespan.hour or Timespan.day))
-        {
-            _logger.LogInformation("Invalid request. Timespan {Timespan} is not supported.", request.Timespan);
-            return false;
+            _logger.LogInformation("{Message}", message);
         }
-
-        if (request.Date.DayOfWeek.Equals(DayOfWeek.Saturday) || request.Date.DayOfWeek.Equals(DayOfWeek.Sunday))
-        {
-            _logger.LogInformation("No market data to gather on {date}.", request.Date.DayOfWeek);
-            return false;
-        }
-
-        return true;
     }
 
     private async Task<TickerDetails?> GetTickerDetailsAsync(string ticker)

@@ -3,7 +3,9 @@ using Amazon.Lambda.TestUtilities;
 using Amazon.S3;
 using Amazon.S3.Model;
 using FluentAssertions;
+using FluentValidation;
 using MarketDataAggregator;
+using MarketDataAggregator.Validation;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.MarketData;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +41,7 @@ public class AggregatorFunctionTest
         services.AddSingleton(_autoMocker.GetMock<IAmazonDynamoDB>().Object);
         services.AddSingleton(_autoMocker.GetMock<IPolygonClient>().Object);
         services.AddSingleton<ILogger<AggregatorFunction>>(_autoMocker.GetMock<ILogger<AggregatorFunction>>().Object);
+        services.AddSingleton<IValidator<MarketDataAggregatorRequest>, MarketDataAggregatorRequestValidator>();
         var serviceProvider = services.BuildServiceProvider();
 
         var function = new AggregatorFunction(serviceProvider);
