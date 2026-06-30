@@ -1,0 +1,32 @@
+name: Deploy
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy to
+        required: true
+        type: choice
+        options:
+          - dev
+        default: dev
+
+jobs:
+  deploy:
+    uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@v1.6.0
+    with:
+      environment: ${{ inputs.environment || 'dev' }}
+      docker: |
+        [
+          {
+            "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-market-data-aggregator",
+            "dockerfile": "apps/market-data-aggregator/Dockerfile",
+            "context": ".",
+            "build-args": ""
+          }
+        ]
+      solution_directory: .
+      global_json_file: global.json
+      terraform_directory: infra/tf
+    secrets: inherit
