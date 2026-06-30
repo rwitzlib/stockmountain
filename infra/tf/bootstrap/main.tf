@@ -18,7 +18,7 @@ variable "region" {
 }
 
 locals {
-  bucket_name = "stockmountain-${var.environment}-terraform-state-${var.region}"
+  bucket_name = "stockmountain-${var.environment}-terraform-state"
   lock_table  = "stockmountain-${var.environment}-terraform-locks-${var.region}"
 }
 
@@ -74,8 +74,4 @@ output "state_bucket" {
 
 output "lock_table" {
   value = aws_dynamodb_table.terraform_locks.name
-}
-
-output "state_key" {
-  value = "stockmountain-${var.environment}-${var.region}.tfstate"
 }

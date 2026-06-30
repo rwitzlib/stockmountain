@@ -1,0 +1,25 @@
+name: Core Deploy
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy to
+        required: true
+        type: choice
+        options:
+          - dev
+        default: dev
+
+jobs:
+  deploy:
+    uses: rwitzlib/github-action-templates/.github/workflows/terraform-deploy.yml@tf-backend-path-improvements
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    with:
+      environment: ${{ inputs.environment || 'dev' }}
+      terraform_directory: infra/tf/core
+    secrets: inherit

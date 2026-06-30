@@ -1,16 +1,3 @@
-locals {
-  repositories = [
-    "backtest-worker",
-    "backtest-orchestrator",
-    "backtest-dispatcher",
-    "aggregateception",
-    "market-data-aggregator",
-    "kesha",
-    "marketviewer-api",
-    "stockmountain-app",
-  ]
-}
-
 resource "aws_ecr_repository" "this" {
   for_each = toset(local.repositories)
 
@@ -43,4 +30,8 @@ resource "aws_ecr_lifecycle_policy" "expire_count" {
 EOF
 
   depends_on = [aws_ecr_repository.this]
+}
+
+output "ecr_repository_urls" {
+  value = { for name, repo in aws_ecr_repository.this : name => repo.repository_url }
 }
