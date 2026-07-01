@@ -45,5 +45,5 @@ jobs:
         ]
       solution_directory: .
       global_json_file: global.json
-      terraform_directory: infra/tf
+      terraform_directory: infra/tf/app
     secrets: inherit
