@@ -2,6 +2,12 @@ name: Application Deploy
 
 on:
   push:
+    paths:
+      - .github/workflows/deploy.yml
+      - apps/**
+      - packages/**
+      - tests/**
+      - infra/tf/app/**
   workflow_dispatch:
     inputs:
       environment:
@@ -14,7 +20,7 @@ on:
 
 jobs:
   deploy:
-    uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@v1.6.0
+    uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@v1.9.0
     permissions:
       id-token: write
       contents: read
@@ -39,5 +45,5 @@ jobs:
         ]
       solution_directory: .
       global_json_file: global.json
-      terraform_directory: infra/tf
+      terraform_directory: infra/tf/app
     secrets: inherit
