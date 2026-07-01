@@ -2,8 +2,8 @@ resource "aws_lambda_function" "market_data_aggregator" {
   function_name = "${var.team}-${var.environment}-${local.market_data_aggregator_service}"
   role          = aws_iam_role.market_data_aggregator_lambda.arn
 
-  memory_size = 4096
-  timeout     = 120
+  memory_size = 2048
+  timeout     = 90
 
   architectures = ["x86_64"]
 
@@ -18,7 +18,7 @@ resource "aws_lambda_function" "market_data_aggregator" {
     variables = {
       POLYGON_TOKEN                  = data.aws_ssm_parameter.polygon_token.value
       ASPNETCORE_ENVIRONMENT         = var.environment
-      BATCH_SIZE                     = 850
+      BATCH_SIZE                     = 250
       MARKET_DATA_BUCKET_NAME        = aws_s3_bucket.market_data.bucket
       MARKET_DATA_CATALOG_TABLE_NAME = aws_dynamodb_table.market_data.name
     }
