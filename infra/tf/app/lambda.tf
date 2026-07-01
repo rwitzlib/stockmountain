@@ -32,7 +32,7 @@ resource "aws_lambda_function" "market_data_orchestrator" {
   role          = aws_iam_role.market_data_aggregator_lambda.arn
 
   memory_size = 1024
-  timeout     = 1200
+  timeout     = 900
 
   architectures = ["x86_64"]
 
