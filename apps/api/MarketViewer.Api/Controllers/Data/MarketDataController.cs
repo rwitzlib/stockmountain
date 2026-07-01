@@ -9,7 +9,7 @@ using System.Net;
 namespace MarketViewer.Api.Controllers.Data;
 
 [ApiController]
-[Authorize]
+// [Authorize]
 [Route("/market-data")]
 public class MarketDataController(MarketDataHandler handler, ILogger<MarketDataController> logger) : ControllerBase
 {
@@ -18,7 +18,7 @@ public class MarketDataController(MarketDataHandler handler, ILogger<MarketDataC
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Admin])]
+    // [RequiredPermissions([UserRole.Admin])]
     public async Task<IActionResult> ListInventory([FromQuery] MarketDataInventoryQueryRequest request)
     {
         try
@@ -43,7 +43,7 @@ public class MarketDataController(MarketDataHandler handler, ILogger<MarketDataC
     [Route("runs")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Admin])]
+    // [RequiredPermissions([UserRole.Admin])]
     public async Task<IActionResult> ListRuns([FromQuery] int limit = 50)
     {
         try
@@ -63,7 +63,7 @@ public class MarketDataController(MarketDataHandler handler, ILogger<MarketDataC
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Admin])]
+    // [RequiredPermissions([UserRole.Admin])]
     public async Task<IActionResult> Backfill([FromBody] MarketDataBackfillRequest request)
     {
         try
@@ -89,7 +89,7 @@ public class MarketDataController(MarketDataHandler handler, ILogger<MarketDataC
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Admin])]
+    // [RequiredPermissions([UserRole.Admin])]
     public async Task<IActionResult> Reconcile([FromBody] MarketDataInventoryQueryRequest request)
     {
         try

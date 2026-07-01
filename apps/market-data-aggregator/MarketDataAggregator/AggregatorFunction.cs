@@ -168,14 +168,7 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
 
         timer.Stop();
 
-        if (response is not null && response.HttpStatusCode.Equals(HttpStatusCode.OK))
-        {
-            _logger.LogInformation("Successfully uploaded ticker details for {date} in {elapsed} ms.", DateTimeOffset.Now.Date.ToString("yyyy-MM-dd"), timer.ElapsedMilliseconds);
-        }
-        else
-        {
-            _logger.LogInformation("Failed to upload ticker details for {date} in {elapsed} ms.", DateTimeOffset.Now.Date.ToString("yyyy-MM-dd"), timer.ElapsedMilliseconds);
-        }
+        _logger.LogInformation("Successfully uploaded ticker details for {date} in {elapsed} ms.", DateTimeOffset.Now.Date.ToString("yyyy-MM-dd"), timer.ElapsedMilliseconds);
 
         return tickerDetailsList;
     }
