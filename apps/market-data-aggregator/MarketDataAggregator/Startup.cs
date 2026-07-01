@@ -3,6 +3,8 @@ using Amazon.DynamoDBv2;
 using Amazon.Lambda;
 using Amazon.S3;
 using DotNetEnv.Configuration;
+using FluentValidation;
+using MarketDataAggregator.Validation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -33,7 +35,9 @@ public static class Startup
             }))
             .AddSingleton<IAmazonLambda, AmazonLambdaClient>(_ => new AmazonLambdaClient(RegionEndpoint.USEast2))
             .AddSingleton<IAmazonDynamoDB, AmazonDynamoDBClient>(_ => new AmazonDynamoDBClient(RegionEndpoint.USEast2))
-            .AddLogging();
+            .AddLogging()
+            .AddSingleton<IValidator<MarketDataAggregatorRequest>, MarketDataAggregatorRequestValidator>()
+            .AddSingleton<IValidator<MarketDataOrchestratorRequest>, MarketDataOrchestratorRequestValidator>();
 
         services.ConfigureLogging(configuration);
 

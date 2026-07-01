@@ -29,7 +29,7 @@ public class PerformanceUnitTests : IClassFixture<MarketCacheFixture>
         // TODO: Data setup
     }
 
-    [SkippableFact]
+    // [SkippableFact]
     public async Task LiteralPerformance()
     {
         // Arrange
@@ -66,7 +66,7 @@ public class PerformanceUnitTests : IClassFixture<MarketCacheFixture>
         result.Count.Should().BeGreaterThan(0);
     }
 
-    [SkippableFact]
+    // [SkippableFact]
     public async Task IndicatorPerformance()
     {
         // Arrange

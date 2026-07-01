@@ -72,7 +72,7 @@ resource "aws_lambda_function" "market_data_aggregator" {
   image_uri    = data.aws_ecr_image.market_data_aggregator.image_uri
 
   image_config {
-    command = ["MarketDataAggregator::MarketDataAggregator.Function::FunctionHandler"]
+    command = ["MarketDataAggregator::MarketDataAggregator.AggregatorFunction::FunctionHandler"]
   }
 
   environment {

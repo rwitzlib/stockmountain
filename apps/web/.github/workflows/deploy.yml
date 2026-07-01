@@ -4,7 +4,8 @@ on:
   push:
     paths:
       - apps/web/**
-      - infra/tf/**
+      - infra/tf/app/**
+      - infra/tf/core/**
   schedule:
     - cron: '0 6 * * *'
   workflow_dispatch:
@@ -75,9 +76,9 @@ jobs:
           EOF
 
       - name: Terraform deploy
-        working-directory: infra/tf
+        working-directory: infra/tf/app
         run: |
-          terraform init -backend-config="config/${TF_ENV}.backend.hcl"
+          terraform init -backend-config="../config/${TF_ENV}.app.backend.hcl"
           terraform apply -auto-approve \
-            -var-file="../${TF_ENV}.tfvars" \
+            -var-file="../../${TF_ENV}.tfvars" \
             -target=restapi_object.web_app_deploy
