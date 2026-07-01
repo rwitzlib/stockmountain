@@ -2,6 +2,12 @@ name: Application Deploy
 
 on:
   push:
+    paths:
+      - .github/workflows/deploy.yml
+      - apps/**
+      - packages/**
+      - tests/**
+      - infra/tf/app/**
   workflow_dispatch:
     inputs:
       environment:

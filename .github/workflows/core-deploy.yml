@@ -2,6 +2,9 @@ name: Core Deploy
 
 on:
   push:
+    paths:
+      - .github/workflows/core-deploy.yml
+      - infra/tf/core/**
   workflow_dispatch:
     inputs:
       environment:
