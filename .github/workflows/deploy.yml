@@ -20,7 +20,7 @@ on:
 
 jobs:
   deploy:
-    uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@v1.7.0
+    uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@fix-more-terraform
     permissions:
       id-token: write
       contents: read
