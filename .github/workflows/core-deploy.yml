@@ -14,7 +14,7 @@ on:
 
 jobs:
   deploy:
-    uses: rwitzlib/github-action-templates/.github/workflows/terraform-deploy.yml@tf-backend-path-improvements
+    uses: rwitzlib/github-action-templates/.github/workflows/terraform-deploy.yml@v1.7.0
     permissions:
       id-token: write
       contents: read
