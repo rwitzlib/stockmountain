@@ -12,9 +12,6 @@
   <Folder Name="/apps/backtester-api/">
     <Project Path="apps/backtester-api/Backtester.Api/Backtester.Api.csproj" />
   </Folder>
-  <Folder Name="/apps/kesha/">
-    <Project Path="apps/kesha/Kesha/Kesha.csproj" />
-  </Folder>
   <Folder Name="/apps/management-api/">
     <Project Path="apps/management-api/Management/Management.csproj" />
   </Folder>
@@ -58,9 +55,6 @@
   </Folder>
   <Folder Name="/tests/backtest-lambda-unit-tests/">
     <Project Path="tests/backtest-lambda-unit-tests/Backtest.Lambda.UnitTests/Backtest.Lambda.UnitTests.csproj" />
-  </Folder>
-  <Folder Name="/tests/kesha-unit-tests/">
-    <Project Path="tests/kesha-unit-tests/Kesha.UnitTests/Kesha.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/marketviewer-api-unit-tests/">
     <Project Path="tests/marketviewer-api-unit-tests/MarketViewer.Api.UnitTests/MarketViewer.Api.UnitTests.csproj" />
