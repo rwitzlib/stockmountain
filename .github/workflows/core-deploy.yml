@@ -17,7 +17,7 @@ on:
 
 jobs:
   deploy:
-    uses: rwitzlib/github-action-templates/.github/workflows/terraform-deployment.yml@v1.8.0
+    uses: rwitzlib/github-action-templates/.github/workflows/terraform-deployment.yml@v1.9.0
     permissions:
       id-token: write
       contents: read
