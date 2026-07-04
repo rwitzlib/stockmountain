@@ -44,45 +44,17 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
             await Task.WhenAll(initializeTasks);
 
             var sp = Stopwatch.StartNew();
-            var hourlyTickers = marketCache.GetTickersByTimeframe(new Timeframe(1, Timespan.day), date);
 
-            if (hourlyTickers is not null)
+            if (timeframes.Any(q => q.Timespan == Timespan.day))
             {
-                Parallel.ForEach(hourlyTickers, ticker =>
-                {
-                    var current = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.day), date);
-                    var previous = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.day), date.AddYears(-1));
-
-                    if (current is null || previous is null
-                        || current.Results is null || !current.Results.Any()
-                        || previous.Results is null || !previous.Results.Any())
-                    {
-                        return;
-                    }
-
-                    current.Results.InsertRange(0, previous.Results);
-                });
+                MergePreviousPeriod(new Timeframe(1, Timespan.day), date, date.AddYears(-1));
             }
 
-            var dailyTickers = marketCache.GetTickersByTimeframe(new Timeframe(1, Timespan.day), date);
-
-            if (dailyTickers is not null)
+            if (timeframes.Any(q => q.Timespan == Timespan.hour))
             {
-                Parallel.ForEach(dailyTickers, ticker =>
-                {
-                    var current = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.day), date);
-                    var previous = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.day), date.AddYears(-1));
-
-                    if (current is null || previous is null
-                        || current.Results is null || !current.Results.Any()
-                        || previous.Results is null || !previous.Results.Any())
-                    {
-                        return;
-                    }
-
-                    current.Results.InsertRange(0, previous.Results);
-                });
+                MergePreviousPeriod(new Timeframe(1, Timespan.hour), date, date.AddMonths(-1));
             }
+
             sp.Stop();
 
             var sortedTimeframes = timeframes.OrderBy(q => q.Timespan);
@@ -231,6 +203,37 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
     }
 
     #region Private Methods
+
+    private void MergePreviousPeriod(Timeframe timeframe, DateTimeOffset date, DateTimeOffset previousDate)
+    {
+        var tickers = marketCache.GetTickersByTimeframe(timeframe, date);
+
+        if (tickers is null)
+        {
+            return;
+        }
+
+        Parallel.ForEach(tickers, ticker =>
+        {
+            var current = marketCache.GetStocksResponse(ticker, timeframe, date);
+            var previous = marketCache.GetStocksResponse(ticker, timeframe, previousDate);
+
+            if (current is null || previous is null
+                || current.Results is null || !current.Results.Any()
+                || previous.Results is null || !previous.Results.Any())
+            {
+                return;
+            }
+
+            // The cached response is shared across Setup calls; skip if already merged.
+            if (current.Results.First().Timestamp <= previous.Results.Last().Timestamp)
+            {
+                return;
+            }
+
+            current.Results.InsertRange(0, previous.Results);
+        });
+    }
 
     public static bool CheckIfCurrentCandleOverlapsMarketOpen(StocksResponse stocksResponse, DateTimeOffset marketOpen, Timeframe timeframe, out Bar lastCandle)
     {

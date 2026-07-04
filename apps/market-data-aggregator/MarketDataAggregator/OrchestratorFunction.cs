@@ -5,6 +5,7 @@ using Amazon.Lambda.Model;
 using FluentValidation;
 using MarketDataAggregator.Validation;
 using MarketViewer.Contracts.Enums;
+using MarketViewer.Contracts.MarketData;
 using MarketViewer.Contracts.Records.MarketData;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -138,28 +139,16 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
     private static IEnumerable<MarketDataAggregatorRequest> BuildWorkItems(MarketDataOrchestratorRequest request)
     {
-        var days = (request.End.Date - request.Start.Date).Days;
-        for (var i = 0; i <= days; i++)
-        {
-            var date = request.Start.Date.AddDays(i);
-            if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+        return MarketDataWorkPlanner.BuildWorkDates(request.Start, request.End, request.Timespans)
+            .Select(item => new MarketDataAggregatorRequest
             {
-                continue;
-            }
-
-            foreach (var timespan in request.Timespans)
-            {
-                yield return new MarketDataAggregatorRequest
-                {
-                    Date = date,
-                    Multiplier = request.Multiplier,
-                    Timespan = timespan,
-                    RunId = request.RunId,
-                    Source = request.Source,
-                    Overwrite = request.Overwrite
-                };
-            }
-        }
+                Date = item.Date,
+                Multiplier = request.Multiplier,
+                Timespan = item.Timespan,
+                RunId = request.RunId,
+                Source = request.Source,
+                Overwrite = request.Overwrite
+            });
     }
 
     private async Task InvokeAggregator(MarketDataAggregatorRequest request)

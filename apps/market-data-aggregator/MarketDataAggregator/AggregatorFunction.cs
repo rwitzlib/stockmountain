@@ -30,6 +30,11 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
     private readonly ILogger<AggregatorFunction> _logger = serviceProvider.GetRequiredService<ILogger<AggregatorFunction>>();
     private readonly IValidator<MarketDataAggregatorRequest> _requestValidator = serviceProvider.GetRequiredService<IValidator<MarketDataAggregatorRequest>>();
 
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly int _batchSize = int.TryParse(Environment.GetEnvironmentVariable("BATCH_SIZE"), out var batchCount) ? batchCount : 30;
     private readonly string _marketDataBucketName = Environment.GetEnvironmentVariable("MARKET_DATA_BUCKET_NAME") ?? MarketDataStorageContract.DefaultBucketName;
     private readonly TimeZoneInfo _timeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
@@ -175,6 +180,7 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
 
     private async Task<AggregateUploadResult> GetAndUploadAggregates(MarketDataAggregatorRequest request, List<TickerDetails> tickers)
     {
+        var key = MarketDataStorageContract.BuildAggregateKey(request.Date, request.Multiplier, request.Timespan);
         var stocksResponses = new List<StocksResponse>();
 
         foreach (var batch in tickers.Chunk(_batchSize))
@@ -189,11 +195,26 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
 
         _logger.LogInformation("Found {count} aggregate responses.", stocksResponses.Count);
 
+        // Hour and day objects span a whole month/year, so a run for a date in the middle
+        // of that period must not drop data already stored past its fetch window.
+        if (request.Timespan is Timespan.hour or Timespan.day && !request.Overwrite)
+        {
+            var existing = await GetExistingAggregates(key);
+
+            if (existing is not null && existing.Count > 0)
+            {
+                var fetchWindowEnd = GetEndDate(request.Date).ToUnixTimeMilliseconds();
+                stocksResponses = AggregateMerger.Merge(stocksResponses, existing, fetchWindowEnd);
+
+                _logger.LogInformation("Merged with existing object {key}; {count} responses after merge.", key, stocksResponses.Count);
+            }
+        }
+
         var json = JsonSerializer.Serialize(stocksResponses);
         var response = await _s3Client.PutObjectAsync(new PutObjectRequest
         {
             BucketName = _marketDataBucketName,
-            Key = MarketDataStorageContract.BuildAggregateKey(request.Date, request.Multiplier, request.Timespan),
+            Key = key,
             ContentType = "application/json",
             ContentBody = json
         });
@@ -219,6 +240,27 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
                 : $"Invalid request. {error.ErrorMessage}";
 
             _logger.LogInformation("{Message}", message);
+        }
+    }
+
+    private async Task<List<StocksResponse>?> GetExistingAggregates(string key)
+    {
+        try
+        {
+            using var response = await _s3Client.GetObjectAsync(new GetObjectRequest
+            {
+                BucketName = _marketDataBucketName,
+                Key = key
+            });
+            using var streamReader = new StreamReader(response.ResponseStream);
+
+            var json = await streamReader.ReadToEndAsync();
+
+            return JsonSerializer.Deserialize<List<StocksResponse>>(json, SerializerOptions);
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
         }
     }
 
