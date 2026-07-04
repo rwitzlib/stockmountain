@@ -1,12 +1,6 @@
 locals {
   backtest_common_environment = {
-    ASPNETCORE_ENVIRONMENT        = var.environment
-    POLYGON_TOKEN                 = data.aws_ssm_parameter.polygon_token.value
-    BacktestConfig__TableName     = aws_dynamodb_table.backtest.name
-    BacktestConfig__UserIndexName = "UserIndex"
-    BacktestConfig__S3BucketName  = aws_s3_bucket.market_data.bucket
-    UserConfig__TableName         = aws_dynamodb_table.user.name
-    WORKER_BATCH_SIZE             = "100"
+
   }
 }
 
@@ -27,9 +21,7 @@ resource "aws_lambda_function" "backtest_worker" {
   }
 
   environment {
-    variables = merge(local.backtest_common_environment, {
-      BacktestConfig__LambdaName = "${var.team}-${var.environment}-${local.backtest_worker_service}"
-    })
+    variables = local.backtest_common_environment
   }
 
   kms_key_arn = data.aws_kms_key.lambda.arn
@@ -52,9 +44,7 @@ resource "aws_lambda_function" "backtest_orchestrator" {
   }
 
   environment {
-    variables = merge(local.backtest_common_environment, {
-      BacktestConfig__LambdaName = aws_lambda_function.backtester.function_name
-    })
+    variables = local.backtest_common_environment
   }
 
   kms_key_arn = data.aws_kms_key.lambda.arn
