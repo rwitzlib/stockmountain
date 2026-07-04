@@ -20,7 +20,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection RegisterInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var token = configuration.GetSection("Tokens").GetValue<string>("PolygonApi");
+        var token = Environment.GetEnvironmentVariable("POLYGON_TOKEN") ?? configuration.GetSection("Tokens").GetValue<string>("PolygonApi");
 
         services.AddSingleton(configuration.GetSection("UserConfig").Get<UserConfig>());
         services.AddSingleton(configuration.GetSection("StrategyConfig").Get<StrategyConfig>());
@@ -29,6 +29,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(configuration.GetSection("ScanConfig").Get<ScanConfig>());
         services.AddSingleton(configuration.GetSection("MetaConfig").Get<MetaConfig>());
         services.AddSingleton(configuration.GetSection("MarketDataConfig").Get<MarketDataConfig>());
+        
+        
 
         services.AddSingleton<IAmazonS3>(client => new AmazonS3Client(RegionEndpoint.USEast2))
             .AddPolygonClient(token)
