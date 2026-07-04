@@ -24,12 +24,14 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
             var marketClose = new DateTimeOffset(date.Year, date.Month, date.Day, 16, 0, 0, offset);
             var totalMinutes = (int)(marketClose - marketOpen).TotalMinutes;
 
-            if (!timeframes.Any(q => q.Multiplier == 1 && q.Timespan == Timespan.minute))
-            {
-                timeframes.Insert(0, new Timeframe(1, Timespan.minute));
-            }
+            // The 1-minute timeframe must be present and processed first: the candle rebuild
+            // for larger timeframes below reads the cached minute response.
+            var orderedTimeframes = timeframes
+                .Where(q => !(q.Multiplier == 1 && q.Timespan == Timespan.minute))
+                .ToList();
+            orderedTimeframes.Insert(0, new Timeframe(1, Timespan.minute));
 
-            var initializeTasks = timeframes.Select(timeframe => marketCache.Initialize(date, timeframe)).ToList();
+            var initializeTasks = orderedTimeframes.Select(timeframe => marketCache.Initialize(date, timeframe)).ToList();
 
             if (timeframes.Any(q => q.Timespan == Timespan.day))
             {
@@ -44,50 +46,20 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
             await Task.WhenAll(initializeTasks);
 
             var sp = Stopwatch.StartNew();
-            var hourlyTickers = marketCache.GetTickersByTimeframe(new Timeframe(1, Timespan.day), date);
 
-            if (hourlyTickers is not null)
+            if (timeframes.Any(q => q.Timespan == Timespan.day))
             {
-                Parallel.ForEach(hourlyTickers, ticker =>
-                {
-                    var current = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.day), date);
-                    var previous = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.day), date.AddYears(-1));
-
-                    if (current is null || previous is null
-                        || current.Results is null || !current.Results.Any()
-                        || previous.Results is null || !previous.Results.Any())
-                    {
-                        return;
-                    }
-
-                    current.Results.InsertRange(0, previous.Results);
-                });
+                MergePreviousPeriod(new Timeframe(1, Timespan.day), date, date.AddYears(-1));
             }
 
-            var dailyTickers = marketCache.GetTickersByTimeframe(new Timeframe(1, Timespan.day), date);
-
-            if (dailyTickers is not null)
+            if (timeframes.Any(q => q.Timespan == Timespan.hour))
             {
-                Parallel.ForEach(dailyTickers, ticker =>
-                {
-                    var current = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.day), date);
-                    var previous = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.day), date.AddYears(-1));
-
-                    if (current is null || previous is null
-                        || current.Results is null || !current.Results.Any()
-                        || previous.Results is null || !previous.Results.Any())
-                    {
-                        return;
-                    }
-
-                    current.Results.InsertRange(0, previous.Results);
-                });
+                MergePreviousPeriod(new Timeframe(1, Timespan.hour), date, date.AddMonths(-1));
             }
+
             sp.Stop();
 
-            var sortedTimeframes = timeframes.OrderBy(q => q.Timespan);
-
-            foreach (var timeframe in timeframes)
+            foreach (var timeframe in orderedTimeframes)
             {
                 var tickers = marketCache.GetTickersByTimeframe(timeframe, date);
 
@@ -109,18 +81,20 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
 
                         if (timeframe.Multiplier == 1 && timeframe.Timespan == Timespan.minute)
                         {
-                            var candlesAfterOpen = stocksResponse.Results.Where(candle => candle.Timestamp >= marketOpen.ToUnixTimeMilliseconds()).ToList();
+                            var candlesByTimestamp = new Dictionary<long, Bar>();
+                            foreach (var candle in stocksResponse.Results.Where(q => q.Timestamp >= marketOpen.ToUnixTimeMilliseconds()))
+                            {
+                                candlesByTimestamp[candle.Timestamp] = candle;
+                            }
 
-                            lock (NextCandlesCache)
-                                NextCandlesCache[ticker] = new Bar[totalMinutes];
-
+                            var nextCandles = new Bar[totalMinutes];
                             for (int i = 0; i < totalMinutes; i++)
                             {
-                                var candle = candlesAfterOpen.FirstOrDefault(q => q.Timestamp == marketOpen.AddMinutes(i).ToUnixTimeMilliseconds());
-
-                                lock (NextCandlesCache)
-                                    NextCandlesCache[ticker][i] = candle;
+                                candlesByTimestamp.TryGetValue(marketOpen.AddMinutes(i).ToUnixTimeMilliseconds(), out nextCandles[i]);
                             }
+
+                            lock (NextCandlesCache)
+                                NextCandlesCache[ticker] = nextCandles;
                         }
 
                         var firstMarketOpenCandle = stocksResponse.Results.FirstOrDefault(q => q.Timestamp >= marketOpen.ToUnixTimeMilliseconds());
@@ -209,28 +183,56 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
 
     public Bar GetNextCandle(string ticker, int minutesAfterMarketOpen)
     {
-        if (minutesAfterMarketOpen < 0 || minutesAfterMarketOpen >= NextCandlesCache[ticker].Length)
-        {
-            return null;
-        }
-
-        return NextCandlesCache[ticker][minutesAfterMarketOpen];
+        return HasNextCandle(ticker, minutesAfterMarketOpen, out var nextCandle) ? nextCandle : null;
     }
 
     public bool HasNextCandle(string ticker, int minutesAfterMarketOpen, out Bar nextCandle)
     {
         nextCandle = null;
 
-        if (minutesAfterMarketOpen < 0 || minutesAfterMarketOpen >= NextCandlesCache[ticker].Length)
+        if (!NextCandlesCache.TryGetValue(ticker, out var candles)
+            || minutesAfterMarketOpen < 0
+            || minutesAfterMarketOpen >= candles.Length)
         {
             return false;
         }
 
-        nextCandle = NextCandlesCache[ticker][minutesAfterMarketOpen];
+        nextCandle = candles[minutesAfterMarketOpen];
         return nextCandle is not null;
     }
 
     #region Private Methods
+
+    private void MergePreviousPeriod(Timeframe timeframe, DateTimeOffset date, DateTimeOffset previousDate)
+    {
+        var tickers = marketCache.GetTickersByTimeframe(timeframe, date);
+
+        if (tickers is null)
+        {
+            return;
+        }
+
+        Parallel.ForEach(tickers, ticker =>
+        {
+            var current = marketCache.GetStocksResponse(ticker, timeframe, date);
+            var previous = marketCache.GetStocksResponse(ticker, timeframe, previousDate);
+
+            if (current is null || previous is null
+                || current.Results is null || !current.Results.Any()
+                || previous.Results is null || !previous.Results.Any())
+            {
+                return;
+            }
+
+            // The cached response is shared across Setup calls; skip if already merged.
+            if (current.Results.First().Timestamp <= previous.Results.Last().Timestamp)
+            {
+                return;
+            }
+
+            current.Results.InsertRange(0, previous.Results);
+        });
+    }
 
     public static bool CheckIfCurrentCandleOverlapsMarketOpen(StocksResponse stocksResponse, DateTimeOffset marketOpen, Timeframe timeframe, out Bar lastCandle)
     {

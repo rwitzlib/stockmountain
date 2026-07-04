@@ -8,5 +8,8 @@ locals {
   market_data_aggregator_service   = "market-data-aggregator"
   market_data_orchestrator_service = "market-data-orchestrator"
 
+  backtest_worker_service       = "backtest-worker"
+  backtest_orchestrator_service = "backtest-orchestrator"
+
   web_service_name = "stockmountain-app"
 }

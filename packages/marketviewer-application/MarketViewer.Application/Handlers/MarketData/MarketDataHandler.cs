@@ -172,12 +172,7 @@ public class MarketDataHandler(
 
     private static int CountWorkItems(MarketDataBackfillRequest request)
     {
-        var days = (request.End.Date - request.Start.Date).Days;
-        var tradingDays = Enumerable.Range(0, days + 1)
-            .Select(offset => request.Start.Date.AddDays(offset))
-            .Count(date => date.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday);
-
-        return tradingDays * request.Timespans.Count;
+        return MarketDataWorkPlanner.BuildWorkDates(request.Start, request.End, request.Timespans).Count();
     }
 
     private static OperationResult<T> BadRequest<T>(string message)

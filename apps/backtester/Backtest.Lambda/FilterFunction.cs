@@ -9,6 +9,10 @@ using System.Diagnostics;
 
 namespace Backtest.Lambda;
 
+/// <summary>
+/// This lambda can be ignored for now
+/// </summary>
+/// <param name="serviceProvider"></param>
 public class FilterFunction(IServiceProvider serviceProvider)
 {
     private readonly IMemoryCache _memoryCache = serviceProvider.GetService<IMemoryCache>();
@@ -16,8 +20,8 @@ public class FilterFunction(IServiceProvider serviceProvider)
     public readonly IndicatorExpressionEngine _engine = serviceProvider.GetService<IndicatorExpressionEngine>();
     private readonly ILogger<WorkerFunction> _logger = serviceProvider.GetService<ILogger<WorkerFunction>>();
 
-    private readonly float MEMORY_FACTOR = float.Parse(Environment.GetEnvironmentVariable("MEMORY")) / 1024;
-    
+    private readonly float MEMORY_FACTOR = Backtest.Lambda.Utilities.LambdaEnvironment.GetMemoryFactor();
+
     public FilterFunction() : this(Startup.ConfigureServices()) { }
 
     public async Task FunctionHandler(WorkerRequest request, ILambdaContext context)

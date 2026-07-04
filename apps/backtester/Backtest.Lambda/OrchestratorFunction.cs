@@ -30,7 +30,6 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
     public async Task FunctionHandler(OrchestratorRequest request, ILambdaContext context)
     {
-        await Task.Delay(1000);
         try
         {
             var sp = new Stopwatch();
@@ -44,11 +43,15 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
             {
                 _logger.LogInformation("Backtest record not found or already completed for request ID {RequestId}.", request.Id);
 
-                record.Status = BacktestStatus.Failed;
-                record.CreditsUsed = 0;
-                record.Errors = ["Backtest already completed or not found. Please try again."];
+                if (record is not null)
+                {
+                    record.Status = BacktestStatus.Failed;
+                    record.CreditsUsed = 0;
+                    record.Errors = ["Backtest already completed or not found. Please try again."];
 
-                await _backtestRepository.Put(record);
+                    await _backtestRepository.Put(record);
+                }
+                return;
             }
 
             var estimatedCreditCost = ((request.End - request.Start).Days + 1) * ESTIMATED_DAILY_CREDIT_COST;
@@ -57,7 +60,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
             if (user == null || user.Credits < estimatedCreditCost)
             {
                 _logger.LogInformation("Insufficient credits for user {UserId} to run backtest. Estimated cost: {EstimatedCost}, Available credits: {AvailableCredits}",
-                    request.UserId, estimatedCreditCost, user.Credits);
+                    request.UserId, estimatedCreditCost, user?.Credits ?? 0);
 
                 // TODO: In the future, check if there are S3 results for these request details and if so, check if the
                 // user has enough credits to run backtest, excluding days from S3 results.
@@ -76,7 +79,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
             _logger.LogInformation("Found {EntryCount} entries for the backtest request ID {RequestId} after {ElapsedSeconds} seconds.", entries.Count, request.Id, sp.Elapsed.TotalSeconds);
 
-            _logger.LogInformation("Filtering entries for the date range from {StartDate} to {EndDate}.  Found date: {entry}.", request.Start, request.End, entries.FirstOrDefault().Date);
+            _logger.LogInformation("Filtering entries for the date range from {StartDate} to {EndDate}.  Found date: {entry}.", request.Start, request.End, entries.FirstOrDefault()?.Date);
             var relevantEntries = entries.Where(q => q.Date >= request.Start.Date && q.Date <= request.End.Date);
 
             if (relevantEntries is null || !relevantEntries.Any())
@@ -139,6 +142,9 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
                     //}
                 };
 
+                int dayMaxHoldPositions = 0;
+                int dayMaxHighPositions = 0;
+
                 for (int i = 0; i < (marketClose - marketOpen).TotalMinutes; i++)
                 {
                     var currentTime = marketOpen.AddMinutes(i);
@@ -157,16 +163,19 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
                     //}
                     BuyPositionIfApplicable("high", entry, currentTime, request.PositionSettings, ref availableFundsHigh, highOpenPositions, backtestEntryDay);
 
-                    maxConcurrentHoldPositions = holdOpenPositions.Count > maxConcurrentHoldPositions ? holdOpenPositions.Count : maxConcurrentHoldPositions;
-                    maxConcurrentHighPositions = highOpenPositions.Count > maxConcurrentHighPositions ? highOpenPositions.Count : maxConcurrentHighPositions;
-                    //if (request.ExitInfo.Other is not null)
-                    //{
-                    //    maxConcurrentOtherPositions = otherOpenPositions.Count > maxConcurrentHighPositions ? otherOpenPositions.Count : maxConcurrentHighPositions;
-                    //}
+                    dayMaxHoldPositions = Math.Max(dayMaxHoldPositions, holdOpenPositions.Count);
+                    dayMaxHighPositions = Math.Max(dayMaxHighPositions, highOpenPositions.Count);
                 }
+
+                maxConcurrentHoldPositions = Math.Max(maxConcurrentHoldPositions, dayMaxHoldPositions);
+                maxConcurrentHighPositions = Math.Max(maxConcurrentHighPositions, dayMaxHighPositions);
 
                 backtestEntryDay.Hold.EndCashAvailable = availableFundsHold;
                 backtestEntryDay.Hold.TotalBalance = holdOpenPositions.Sum(q => q.StartPosition) + backtestEntryDay.Hold.EndCashAvailable;
+                backtestEntryDay.Hold.OpenPositions = holdOpenPositions.Count;
+                backtestEntryDay.Hold.MaxConcurrentPositions = dayMaxHoldPositions;
+                backtestEntryDay.Hold.TradesTaken = backtestEntryDay.Hold.Bought.Count;
+                backtestEntryDay.Hold.Profit = backtestEntryDay.Hold.Sold.Sum(q => q.Profit);
 
                 //if (request.ExitInfo.Other is not null)
                 //{
@@ -176,6 +185,10 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
                 backtestEntryDay.High.EndCashAvailable = availableFundsHigh;
                 backtestEntryDay.High.TotalBalance = highOpenPositions.Sum(q => q.StartPosition) + backtestEntryDay.High.EndCashAvailable;
+                backtestEntryDay.High.OpenPositions = highOpenPositions.Count;
+                backtestEntryDay.High.MaxConcurrentPositions = dayMaxHighPositions;
+                backtestEntryDay.High.TradesTaken = backtestEntryDay.High.Bought.Count;
+                backtestEntryDay.High.Profit = backtestEntryDay.High.Sold.Sum(q => q.Profit);
 
                 backtestDayResults.Add(backtestEntryDay);
             }
@@ -202,7 +215,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
                         WinRatio = holdWins.Any() ? (float)holdWins.Count() / (float)(holdWins.Count() + holdLosses.Count()) : 0,
                         AvgWin = holdWins.Any() ? holdWins.Average(q => q.Profit) : 0,
                         AvgLoss = holdLosses.Any() ? holdLosses.Average(q => q.Profit) : 0,
-                        MaxConcurrentPositions = backtestDayResults.Any() ? backtestDayResults.Max(result => result.Hold.OpenPositions) : 0
+                        MaxConcurrentPositions = maxConcurrentHoldPositions
                     },
                     High = new BacktestEntryStats
                     {
@@ -211,7 +224,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
                         WinRatio = highWins.Any() ? (float)highWins.Count() / (float)(highWins.Count() + highLosses.Count()) : 0,
                         AvgWin = highWins.Any() ? highWins.Average(q => q.Profit) : 0,
                         AvgLoss = highLosses.Any() ? highLosses.Average(q => q.Profit) : 0,
-                        MaxConcurrentPositions = backtestDayResults.Any() ? backtestDayResults.Max(result => result.High.OpenPositions) : 0
+                        MaxConcurrentPositions = maxConcurrentHighPositions
                     },
                     //Other = request.ExitInfo.Other is null ? null : new BacktestEntryStats
                     //{
@@ -245,8 +258,16 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
             await _backtestRepository.Put(record, relevantEntries);
 
-            user.Credits -= response.Data.CreditsUsed;
-            await _userRepository.Put(user);
+            var creditsDebited = await _userRepository.TryDebitCredits(record.UserId, response.Data.CreditsUsed);
+            if (!creditsDebited)
+            {
+                _logger.LogWarning("Backtest {RequestId} completed but credits could not be debited for user {UserId}", request.Id, record.UserId);
+
+                record.Status = BacktestStatus.Failed;
+                record.Errors = ["Unable to settle credits for this backtest. Please try again."];
+                await _backtestRepository.Put(record);
+                return;
+            }
 
             _logger.LogInformation("Backtest completed successfully for request ID {RequestId}. Total time taken: {ElapsedSeconds} ms. Credits used: {CreditsUsed}",
                 request.Id, sp.Elapsed.TotalSeconds, record.CreditsUsed);

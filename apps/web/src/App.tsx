@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { SignIn, SignUp } from '@clerk/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar } from './components/layout/Sidebar';
 import { HomePage } from './pages/HomePage';
@@ -18,6 +20,14 @@ import { Toaster } from './components/ui/toaster';
 
 const queryClient = new QueryClient();
 
+function AuthPage({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-6">
+      {children}
+    </div>
+  );
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -27,6 +37,22 @@ export function App() {
           <main className="flex-1">
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route
+                path="/sign-in/*"
+                element={(
+                  <AuthPage>
+                    <SignIn path="/sign-in" routing="path" signUpUrl="/sign-up" />
+                  </AuthPage>
+                )}
+              />
+              <Route
+                path="/sign-up/*"
+                element={(
+                  <AuthPage>
+                    <SignUp path="/sign-up" routing="path" signInUrl="/sign-in" />
+                  </AuthPage>
+                )}
+              />
               {routes.map((route) => {
                 if (route.children) {
                   return (

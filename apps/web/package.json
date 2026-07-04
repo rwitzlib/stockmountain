@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@clerk/react": "^6.11.3",
+    "@clerk/ui": "^1.24.1",
     "@openauthjs/openauth": "^0.4.3",
     "@radix-ui/react-alert-dialog": "^1.1.13",
     "@radix-ui/react-dialog": "^1.1.13",

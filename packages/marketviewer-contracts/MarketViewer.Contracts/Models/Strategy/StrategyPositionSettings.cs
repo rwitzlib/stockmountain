@@ -10,7 +10,7 @@ namespace MarketViewer.Contracts.Models.Strategy;
 public class StrategyPositionSettings
 {
     public float StartingBalance { get; set; }
-    public int MaxConcurrentPositions { get; set; }
+    public int MaxConcurrentPositions { get; set; } = 1000;
     public PositionModel Model { get; set; }
     public bool AllowSimultaneous { get; set; } = false; // Allow multiple positions in the same stock at the same time
     public Timeframe Cooldown { get; set; }

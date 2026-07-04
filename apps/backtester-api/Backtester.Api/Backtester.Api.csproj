@@ -7,6 +7,6 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\backtest-worker\Backtest.Lambda\Backtest.Lambda.csproj" />
+    <ProjectReference Include="..\..\backtester\Backtest.Lambda\Backtest.Lambda.csproj" />
   </ItemGroup>
 </Project>

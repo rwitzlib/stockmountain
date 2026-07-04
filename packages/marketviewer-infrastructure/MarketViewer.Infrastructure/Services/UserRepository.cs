@@ -23,10 +23,10 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             {
                 { "Id", new AttributeValue { S = record.Id } },
                 { "Role", new AttributeValue { S = record.Role.ToString() } },
-                { "AvatarUrl", new AttributeValue { S = record.AvatarUrl } },
+                { "AvatarUrl", new AttributeValue { S = record.AvatarUrl ?? string.Empty } },
                 { "IsPublic", new AttributeValue { S = record.IsPublic.ToString() } },
                 { "Credits", new AttributeValue { N = record.Credits.ToString() } },
-                { "Tokens", new AttributeValue { M = record.Tokens.ToDictionary(kvp => kvp.Key.ToString(), kvp => new AttributeValue { S = kvp.Value }) } }
+                { "Tokens", new AttributeValue { M = (record.Tokens ?? []).ToDictionary(kvp => kvp.Key.ToString(), kvp => new AttributeValue { S = kvp.Value }) } }
             };
 
             logger.LogDebug("DynamoDB item details: {@ItemDetails}", new
@@ -55,6 +55,47 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
                 return false;
             }
         }, additionalContext: new { UserId = record.Id, record.Role });
+    }
+
+    public async Task<bool> Provision(UserRecord record)
+    {
+        return await logger.LogOperationAsync("ProvisionUserRecord", async () =>
+        {
+            logger.LogInformation("Provisioning user profile for user {UserId}", record.Id);
+
+            var request = new UpdateItemRequest
+            {
+                TableName = config.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { "Id", new AttributeValue { S = record.Id } }
+                },
+                UpdateExpression = "SET AvatarUrl = :avatarUrl, #role = if_not_exists(#role, :role), IsPublic = if_not_exists(IsPublic, :isPublic), Credits = if_not_exists(Credits, :credits), Tokens = if_not_exists(Tokens, :tokens)",
+                ExpressionAttributeNames = new Dictionary<string, string>
+                {
+                    { "#role", "Role" }
+                },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":avatarUrl", new AttributeValue { S = record.AvatarUrl ?? string.Empty } },
+                    { ":role", new AttributeValue { S = record.Role.ToString() } },
+                    { ":isPublic", new AttributeValue { S = record.IsPublic.ToString() } },
+                    { ":credits", new AttributeValue { N = record.Credits.ToString() } },
+                    { ":tokens", new AttributeValue { M = (record.Tokens ?? []).ToDictionary(kvp => kvp.Key.ToString(), kvp => new AttributeValue { S = kvp.Value }) } }
+                }
+            };
+
+            var response = await dynamodb.UpdateItemAsync(request);
+
+            if (response.HttpStatusCode == HttpStatusCode.OK)
+            {
+                logger.LogInformation("Successfully provisioned user profile for user {UserId}", record.Id);
+                return true;
+            }
+
+            logger.LogError("DynamoDB returned status {StatusCode} when provisioning user {UserId}", response.HttpStatusCode, record.Id);
+            return false;
+        }, additionalContext: new { UserId = record.Id });
     }
 
     public async Task<UserRecord> Get(string id)
