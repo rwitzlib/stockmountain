@@ -39,3 +39,4 @@ coverage/
 
 # Logs
 *.log
+.vscode/settings.json

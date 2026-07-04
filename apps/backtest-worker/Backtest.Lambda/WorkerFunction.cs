@@ -34,8 +34,8 @@ public class WorkerFunction(IServiceProvider serviceProvider)
     private readonly TimeZoneInfo TimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
 
 
-    private readonly float MEMORY_FACTOR = float.Parse(Environment.GetEnvironmentVariable("MEMORY")) / 1024;
-    
+    private readonly float MEMORY_FACTOR = LambdaEnvironment.GetMemoryFactor();
+
     public WorkerFunction() : this(Startup.ConfigureServices()) { }
 
     public async Task<WorkerResponse> FunctionHandler(WorkerRequest request, ILambdaContext context)
@@ -56,7 +56,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 return new WorkerResponse
                 {
                     Date = request.Date.Date,
-                    CreditsUsed = MEMORY_FACTOR * sp.Elapsed.Seconds,
+                    CreditsUsed = MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds,
                     Results = []
                 };
             }
@@ -77,14 +77,11 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 };
             }
 
-            var holdProfits = backtestResults.Where(result => result.Hold.Profit > 0).Select(result => result.Hold.Profit);
-            var holdLosses = backtestResults.Where(result => result.Hold.Profit < 0).Select(result => result.Hold.Profit);
+            var holdProfits = backtestResults.Where(result => result.Hold.Profit > 0).Select(result => result.Hold.Profit).ToList();
+            var holdLosses = backtestResults.Where(result => result.Hold.Profit < 0).Select(result => result.Hold.Profit).ToList();
 
-            var highProfits = backtestResults.Where(result => result.High.Profit > 0).Select(result => result.High.Profit);
-            var highLosses = backtestResults.Where(result => result.High.Profit < 0).Select(result => result.High.Profit);
-
-            var otherProfits = backtestResults.Where(result => result.Other.Profit > 0).Select(result => result.Other.Profit);
-            var otherLosses = backtestResults.Where(result => result.Other.Profit < 0).Select(result => result.Other.Profit);
+            var highProfits = backtestResults.Where(result => result.High.Profit > 0).Select(result => result.High.Profit).ToList();
+            var highLosses = backtestResults.Where(result => result.High.Profit < 0).Select(result => result.High.Profit).ToList();
 
             return new WorkerResponse
             {
@@ -92,26 +89,18 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 CreditsUsed = MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds,
                 Hold = new BacktestEntryStats
                 {
-                    WinRatio = (float)backtestResults.Where(result => result.Hold.Profit > 0).Count() / backtestResults.Count,
+                    WinRatio = holdProfits.Count + holdLosses.Count > 0 ? (float)holdProfits.Count / (holdProfits.Count + holdLosses.Count) : 0,
                     AvgLoss = holdLosses.Any() ? holdLosses.Average() : 0,
                     AvgWin = holdProfits.Any() ? holdProfits.Average() : 0,
                     BalanceChange = backtestResults.Sum(result => result.Hold.Profit)
                 },
                 High = new BacktestEntryStats
                 {
-                    WinRatio = (float)backtestResults.Where(result => result.High.Profit > 0).Count() / backtestResults.Count,
+                    WinRatio = highProfits.Count + highLosses.Count > 0 ? (float)highProfits.Count / (highProfits.Count + highLosses.Count) : 0,
                     AvgLoss = highLosses.Any() ? highLosses.Average() : 0,
                     AvgWin = highProfits.Any() ? highProfits.Average() : 0,
                     BalanceChange = backtestResults.Sum(result => result.High.Profit)
                 },
-                //Other = !request.ExitSettings.ConditionalExit.Any() ? null : new BacktestEntryStats
-                //{
-
-                //    WinRatio = (float)backtestResults.Where(result => result.Other.Profit > 0)?.Count() / backtestResults.Count,
-                //    AvgLoss = otherLosses.Any() ? otherLosses.Average() : 0,
-                //    AvgWin = otherProfits.Any() ? otherProfits.Average() : 0,
-                //    BalanceChange = backtestResults.Sum(result => result.Other.Profit)
-                //},
                 Results = backtestResults
             };
         }
@@ -173,7 +162,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
             var polygonResponse = await _polygonClient.GetAggregates(polygonRequest);
 
-            if (polygonResponse is null || polygonResponse.Results?.Count() == 0)
+            if (polygonResponse?.Results is null || !polygonResponse.Results.Any())
             {
                 return null;
             }
@@ -253,8 +242,8 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             {
                 var profitTargetValue = request.ExitSettings.TakeProfit.Type switch
                 {
-                    ExitValueType.percent => request.ExitSettings.TakeProfit.Value / 100 * entryPosition,
-                    ExitValueType.flat => request.ExitSettings.TakeProfit.Value,
+                    ExitValueType.percent => Math.Abs(request.ExitSettings.TakeProfit.Value) / 100 * entryPosition,
+                    ExitValueType.flat => Math.Abs(request.ExitSettings.TakeProfit.Value),
                     _ => throw new NotImplementedException()
                 };
 
@@ -287,12 +276,13 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             {
                 var stopLossValue = request.ExitSettings.StopLoss.Type switch
                 {
-                    ExitValueType.percent => request.ExitSettings.StopLoss.Value / 100 * entryPosition,
-                    ExitValueType.flat => request.ExitSettings.TakeProfit.Value,
+                    ExitValueType.percent => -Math.Abs(request.ExitSettings.StopLoss.Value) / 100 * entryPosition,
+                    ExitValueType.flat => -Math.Abs(request.ExitSettings.StopLoss.Value),
                     _ => throw new NotImplementedException()
                 };
 
-                if (profitTarget is null || stopLoss.Timestamp < profitTarget.Timestamp)
+                // On a same-bar tie, assume the worst case: the stop fills before the target.
+                if (profitTarget is null || stopLoss.Timestamp <= profitTarget.Timestamp)
                 {
                     result.Hold.StoppedOut = true;
                     result.Hold.Profit = stopLossValue;
@@ -329,55 +319,60 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         }
     }
 
-    private static bool CheckStopLoss(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar stopLossCandle)
+    internal static bool CheckStopLoss(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar stopLossCandle)
     {
-        stopLossCandle = request.ExitSettings.StopLoss.PriceActionType switch
+        var stopLoss = request.ExitSettings.StopLoss;
+        stopLossCandle = null;
+
+        if (stopLoss is null)
         {
-            PriceActionType.low => request.ExitSettings.StopLoss?.Type switch
-            {
-                ExitValueType.flat => results.FirstOrDefault(bar => bar.Low * shares - entryPosition <= request.ExitSettings.StopLoss.Value),
-                ExitValueType.percent => results.FirstOrDefault(bar => (bar.Low - entryPrice) / entryPrice * 100 <= request.ExitSettings.StopLoss.Value),
-                _ => null
-            },
-            PriceActionType.close => request.ExitSettings.StopLoss?.Type switch
-            {
-                ExitValueType.flat => results.FirstOrDefault(bar => bar.Close * shares - entryPosition <= request.ExitSettings.StopLoss.Value),
-                ExitValueType.percent => results.FirstOrDefault(bar => (bar.Close - entryPrice) / entryPrice * 100 <= request.ExitSettings.StopLoss.Value),
-                _ => null
-            },
-            _ => request.ExitSettings.StopLoss?.Type switch
-            {
-                ExitValueType.flat => results.FirstOrDefault(bar => bar.Vwap * shares - entryPosition <= request.ExitSettings.StopLoss.Value),
-                ExitValueType.percent => results.FirstOrDefault(bar => (bar.Vwap - entryPrice) / entryPrice * 100 <= request.ExitSettings.StopLoss.Value),
-                _ => null
-            }
+            return false;
+        }
+
+        // A stop loss is always a loss, regardless of the sign the user entered.
+        var threshold = -Math.Abs(stopLoss.Value);
+
+        Func<Bar, float> price = stopLoss.PriceActionType switch
+        {
+            PriceActionType.low => bar => bar.Low,
+            PriceActionType.close => bar => bar.Close,
+            _ => bar => bar.Vwap
+        };
+
+        stopLossCandle = stopLoss.Type switch
+        {
+            ExitValueType.flat => results.FirstOrDefault(bar => price(bar) * shares - entryPosition <= threshold),
+            ExitValueType.percent => results.FirstOrDefault(bar => (price(bar) - entryPrice) / entryPrice * 100 <= threshold),
+            _ => null
         };
 
         return stopLossCandle is not null;
     }
 
-    private static bool CheckTakeProfit(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar profitTargetCandle)
+    internal static bool CheckTakeProfit(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar profitTargetCandle)
     {
-        profitTargetCandle = request.ExitSettings.TakeProfit.PriceActionType switch
+        var takeProfit = request.ExitSettings.TakeProfit;
+        profitTargetCandle = null;
+
+        if (takeProfit is null)
         {
-            PriceActionType.high => request.ExitSettings.TakeProfit?.Type switch
-            {
-                ExitValueType.flat => results.FirstOrDefault(bar => bar.High * shares - entryPosition >= request.ExitSettings.TakeProfit.Value),
-                ExitValueType.percent => results.FirstOrDefault(bar => (bar.High - entryPrice) / entryPrice * 100 >= request.ExitSettings.TakeProfit.Value),
-                _ => null
-            },
-            PriceActionType.close => request.ExitSettings.TakeProfit?.Type switch
-            {
-                ExitValueType.flat => results.FirstOrDefault(bar => bar.Close * shares - entryPosition >= request.ExitSettings.StopLoss.Value),
-                ExitValueType.percent => results.FirstOrDefault(bar => (bar.Close - entryPrice) / entryPrice * 100 >= request.ExitSettings.TakeProfit.Value),
-                _ => null
-            },
-            _ => request.ExitSettings.TakeProfit?.Type switch
-            {
-                ExitValueType.flat => results.FirstOrDefault(bar => bar.Vwap * shares - entryPosition >= request.ExitSettings.StopLoss.Value),
-                ExitValueType.percent => results.FirstOrDefault(bar => (bar.Vwap - entryPrice) / entryPrice * 100 >= request.ExitSettings.TakeProfit.Value),
-                _ => null
-            }
+            return false;
+        }
+
+        var threshold = Math.Abs(takeProfit.Value);
+
+        Func<Bar, float> price = takeProfit.PriceActionType switch
+        {
+            PriceActionType.high => bar => bar.High,
+            PriceActionType.close => bar => bar.Close,
+            _ => bar => bar.Vwap
+        };
+
+        profitTargetCandle = takeProfit.Type switch
+        {
+            ExitValueType.flat => results.FirstOrDefault(bar => price(bar) * shares - entryPosition >= threshold),
+            ExitValueType.percent => results.FirstOrDefault(bar => (price(bar) - entryPrice) / entryPrice * 100 >= threshold),
+            _ => null
         };
 
         return profitTargetCandle is not null;

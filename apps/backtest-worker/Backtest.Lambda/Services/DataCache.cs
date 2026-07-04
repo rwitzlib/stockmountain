@@ -24,12 +24,14 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
             var marketClose = new DateTimeOffset(date.Year, date.Month, date.Day, 16, 0, 0, offset);
             var totalMinutes = (int)(marketClose - marketOpen).TotalMinutes;
 
-            if (!timeframes.Any(q => q.Multiplier == 1 && q.Timespan == Timespan.minute))
-            {
-                timeframes.Insert(0, new Timeframe(1, Timespan.minute));
-            }
+            // The 1-minute timeframe must be present and processed first: the candle rebuild
+            // for larger timeframes below reads the cached minute response.
+            var orderedTimeframes = timeframes
+                .Where(q => !(q.Multiplier == 1 && q.Timespan == Timespan.minute))
+                .ToList();
+            orderedTimeframes.Insert(0, new Timeframe(1, Timespan.minute));
 
-            var initializeTasks = timeframes.Select(timeframe => marketCache.Initialize(date, timeframe)).ToList();
+            var initializeTasks = orderedTimeframes.Select(timeframe => marketCache.Initialize(date, timeframe)).ToList();
 
             if (timeframes.Any(q => q.Timespan == Timespan.day))
             {
@@ -57,9 +59,7 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
 
             sp.Stop();
 
-            var sortedTimeframes = timeframes.OrderBy(q => q.Timespan);
-
-            foreach (var timeframe in timeframes)
+            foreach (var timeframe in orderedTimeframes)
             {
                 var tickers = marketCache.GetTickersByTimeframe(timeframe, date);
 
@@ -81,18 +81,20 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
 
                         if (timeframe.Multiplier == 1 && timeframe.Timespan == Timespan.minute)
                         {
-                            var candlesAfterOpen = stocksResponse.Results.Where(candle => candle.Timestamp >= marketOpen.ToUnixTimeMilliseconds()).ToList();
+                            var candlesByTimestamp = new Dictionary<long, Bar>();
+                            foreach (var candle in stocksResponse.Results.Where(q => q.Timestamp >= marketOpen.ToUnixTimeMilliseconds()))
+                            {
+                                candlesByTimestamp[candle.Timestamp] = candle;
+                            }
 
-                            lock (NextCandlesCache)
-                                NextCandlesCache[ticker] = new Bar[totalMinutes];
-
+                            var nextCandles = new Bar[totalMinutes];
                             for (int i = 0; i < totalMinutes; i++)
                             {
-                                var candle = candlesAfterOpen.FirstOrDefault(q => q.Timestamp == marketOpen.AddMinutes(i).ToUnixTimeMilliseconds());
-
-                                lock (NextCandlesCache)
-                                    NextCandlesCache[ticker][i] = candle;
+                                candlesByTimestamp.TryGetValue(marketOpen.AddMinutes(i).ToUnixTimeMilliseconds(), out nextCandles[i]);
                             }
+
+                            lock (NextCandlesCache)
+                                NextCandlesCache[ticker] = nextCandles;
                         }
 
                         var firstMarketOpenCandle = stocksResponse.Results.FirstOrDefault(q => q.Timestamp >= marketOpen.ToUnixTimeMilliseconds());
@@ -181,24 +183,21 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
 
     public Bar GetNextCandle(string ticker, int minutesAfterMarketOpen)
     {
-        if (minutesAfterMarketOpen < 0 || minutesAfterMarketOpen >= NextCandlesCache[ticker].Length)
-        {
-            return null;
-        }
-
-        return NextCandlesCache[ticker][minutesAfterMarketOpen];
+        return HasNextCandle(ticker, minutesAfterMarketOpen, out var nextCandle) ? nextCandle : null;
     }
 
     public bool HasNextCandle(string ticker, int minutesAfterMarketOpen, out Bar nextCandle)
     {
         nextCandle = null;
 
-        if (minutesAfterMarketOpen < 0 || minutesAfterMarketOpen >= NextCandlesCache[ticker].Length)
+        if (!NextCandlesCache.TryGetValue(ticker, out var candles)
+            || minutesAfterMarketOpen < 0
+            || minutesAfterMarketOpen >= candles.Length)
         {
             return false;
         }
 
-        nextCandle = NextCandlesCache[ticker][minutesAfterMarketOpen];
+        nextCandle = candles[minutesAfterMarketOpen];
         return nextCandle is not null;
     }
 
