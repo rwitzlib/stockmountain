@@ -26,7 +26,7 @@
     <PackageReference Include="Xunit.SkippableFact" Version="1.5.61" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\apps\backtest-worker\Backtest.Lambda\Backtest.Lambda.csproj" />
+    <ProjectReference Include="..\..\..\apps\backtester\Backtest.Lambda\Backtest.Lambda.csproj" />
     <!--<ProjectReference Include="..\stockmountain-backtester\stockmountain-backtester.csproj" />-->
   </ItemGroup>
   <ItemGroup>

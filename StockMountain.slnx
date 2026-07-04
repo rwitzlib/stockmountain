@@ -6,11 +6,11 @@
   <Folder Name="/apps/api/">
     <Project Path="apps/api/MarketViewer.Api/MarketViewer.Api.csproj" />
   </Folder>
-  <Folder Name="/apps/backtest-worker/">
-    <Project Path="apps/backtest-worker/Backtest.Lambda/Backtest.Lambda.csproj" />
-  </Folder>
   <Folder Name="/apps/backtester-api/">
     <Project Path="apps/backtester-api/Backtester.Api/Backtester.Api.csproj" />
+  </Folder>
+  <Folder Name="/apps/backtester/">
+    <Project Path="apps/backtester/Backtest.Lambda/Backtest.Lambda.csproj" />
   </Folder>
   <Folder Name="/apps/management-api/">
     <Project Path="apps/management-api/Management/Management.csproj" />
@@ -50,11 +50,11 @@
     <Project Path="packages/schwab-api/SchwabApi/SchwabApi.csproj" />
   </Folder>
   <Folder Name="/tests/" />
+  <Folder Name="/tests/backtester-unit-tests/">
+    <Project Path="tests/backtest-lambda-unit-tests/Backtest.Lambda.UnitTests/Backtest.Lambda.UnitTests.csproj" />
+  </Folder>
   <Folder Name="/tests/market-data-aggregator-unit-tests/">
     <Project Path="tests/market-data-aggregator-unit-tests/MarketDataAggregator.UnitTests/MarketDataAggregator.UnitTests.csproj" />
-  </Folder>
-  <Folder Name="/tests/backtest-lambda-unit-tests/">
-    <Project Path="tests/backtest-lambda-unit-tests/Backtest.Lambda.UnitTests/Backtest.Lambda.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/marketviewer-api-unit-tests/">
     <Project Path="tests/marketviewer-api-unit-tests/MarketViewer.Api.UnitTests/MarketViewer.Api.UnitTests.csproj" />

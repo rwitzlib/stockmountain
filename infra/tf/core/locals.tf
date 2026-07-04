@@ -6,12 +6,8 @@ locals {
   }
 
   repositories = [
-    # "backtest-worker",
-    # "backtest-orchestrator",
-    # "backtest-dispatcher",
-    # "aggregateception",
-    "market-data-aggregator",
-    "market-data-orchestrator",
+    "backtester",
+    "market-data-aggregator"
     # "kesha",
     # "marketviewer-api",
     # "stockmountain-app",

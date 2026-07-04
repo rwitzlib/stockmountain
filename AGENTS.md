@@ -1,0 +1,1 @@
+Dont create a new .sln file.  We already have a .slnx file.

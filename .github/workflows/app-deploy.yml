@@ -37,8 +37,8 @@ jobs:
             "build-args": ""
           },
           {
-            "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-market-data-orchestrator",
-            "dockerfile": "apps/market-data-aggregator/Dockerfile",
+            "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-backtester",
+            "dockerfile": "apps/backtester/Dockerfile",
             "context": ".",
             "build-args": ""
           }

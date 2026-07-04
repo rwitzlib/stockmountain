@@ -15,6 +15,11 @@ data "aws_ecr_image" "market_data_aggregator" {
   image_tag       = var.image_tag
 }
 
+data "aws_ecr_image" "backtester" {
+  repository_name = "${var.team}-${var.environment}-backtester"
+  image_tag       = var.image_tag
+}
+
 # data "aws_ecr_image" "kesha" {
 #   repository_name = "${local.kesha_team}-${var.environment}-${local.kesha_business_domain}-${local.kesha_service}"
 #   image_tag       = var.image_tag
