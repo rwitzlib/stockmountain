@@ -10,9 +10,6 @@ locals {
 
   backtest_worker_service       = "backtest-worker"
   backtest_orchestrator_service = "backtest-orchestrator"
-  backtest_dispatcher_service   = "backtest-dispatcher"
-  backtest_filter_service       = "backtest-filter"
-  backtest_image_service        = "backtest-worker"
 
   web_service_name = "stockmountain-app"
 }
