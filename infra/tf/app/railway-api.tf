@@ -64,9 +64,9 @@ data "aws_iam_policy_document" "api_runtime" {
     ]
 
     resources = concat(
-      local.railway_api_dynamodb_table_arns,
+      local.api_dynamodb_table_arns,
       [
-        for table_arn in local.railway_api_dynamodb_table_arns :
+        for table_arn in local.api_dynamodb_table_arns :
         "${table_arn}/index/*"
       ]
     )
@@ -89,7 +89,7 @@ data "aws_iam_policy_document" "api_runtime" {
 
 resource "aws_iam_policy" "api" {
   name        = "${var.team}-${var.environment}-api-runtime"
-  description = "Runtime permissions for the MarketViewer API deployed on Railway."
+  description = "Runtime permissions for the API."
   policy      = data.aws_iam_policy_document.api_runtime.json
 }
 
