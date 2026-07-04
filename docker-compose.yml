@@ -16,7 +16,7 @@ services:
   #     dockerfile: Dockerfile
   #   image: stockmountain-${ENVIRONMENT:-dev}-stockmountain-app:${IMAGE_TAG:-local}
   #   ports:
-  #     - "${WEB_PORT:-8100}:8080"
+  #     - "${WEB_PORT:-5173}:5173"
   #   environment:
   #     NODE_ENV: development
 

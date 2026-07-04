@@ -41,6 +41,12 @@ jobs:
             "dockerfile": "apps/backtester/Dockerfile",
             "context": ".",
             "build-args": ""
+          },
+          {
+            "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-api",
+            "dockerfile": "apps/api/Dockerfile",
+            "context": ".",
+            "build-args": ""
           }
         ]
       solution_directory: .

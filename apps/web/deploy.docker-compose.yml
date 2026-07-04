@@ -4,7 +4,7 @@ services:
     container_name: stockmountain-app
     image: ${IMAGE}
     ports:
-      - "8100:8080"
+      - "5173:5173"
     environment:
       - NODE_ENV=development
     env_file:

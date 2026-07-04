@@ -14,8 +14,8 @@ RUN npm install
 # Copy the rest of your project files into the container
 COPY . .
 
-# Expose the port the app runs on (optional, adjust as needed)
-EXPOSE 8080
+# Expose the Vite dev server port
+EXPOSE 5173
 
 # Command to run the application
 CMD ["npm", "run", "dev"]
