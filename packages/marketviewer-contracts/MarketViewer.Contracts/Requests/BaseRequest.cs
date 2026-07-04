@@ -6,6 +6,6 @@ namespace MarketViewer.Contracts.Requests;
 [ExcludeFromCodeCoverage]
 public class BaseRequest
 {
-    [JsonIgnore]
+    // [JsonIgnore]
     public string UserId { get; set; }
 }

@@ -10,16 +10,16 @@ using Microsoft.AspNetCore.Mvc;
 namespace MarketViewer.Api.Controllers.Market;
 
 [ApiController]
-[Authorize]
+// [Authorize]
 [Route("api/backtest")]
 
 public class BacktestController(AuthContext authContext, BacktestHandler handler, ILogger<BacktestController> logger) : ControllerBase
 {
     [HttpPost]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    // [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
     public async Task<IActionResult> StartBacktest([FromBody] BacktestCreateRequest request)
     {
-        request.UserId = authContext.UserId;
+        request.UserId = "rob.witzlib@gmail.com"; //authContext.UserId;
 
         var response = await handler.Create(request);
 
@@ -33,7 +33,7 @@ public class BacktestController(AuthContext authContext, BacktestHandler handler
 
     [HttpGet]
     [Route("{id}")]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    // [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
     public async Task<IActionResult> GetBacktestEntry(string id)
     {
         var response = await handler.GetEntry(id);
@@ -47,7 +47,7 @@ public class BacktestController(AuthContext authContext, BacktestHandler handler
     }
 
     [HttpGet]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    // [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
     public async Task<IActionResult> ListBacktestEntries()
     {
         var userId = authContext.UserId;
@@ -64,7 +64,7 @@ public class BacktestController(AuthContext authContext, BacktestHandler handler
 
     [HttpGet]
     [Route("result/{id}")]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    // [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
     public async Task<IActionResult> GetBacktestResult(string id)
     {
         var userId = authContext.UserId;

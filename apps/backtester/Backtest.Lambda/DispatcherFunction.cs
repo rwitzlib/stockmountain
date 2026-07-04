@@ -12,6 +12,10 @@ using System.Text.Json;
 
 namespace Backtest.Lambda;
 
+/// <summary>
+/// This lambda can be ignored for now
+/// </summary>
+/// <param name="serviceProvider"></param>
 public class DispatcherFunction(IServiceProvider serviceProvider)
 {
     public IServiceProvider ServiceProvider => serviceProvider; // Expose the service provider for testing purposes

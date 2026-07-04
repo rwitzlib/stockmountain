@@ -53,7 +53,7 @@ public class BacktestHandler(
                 Id = request.Id,
                 UserId = request.UserId,
                 Status = BacktestStatus.Pending,
-                CreatedAt = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:ssZzzz"),
+                CreatedAt = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:ssZzz"),
                 Start = request.Start.Date.ToString("yyyy-MM-dd"),
                 End = request.End.Date.ToString("yyyy-MM-dd"),
                 Request = request

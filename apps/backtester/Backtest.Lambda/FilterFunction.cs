@@ -9,6 +9,10 @@ using System.Diagnostics;
 
 namespace Backtest.Lambda;
 
+/// <summary>
+/// This lambda can be ignored for now
+/// </summary>
+/// <param name="serviceProvider"></param>
 public class FilterFunction(IServiceProvider serviceProvider)
 {
     private readonly IMemoryCache _memoryCache = serviceProvider.GetService<IMemoryCache>();

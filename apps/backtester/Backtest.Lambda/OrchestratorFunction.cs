@@ -258,8 +258,16 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
             await _backtestRepository.Put(record, relevantEntries);
 
-            user.Credits -= response.Data.CreditsUsed;
-            await _userRepository.Put(user);
+            var creditsDebited = await _userRepository.TryDebitCredits(record.UserId, response.Data.CreditsUsed);
+            if (!creditsDebited)
+            {
+                _logger.LogWarning("Backtest {RequestId} completed but credits could not be debited for user {UserId}", request.Id, record.UserId);
+
+                record.Status = BacktestStatus.Failed;
+                record.Errors = ["Unable to settle credits for this backtest. Please try again."];
+                await _backtestRepository.Put(record);
+                return;
+            }
 
             _logger.LogInformation("Backtest completed successfully for request ID {RequestId}. Total time taken: {ElapsedSeconds} ms. Credits used: {CreditsUsed}",
                 request.Id, sp.Elapsed.TotalSeconds, record.CreditsUsed);

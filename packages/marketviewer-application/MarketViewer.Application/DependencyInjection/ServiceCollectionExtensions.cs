@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
             .AddScoped<IValidator<StrategyUpdateRequest>, StrategyUpdateRequestValidator>()
             .AddSingleton<IIndicatorCalculationService, IndicatorCalculationService>()
             .AddSingleton<IGpuSmaCalculationService, GpuSmaCalculationService>()
+            .AddScoped<ClerkUserProvisioningService>()
             .AddSingleton<IAmazonLambda, AmazonLambdaClient>(client => new AmazonLambdaClient(new AmazonLambdaConfig
             {
                 Timeout = TimeSpan.FromMinutes(5),

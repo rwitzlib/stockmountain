@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { UserButton, useUser } from '@clerk/react';
 import { NavLink } from 'react-router-dom';
 import { 
   Home, 
@@ -46,6 +47,57 @@ const client = createClient({
   clientID: "react",
   issuer: "https://auth.stockmountain.io"
 })
+
+interface ClerkAuthControlsProps {
+  isCollapsed?: boolean;
+  onAction?: () => void;
+}
+
+function ClerkAuthControls({ isCollapsed = false, onAction }: ClerkAuthControlsProps) {
+  const { isLoaded, isSignedIn } = useUser();
+
+  if (!isLoaded) {
+    return (
+      <div className="text-primary font-mono text-xs animate-pulse">
+        {!isCollapsed ? '» Clerk...' : '»'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {isSignedIn ? (
+        <div className="flex items-center gap-2">
+          <UserButton afterSignOutUrl="/" />
+          {!isCollapsed && (
+            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              Account
+            </span>
+          )}
+        </div>
+      ) : (
+        <>
+          <NavLink
+            to="/sign-in"
+            className="inline-flex items-center gap-2 border border-border px-3 py-2 text-xs font-mono uppercase tracking-wider text-muted-foreground transition-all hover:border-primary hover:bg-muted/50 hover:text-primary dark:hover:border-cyan-700 dark:hover:bg-cyan-950/30 dark:hover:text-cyan-400"
+            onClick={onAction}
+          >
+            {isCollapsed ? <User className="w-4 h-4" /> : 'Sign in'}
+          </NavLink>
+          {!isCollapsed && (
+            <NavLink
+              to="/sign-up"
+              className="inline-flex items-center gap-2 border border-primary bg-primary px-3 py-2 text-xs font-mono uppercase tracking-wider text-primary-foreground transition-all hover:bg-primary/90"
+              onClick={onAction}
+            >
+              Sign up
+            </NavLink>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -212,6 +264,7 @@ export function Sidebar() {
               StockMountain
             </div>
             <div className="flex items-center gap-2">
+              <ClerkAuthControls onAction={closeMobileMenu} />
               <button
                 onClick={toggleMobileMenu}
                 className="p-2 text-muted-foreground hover:text-primary dark:hover:text-cyan-400 hover:bg-muted dark:hover:bg-cyan-950/30 transition-colors border border-border hover:border-primary dark:hover:border-cyan-700"
@@ -347,6 +400,8 @@ export function Sidebar() {
         </nav>
 
         <div className="border-t border-sidebar-border p-4 space-y-2">
+          <ClerkAuthControls isCollapsed={isCollapsed} />
+
           {isAuthenticating ? (
             <div className="text-primary font-mono text-xs animate-pulse">» Loading...</div>
           ) : (

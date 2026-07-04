@@ -1,5 +1,6 @@
 using MarketViewer.Api.Authentication;
 using MarketViewer.Api.Authorization;
+using MarketViewer.Api.Config;
 using MarketViewer.Api.Healthcheck;
 using MarketViewer.Api.HostedServices;
 using MarketViewer.Api.Hubs;
@@ -65,6 +66,14 @@ public class Program
         builder.Services.AddSingleton<ScannerCache>();
         builder.Services.AddSingleton<CacheWarmupState>();
         builder.Services.AddSingleton<BarCacheService>();
+        builder.Services.Configure<ClerkWebhookConfig>(builder.Configuration.GetSection("ClerkWebhook"));
+        builder.Services.PostConfigure<ClerkWebhookConfig>(options =>
+        {
+            options.SigningSecret = builder.Configuration["CLERK_WEBHOOK_SIGNING_SECRET"]
+                ?? builder.Configuration["ClerkWebhook:SigningSecret"]
+                ?? string.Empty;
+        });
+        builder.Services.AddScoped<ClerkWebhookVerifier>();
 
         builder.Services.AddHostedService<CacheWarmupService>();
 
