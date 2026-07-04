@@ -95,7 +95,7 @@ resource "aws_iam_policy" "api" {
 
 resource "aws_iam_user_policy_attachment" "api_runtime" {
   user       = aws_iam_user.api.name
-  policy_arn = aws_iam_policy.api_runtime.arn
+  policy_arn = aws_iam_policy.api.arn
 }
 
 resource "aws_iam_access_key" "api" {
