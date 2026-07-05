@@ -40,3 +40,5 @@ coverage/
 # Logs
 *.log
 .vscode/settings.json
+
+.claude/**
