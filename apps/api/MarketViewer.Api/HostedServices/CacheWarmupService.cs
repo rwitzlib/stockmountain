@@ -41,12 +41,14 @@ namespace MarketViewer.Api.HostedServices
         
         public async Task StartAsync(CancellationToken cancellationToken)
         {
+            return;
             await PopulateTickers();
             await PopulateTickerDetailsAndMarketCache();
         }
 
         public async Task StartedAsync(CancellationToken cancellationToken)
         {
+            return;
             var now = DateTimeOffset.Now;
 
             if (now.Second >= 5)
