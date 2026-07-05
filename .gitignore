@@ -42,3 +42,4 @@ coverage/
 .vscode/settings.json
 
 .claude/**
+.github/skills/**
