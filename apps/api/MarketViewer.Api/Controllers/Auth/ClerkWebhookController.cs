@@ -8,7 +8,7 @@ namespace MarketViewer.Api.Controllers.Auth;
 
 [ApiController]
 [AllowAnonymous]
-[Route("api/webhooks/clerk")]
+[Route("webhooks/clerk")]
 public class ClerkWebhookController(
     ClerkWebhookVerifier verifier,
     ClerkUserProvisioningService provisioningService,

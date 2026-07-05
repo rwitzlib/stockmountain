@@ -30,6 +30,7 @@ using OpenTelemetry.Trace;
 using Quartz;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Rewrite;
 
 namespace MarketViewer.Api;
 
@@ -155,6 +156,8 @@ public class Program
         var app = builder.Build();
 
         app.UseHttpLogging();
+
+        app.UseRewriter(new RewriteOptions().AddRewrite(@"^api/(.*)", "$1", skipRemainingRules: true));
 
         if (app.Environment.IsEnvironment("dev") || app.Environment.IsEnvironment("local"))
         {
