@@ -1,4 +1,4 @@
-﻿using MarketViewer.Api.Authorization;
+using MarketViewer.Api.Authorization;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Management.User;
 using MarketViewer.Core.Auth;
@@ -20,7 +20,7 @@ public class UserController(IMediator mediator, AuthContext context, ILogger<Use
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [Authorize]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> Read([FromRoute] string userId)
     {
         try

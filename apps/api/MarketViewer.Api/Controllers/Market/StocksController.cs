@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.Metrics;
 using System.Net;
 using MarketViewer.Api.Authorization;
+using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Core.Metrics;
 using MediatR;
@@ -18,6 +19,7 @@ public class StocksController(
     ILogger<StocksController> logger) : ControllerBase
 {
     [HttpPost]
+    [RequiresTier(UserRole.Basic)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]

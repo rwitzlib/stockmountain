@@ -1,47 +1,66 @@
-# Clerk API Auth Migration
+# Clerk API Auth
 
-StockMountain now provisions app user profiles from Clerk webhooks, but API
-authorization still accepts the existing OpenAuth JWTs. Migrate API auth in a
-separate deployment so user provisioning and API token validation can be tested
-independently.
+StockMountain authenticates API requests with Clerk session JWTs and authorizes them
+from the DynamoDB user record. OpenAuth support has been removed (hard cutover).
 
-## Target Flow
+## Design decisions
 
-1. The React app signs users in with Clerk.
-2. API clients request a Clerk session token with `getToken()`.
-3. Requests send `Authorization: Bearer <clerk-session-jwt>`.
-4. `MarketViewer.Api` validates Clerk JWTs and maps the JWT `sub` claim to
-   `AuthContext.UserId`.
-5. DynamoDB user lookups use the Clerk user id stored in `UserRecord.Id`.
+1. **Token proves identity only.** The Clerk JWT's `sub` claim is the user id. Roles are
+   never read from token claims.
+2. **DynamoDB is the source of truth for authorization.** `AuthContextMiddleware` loads
+   the `UserRecord` on every request (no cache), so role changes — e.g. a future Stripe
+   webhook — take effect on the next request.
+3. **Roles are purchase tiers, hierarchical.** `UserRole` is `Basic < Advanced < Premium`.
+   Endpoints declare a minimum with `[RequiresTier(UserRole.X)]`; higher tiers pass.
+4. **Admin is a flag, not a tier.** `UserRecord.IsAdmin` is granted manually and is never
+   written by subscription logic, so a lapsed subscription can't demote an admin and a
+   purchase can't grant admin. Admin-only endpoints use `[RequiresAdmin]`; admins also
+   satisfy every tier requirement.
+5. **Lazy provisioning closes the signup race.** If a valid token arrives before the
+   `user.created` webhook lands, the middleware provisions the Basic user record inline
+   (`Provision` is idempotent via `if_not_exists`). The webhook is a backfill, not a
+   dependency.
+6. **No anonymous endpoints.** Every controller action requires at least a valid Clerk
+   token and the Basic tier. `MarketDataController`, `TickersController`, snapshot,
+   performance, and most tools endpoints require admin.
 
-## Backend Steps
+## Request flow
 
-1. Add Clerk auth configuration:
-   - `ClerkAuth:Authority` for the Clerk issuer URL.
-   - `ClerkAuth:Audience` only if a Clerk JWT template uses an audience.
-2. Update JWT bearer validation in `Program.cs` to accept Clerk session JWTs.
-   Keep OpenAuth validation during the transition if existing users still rely
-   on OpenAuth tokens.
-3. Update `AuthContextMiddleware`:
-   - Prefer Clerk `sub` as `AuthContext.UserId`.
-   - Keep the existing OpenAuth `properties.username` fallback until migration
-     is complete.
-   - Derive app role from `UserRecord.Role`, not from mutable client claims.
-4. Update user-protected handlers to assume `AuthContext.UserId` is the Clerk
-   user id.
+1. React app signs users in with Clerk; `getAuthHeaders()` (`apps/web/src/api/authToken.ts`)
+   fetches a fresh session token per request via `window.Clerk.session.getToken()`.
+2. JWT bearer middleware validates issuer/lifetime/signature against the Clerk JWKS
+   (`ClerkAuth:Authority`, OIDC discovery). Audience is not validated — Clerk session
+   tokens carry none — but `azp` is checked against `ClerkAuth:AuthorizedParties`
+   when configured.
+3. `AuthContextMiddleware` maps `sub` → DynamoDB `UserRecord` (provisioning it if
+   missing) and populates the scoped `AuthContext` (`UserId`, `Role`, `IsAdmin`) plus
+   `HttpContext.Items["UserId"]`.
+4. `TierAuthorizationHandler` / `AdminAuthorizationHandler` enforce
+   `[RequiresTier(...)]` / `[RequiresAdmin]` from `AuthContext`.
 
-## Frontend Steps
+## Configuration
 
-1. Replace `localStorage.getItem('accessToken')` authorization headers with
-   Clerk `getToken()` from `useAuth()`.
-2. Remove OpenAuth refresh/exchange logic from the sidebar once API calls use
-   Clerk tokens.
-3. Keep `/sign-in` and `/sign-up` routes as the user-facing auth entry points.
+```json
+"ClerkAuth": {
+  "Authority": "https://relaxing-koala-79.clerk.accounts.dev",
+  "AuthorizedParties": ["http://localhost:5173"]
+}
+```
 
-## Cutover Checks
+- `Authority`: the Clerk instance issuer. Production needs its own instance domain
+  (set `ClerkAuth__Authority` env var or a prod appsettings entry).
+- `AuthorizedParties`: frontend origins allowed in the token's `azp` claim. Empty
+  array skips the check — set this in production.
 
-1. A new Clerk signup creates a DynamoDB user record via webhook.
-2. The signed-in user can call `GET api/user/{clerkUserId}` with a Clerk token.
-3. Backtest records use Clerk user ids consistently.
-4. Existing OpenAuth users are either migrated or explicitly allowed through the
-   fallback path until support is removed.
+## Data notes
+
+`Role` must be one of `Basic`, `Advanced`, `Premium`; `IsAdmin` is a separate boolean
+attribute (missing = false). Records with pre-tier role strings (`"Admin"`, `"None"`)
+are not supported — there are none left in the user store.
+
+## Stripe integration (future)
+
+Subscription webhooks should write only `UserRecord.Role` (mapping plan → tier) and
+must never touch `IsAdmin`. Decide downgrade timing (immediately vs. period end)
+inside the webhook handler — authorization picks the change up on the next request
+either way.

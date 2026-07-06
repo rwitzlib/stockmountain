@@ -1,3 +1,4 @@
+import { getAuthHeaders } from '../../api/authToken';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -67,10 +68,8 @@ const StrategyOptimizePage = () => {
   const { data: tradesResponse, error: tradesError } = useQuery({
     queryKey: ['strategyTrades', strategyId],
     queryFn: async () => {
-      const response = await fetch(`https://api.stockmountain.io/api/trade?strategy=${strategyId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
+      const response = await fetch(`https://stockmountain.io/api/trade?strategy=${strategyId}`, {
+        headers: await getAuthHeaders()
       });
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -565,7 +564,7 @@ const StrategyOptimizePage = () => {
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-8 text-primary dark:text-cyan-400 font-mono text-sm">
-            <div className="animate-pulse">» LOADING STRATEGY DATA...</div>
+            <div className="animate-pulse">Â» LOADING STRATEGY DATA...</div>
           </div>
         </div>
       </div>
@@ -577,8 +576,8 @@ const StrategyOptimizePage = () => {
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-8 text-destructive dark:text-red-400 font-mono text-sm">
-            <div>⚠ STRATEGY NOT FOUND</div>
-            <div className="text-muted-foreground text-xs mt-2">» Invalid strategy ID or access denied</div>
+            <div>âš  STRATEGY NOT FOUND</div>
+            <div className="text-muted-foreground text-xs mt-2">Â» Invalid strategy ID or access denied</div>
           </div>
         </div>
       </div>
@@ -818,7 +817,7 @@ const StrategyOptimizePage = () => {
                         disabled={!hasPrevPage}
                         className="font-mono text-xs"
                       >
-                        ◄◄
+                        â—„â—„
                       </Button>
                       <Button
                         variant="outline"
@@ -827,7 +826,7 @@ const StrategyOptimizePage = () => {
                         disabled={!hasPrevPage}
                         className="font-mono text-xs"
                       >
-                        ◄
+                        â—„
                       </Button>
                       <span className="px-3 text-xs font-mono">
                         {currentPage} / {totalPages || 1}
@@ -839,7 +838,7 @@ const StrategyOptimizePage = () => {
                         disabled={!hasNextPage}
                         className="font-mono text-xs"
                       >
-                        ►
+                        â–º
                       </Button>
                       <Button
                         variant="outline"
@@ -848,7 +847,7 @@ const StrategyOptimizePage = () => {
                         disabled={!hasNextPage}
                         className="font-mono text-xs"
                       >
-                        ►►
+                        â–ºâ–º
                       </Button>
                     </div>
                   </div>

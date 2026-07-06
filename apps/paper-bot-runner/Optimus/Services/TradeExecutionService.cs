@@ -40,7 +40,7 @@ public class TradeExecutionService(
             return false;
         }
 
-        if (user.Role < UserRole.Advanced)
+        if (user.Role < UserRole.Advanced && !user.IsAdmin)
         {
             logger.LogWarning("User {UserId} has insufficient role for strategy execution", strategy.UserId);
             return false;

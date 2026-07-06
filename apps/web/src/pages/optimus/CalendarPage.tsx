@@ -1,3 +1,4 @@
+import { getAuthHeaders } from '../../api/authToken';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -22,16 +23,8 @@ const CalendarPage = () => {
   const { data: tradesData } = useQuery({
     queryKey: ['trades'],
     queryFn: async () => {
-      const token = localStorage.getItem("accessToken");
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch('https://api.stockmountain.io/api/trade?user=rob.witzlib@gmail.com', {
-        headers: headers,
+      const response = await fetch('https://stockmountain.io/api/trade?user=rob.witzlib@gmail.com', {
+        headers: await getAuthHeaders(),
       });
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -293,7 +286,7 @@ const CalendarPage = () => {
                           </div>
                           <div className="text-right">
                             <div>Shares: {trade.shares}</div>
-                            <div>Price: {formatPrice(trade.entryPrice)} → {formatPrice(trade.closePrice)}</div>
+                            <div>Price: {formatPrice(trade.entryPrice)} â†’ {formatPrice(trade.closePrice)}</div>
                           </div>
                         </div>
                       </div>

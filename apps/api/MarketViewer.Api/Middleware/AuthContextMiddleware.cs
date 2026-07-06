@@ -1,52 +1,56 @@
+using MarketViewer.Application.Services;
 using MarketViewer.Core.Auth;
-using MarketViewer.Core.Models;
-using System.IdentityModel.Tokens.Jwt;
+using MarketViewer.Core.Services;
 using System.Security.Claims;
-using System.Text.Json;
 
 namespace MarketViewer.Api.Middleware;
 
+/// <summary>
+/// Resolves the authenticated caller's app profile. The Clerk JWT (already validated by the
+/// authentication middleware) only proves identity via its sub claim; role and admin status
+/// always come from the DynamoDB user record so subscription changes take effect on the
+/// next request and token claims can never grant access.
+/// </summary>
 public class AuthContextMiddleware(RequestDelegate next)
 {
-    private readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
+    public async Task InvokeAsync(
+        HttpContext context,
+        AuthContext authContext,
+        IUserRepository userRepository,
+        ClerkUserProvisioningService provisioningService,
+        ILogger<AuthContextMiddleware> logger)
     {
-        PropertyNameCaseInsensitive = true
-    };
-
-    public async Task InvokeAsync(HttpContext context, AuthContext authContext)
-    {
-        // Extract bearer token from Authorization header
-        var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
-
-        if (authHeader != null && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        if (context.User.Identity?.IsAuthenticated == true)
         {
-            var token = authHeader.Substring("Bearer ".Length).Trim();
+            var userId = context.User.FindFirstValue("sub")
+                ?? context.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            try
+            if (!string.IsNullOrEmpty(userId))
             {
-                // Parse the JWT token without validation (validation is handled by JWT middleware)
-                var jwtHandler = new JwtSecurityTokenHandler();
-                var jwt = jwtHandler.ReadJwtToken(token);
+                var user = await userRepository.Get(userId);
 
-                // Extract the properties claim
-                var propertiesClaim = jwt.Claims.FirstOrDefault(c => c.Type == "properties")?.Value;
-
-                if (!string.IsNullOrEmpty(propertiesClaim))
+                if (user is null)
                 {
-                    var subject = JsonSerializer.Deserialize<Subject>(propertiesClaim, _jsonSerializerOptions);
-
-                    if (subject != null)
-                    {
-                        authContext.UserId = subject.Username;
-                        authContext.Role = subject.Role;
-                        authContext.IsAuthenticated = true;
-                    }
+                    // The Clerk user.created webhook may not have landed yet (or was dropped).
+                    // Provision is idempotent, so racing the webhook is safe.
+                    logger.LogInformation("No user record for authenticated user {UserId}; provisioning inline", userId);
+                    await provisioningService.Provision(new ClerkUserProfile(userId, null));
+                    user = await userRepository.Get(userId);
                 }
-            }
-            catch (Exception)
-            {
-                // If token parsing fails, leave AuthContext with default values
-                // This could happen with malformed tokens, but the JWT middleware will handle validation
+
+                if (user is not null)
+                {
+                    authContext.UserId = user.Id;
+                    authContext.Role = user.Role;
+                    authContext.IsAdmin = user.IsAdmin;
+                    authContext.IsAuthenticated = true;
+
+                    context.Items["UserId"] = user.Id;
+                }
+                else
+                {
+                    logger.LogError("Failed to provision user record for authenticated user {UserId}", userId);
+                }
             }
         }
 

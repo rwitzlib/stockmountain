@@ -1,9 +1,4 @@
-using MarketViewer.Contracts.Enums;
-using MarketViewer.Core.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Configuration;
-using System.Security.Claims;
-using System.Text.Json;
 
 namespace MarketViewer.Api.Authorization;
 

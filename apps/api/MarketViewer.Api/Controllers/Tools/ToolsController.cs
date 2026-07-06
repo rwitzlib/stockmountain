@@ -1,4 +1,4 @@
-﻿using Amazon.S3;
+using Amazon.S3;
 using Amazon.S3.Model;
 using MarketViewer.Api.Authorization;
 using MarketViewer.Api.Controllers.Market;
@@ -39,7 +39,7 @@ public class ToolsController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Admin])]
+    [RequiresAdmin]
     public IActionResult Aggregate([FromQuery] ToolsAggregateRequest request)
     {
         try
@@ -62,7 +62,7 @@ public class ToolsController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Admin])]
+    [RequiresAdmin]
     public async Task<IActionResult> S3Aggregate(string year, string month, string day, string ticker, Timespan timespan)
     {
         try
@@ -117,7 +117,7 @@ public class ToolsController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Admin])]
+    [RequiresAdmin]
     public async Task<IActionResult> Scan([FromBody] ToolsScanRequest request)
     {
         try
@@ -138,7 +138,7 @@ public class ToolsController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Admin])]
+    [RequiresAdmin]
     public IActionResult Stats()
     {
         try
@@ -185,7 +185,7 @@ public class ToolsController(
 
     [HttpGet]
     [Route("websocket/live/SPY")]
-    [RequiredPermissions([UserRole.Admin])]
+    [RequiresAdmin]
     public IActionResult GetWebsocketResponses()
     {
         return Ok(memoryCache.Get<List<Bar>>("SPY_LIVE"));
@@ -193,7 +193,7 @@ public class ToolsController(
 
     [HttpGet]
     [Route("websocket/{tickers}")]
-    [RequiredPermissions([UserRole.Admin])]
+    [RequiresAdmin]
     public IActionResult GetWebsocketResponses(string tickers)
     {
         var tickersList = tickers.Split(',');
@@ -219,7 +219,7 @@ public class ToolsController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> FilterAggregate([FromBody] ToolsFilterRequest request)
     {
         try

@@ -4,23 +4,16 @@ namespace MarketViewer.Core.Auth;
 
 public static class AuthContextExtensions
 {
-    public static bool HasRole(this AuthContext authContext, UserRole role)
+    /// <summary>
+    /// True when the user meets the minimum tier. Admins satisfy every tier requirement.
+    /// </summary>
+    public static bool HasTier(this AuthContext authContext, UserRole minimumTier)
     {
-        return authContext.IsAuthenticated && authContext.Role == role;
-    }
+        if (!authContext.IsAuthenticated)
+        {
+            return false;
+        }
 
-    public static bool HasAnyRole(this AuthContext authContext, params UserRole[] roles)
-    {
-        return authContext.IsAuthenticated && authContext.Role.HasValue && roles.Contains(authContext.Role.Value);
-    }
-
-    public static bool IsAdmin(this AuthContext authContext)
-    {
-        return authContext.HasRole(UserRole.Admin);
-    }
-
-    public static bool IsPremiumOrAbove(this AuthContext authContext)
-    {
-        return authContext.HasAnyRole(UserRole.Premium, UserRole.Admin);
+        return authContext.IsAdmin || (authContext.Role.HasValue && authContext.Role.Value >= minimumTier);
     }
 }

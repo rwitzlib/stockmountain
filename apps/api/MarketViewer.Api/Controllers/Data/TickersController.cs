@@ -1,4 +1,4 @@
-﻿using MarketViewer.Api.Authorization;
+using MarketViewer.Api.Authorization;
 using MarketViewer.Application.Handlers.Data.Tickers;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Data.Ticker;
@@ -18,7 +18,7 @@ public class TickersController(TickerHandler handler, ILogger<TickersController>
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Admin])]
+    [RequiresAdmin]
     public async Task<IActionResult> PopulateTickers([FromBody] TickerPopulateRequest request)
     {
         try

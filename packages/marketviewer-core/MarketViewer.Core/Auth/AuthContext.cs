@@ -8,5 +8,6 @@ public class AuthContext
 {
     public string UserId { get; set; }
     public UserRole? Role { get; set; }
+    public bool IsAdmin { get; set; }
     public bool IsAuthenticated { get; set; }
 }

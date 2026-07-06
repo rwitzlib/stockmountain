@@ -1,4 +1,4 @@
-﻿using MarketViewer.Api.Authorization;
+using MarketViewer.Api.Authorization;
 using MarketViewer.Application.Handlers.Tools;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Tools;
@@ -19,7 +19,7 @@ public class SnapshotController(SnapshotHandler handler, ILogger<SnapshotControl
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.Admin])]
+    [RequiresAdmin]
     public IActionResult Snapshot([FromQuery] SnapshotRequest request)
     {
         var response = handler.GetSnapshot(request);

@@ -12,7 +12,6 @@
   "dependencies": {
     "@clerk/react": "^6.11.3",
     "@clerk/ui": "^1.24.1",
-    "@openauthjs/openauth": "^0.4.3",
     "@radix-ui/react-alert-dialog": "^1.1.13",
     "@radix-ui/react-dialog": "^1.1.13",
     "@radix-ui/react-slot": "^1.2.2",
@@ -24,7 +23,6 @@
     "axios": "^1.9.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "jwt-decode": "^4.0.0",
     "lightweight-charts": "^5.0.7",
     "lucide-react": "^0.344.0",
     "path": "^0.12.7",

@@ -1,4 +1,4 @@
-﻿using MarketViewer.Api.Authorization;
+using MarketViewer.Api.Authorization;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Management.Trade;
 using MarketViewer.Contracts.Responses.Management;
@@ -16,7 +16,7 @@ public class TradeController(IMediator mediator, AuthContext authContext, ILogge
 {
     [HttpPost]
     [Authorize]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> Open([FromBody] TradeOpenRequest request)
     {
         try
@@ -61,7 +61,7 @@ public class TradeController(IMediator mediator, AuthContext authContext, ILogge
 
     [HttpPut("{id}")]
     [Authorize]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> Close(string id, [FromBody] TradeCloseRequest request)
     {
         try

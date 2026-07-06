@@ -1,3 +1,4 @@
+import { getAuthHeaders } from '../../api/authToken';
 import { useRef, useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { TimeSelector } from '../../components/TimeSelector';
@@ -45,10 +46,8 @@ const TradeDetailPage = () => {
   } = useQuery({
     queryKey: ['trade', id],
     queryFn: async () => {
-      const response = await fetch(`https://api.stockmountain.io/api/trade/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
+      const response = await fetch(`https://stockmountain.io/api/trade/${id}`, {
+        headers: await getAuthHeaders()
       });
 
       if (!response.ok) {
@@ -108,10 +107,7 @@ const TradeDetailPage = () => {
       
       const response = await fetch('https://api.stockmountain.io/api/stocks', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           ticker: trade.ticker,
           multiplier: 1,
@@ -333,7 +329,7 @@ const TradeDetailPage = () => {
   if ((!tradeFromState && isTradeLoading) || !trade) {
     return (
       <div className="min-h-screen bg-background p-4 md:p-8 pt-20 md:pt-8 flex items-center justify-center">
-        <div className="text-primary dark:text-cyan-400 font-mono text-sm animate-pulse">» LOADING TRADE DATA...</div>
+        <div className="text-primary dark:text-cyan-400 font-mono text-sm animate-pulse">Â» LOADING TRADE DATA...</div>
       </div>
     );
   }
@@ -378,7 +374,7 @@ const TradeDetailPage = () => {
                   {trade.orderStatus}
                 </span>
                 <p className="text-muted-foreground font-mono text-xs">
-                  {formatDateDisplay(trade.openedAt)} {'→'} {formatDateDisplay(trade.closedAt) || 'PRESENT'}
+                  {formatDateDisplay(trade.openedAt)} {'â†’'} {formatDateDisplay(trade.closedAt) || 'PRESENT'}
                 </p>
               </div>
             </div>
@@ -423,7 +419,7 @@ const TradeDetailPage = () => {
               {isLoading ? (
                 <div className="h-[50vh] flex items-center justify-center bg-muted/30 dark:bg-gray-950/50 border border-border">
                   <div className="text-center">
-                    <p className="text-primary dark:text-cyan-400 font-mono text-sm animate-pulse">» LOADING CHART...</p>
+                    <p className="text-primary dark:text-cyan-400 font-mono text-sm animate-pulse">Â» LOADING CHART...</p>
                     <p className="text-[10px] font-mono text-muted-foreground mt-2">{'>> '}Retrieving market data</p>
                   </div>
                 </div>

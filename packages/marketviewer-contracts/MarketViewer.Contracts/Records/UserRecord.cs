@@ -12,5 +12,6 @@ public class UserRecord
     public float Credits { get; set; }
     public bool IsPublic { get; set; }
     public UserRole Role { get; set; }
+    public bool IsAdmin { get; set; }
     public Dictionary<IntegrationType, string> Tokens { get; set; }
 }

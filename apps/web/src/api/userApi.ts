@@ -1,23 +1,21 @@
-const BASE_URL = 'https://api.stockmountain.io/api';
+import { getAuthHeaders } from './authToken';
+const BASE_URL = 'https://stockmountain.io/api';
 
-const getAuthHeaders = () => ({
-	'Content-Type': 'application/json',
-	'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-});
 
 export interface UserDetails {
-	id: number;
-	avatarurl: string | null;
+	id: string;
+	avatarUrl: string | null;
 	credits: number;
-	ispublic: boolean;
-	role: string;
+	isPublic: boolean;
+	role: 'Basic' | 'Advanced' | 'Premium';
+	isAdmin: boolean;
 }
 
 export const userApi = {
-	getUser: async (userId: number | string): Promise<UserDetails> => {
+	getUser: async (userId: string): Promise<UserDetails> => {
 		const response = await fetch(`${BASE_URL}/user/${userId}`, {
 			method: 'GET',
-			headers: getAuthHeaders()
+			headers: await getAuthHeaders()
 		});
 
 		if (!response.ok) {
@@ -27,5 +25,3 @@ export const userApi = {
 		return await response.json();
 	}
 };
-
-

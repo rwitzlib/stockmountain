@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.Json;
 using Amazon.S3;
 using Amazon.S3.Model;
@@ -24,7 +24,7 @@ public class TickerController(IHttpContextAccessor contextAccessor, ILogger<Tick
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiredPermissions([UserRole.None, UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> Scan([FromBody] ScanRequest request)
     {
         try

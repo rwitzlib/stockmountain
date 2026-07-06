@@ -1,4 +1,4 @@
-﻿using MarketViewer.Api.Authorization;
+using MarketViewer.Api.Authorization;
 using MarketViewer.Contracts.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +17,7 @@ namespace MarketViewer.Api.Controllers.Market
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        [RequiredPermissions([UserRole.None, UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+        [RequiresTier(UserRole.Basic)]
         public async Task<IActionResult> HandleTickerDetailsRequest(string ticker)
         {
             if (string.IsNullOrWhiteSpace(ticker))

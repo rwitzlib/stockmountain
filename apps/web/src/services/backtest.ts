@@ -1,22 +1,13 @@
 
 import { BacktestRequest } from '../types/backtest';
 import { TradingData } from '../types/types';
+import { getAuthHeaders } from '../api/authToken';
 
 export async function fetchBacktestResults(request: BacktestRequest): Promise<TradingData> {
   try {
-    const baseUrl = import.meta.env.VITE_API_URL ?? 'https://api.stockmountain.io';
-    
-    // Get the access token from localStorage
-    const accessToken = localStorage.getItem("accessToken");
-        
-    // Prepare headers with authorization if token exists
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+    const baseUrl = import.meta.env.VITE_API_URL ?? 'https://stockmountain.io';
 
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-    }
+    const headers = await getAuthHeaders();
 
     const response = await fetch(baseUrl + "/api/backtest/v3", {
       method: 'POST',

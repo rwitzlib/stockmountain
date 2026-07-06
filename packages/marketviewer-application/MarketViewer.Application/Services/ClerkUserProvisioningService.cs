@@ -27,6 +27,7 @@ public class ClerkUserProvisioningService(
             Credits = StartingCredits,
             IsPublic = false,
             Role = UserRole.Basic,
+            IsAdmin = false,
             Tokens = []
         };
 

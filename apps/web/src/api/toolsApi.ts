@@ -1,12 +1,9 @@
+import { getAuthHeaders } from './authToken';
 import type { BarData as LightweightBarData } from "lightweight-charts";
 import type { BarData } from "../types/tools";
 
-const BASE_URL = 'https://api.stockmountain.io/api';
+const BASE_URL = 'https://stockmountain.io/api';
 
-const getAuthHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
-});
 
 export type ChartFilterTimespan = 'minute' | 'hour' | 'day' | 'week' | 'year';
 
@@ -39,7 +36,7 @@ export const toolsApi = {
 
     const response = await fetch(`${BASE_URL}/tools/filter`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
       body: JSON.stringify(payload),
     });
 

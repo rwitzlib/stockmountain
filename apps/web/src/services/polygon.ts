@@ -1,4 +1,5 @@
 import { StockMarketData, IndicatorsRequest } from '../types/tools';
+import { getAuthHeaders } from '../api/authToken';
 
 interface FetchDataParams {
   ticker: string;
@@ -18,19 +19,9 @@ export async function fetchMarketData({
   indicators = []
 }: FetchDataParams): Promise<StockMarketData> {
   try {
-    const baseUrl = import.meta.env.VITE_API_URL ?? 'https://api.stockmountain.io';
+    const baseUrl = import.meta.env.VITE_API_URL ?? 'https://stockmountain.io';
 
-    // Get the access token from localStorage
-    const accessToken = localStorage.getItem("accessToken");
-
-    // Prepare headers with authorization if token exists
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-    }
+    const headers = await getAuthHeaders();
 
     const requestBody: any = {
       ticker,

@@ -1,10 +1,11 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { Globe, Lock } from 'lucide-react';
-import { isAuthenticated } from '../utils/auth';
+import { useUser } from '@clerk/react';
 
 export function OptimusPage() {
-  const userIsAuthenticated = isAuthenticated();
+  const { isSignedIn } = useUser();
+  const userIsAuthenticated = !!isSignedIn;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 pt-20 md:pt-8">

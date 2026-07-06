@@ -8,16 +8,17 @@ import { StrategyCard } from '../../components/StrategyCard';
 import { toast } from '../../hooks/use-toast';
 import { strategyApi } from '../../api/strategyApi';
 
-import { isAuthenticated } from '../../utils/auth';
+import { useUser } from '@clerk/react';
 
 const Dashboard = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isLoaded, isSignedIn } = useUser();
 
-  // Check authentication on component mount
+  // Redirect once Clerk has loaded and the user is definitely signed out
   useEffect(() => {
-    if (!isAuthenticated()) {
+    if (isLoaded && !isSignedIn) {
       toast({
         title: "Authentication Required",
         description: "Please log in to view your personal dashboard",
@@ -26,11 +27,11 @@ const Dashboard = () => {
       navigate('/optimus');
       return;
     }
-  }, [navigate]);
+  }, [isLoaded, isSignedIn, navigate]);
 
   // Handle navigation state for creating strategy from backtest
   useEffect(() => {
-    if (location.state?.createStrategy && isAuthenticated()) {
+    if (location.state?.createStrategy && isSignedIn) {
       const strategyData = location.state.initialStrategyData;
       
       // Navigate to the new strategy editor page with initial data
@@ -39,12 +40,12 @@ const Dashboard = () => {
         replace: true 
       });
     }
-  }, [location.state, navigate]);
+  }, [location.state, navigate, isSignedIn]);
 
   const { data: myStrategies, isLoading: isLoadingStrategies } = useQuery({
     queryKey: ['myStrategies'],
     queryFn: strategyApi.getMyStrategies,
-    enabled: isAuthenticated() // Only fetch if authenticated
+    enabled: !!isSignedIn // Only fetch if authenticated
   });
 
 
@@ -94,7 +95,7 @@ const Dashboard = () => {
   };
 
   // Don't render if not authenticated
-  if (!isAuthenticated()) {
+  if (!isSignedIn) {
     return (
       <div className="min-h-screen bg-background">
         <div className="p-4 md:p-8 pt-20 md:pt-8">

@@ -16,7 +16,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
 {
     [HttpPost]
     [Authorize]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<ActionResult<StrategyResponse>> Create(StrategyCreateRequest request)
     {
         try
@@ -87,7 +87,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
 
     [HttpPut("{id}")]
     [Authorize]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> Update(string id, StrategyUpdateRequest request)
     {
         try
@@ -113,7 +113,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
 
     [HttpDelete("{id}")]
     [Authorize]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> Delete(string id)
     {
         try
@@ -139,7 +139,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
 
     [HttpPost("optimize/{id}")]
     [Authorize]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> Optimize(string id, [FromBody] StrategyOptimizeRequest request)
     {
         try
@@ -178,7 +178,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
     /// </summary>
     [HttpGet("{id}/state")]
     [Authorize]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<ActionResult<StrategyStateResponse>> GetState(string id)
     {
         try
@@ -204,7 +204,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
     /// </summary>
     [HttpGet("{id}/balance-history")]
     [Authorize]
-    [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<ActionResult<BalanceHistoryResponse>> GetBalanceHistory(
         string id,
         [FromQuery] string startDate = null,

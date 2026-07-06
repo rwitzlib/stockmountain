@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using MarketViewer.Api.Authorization;
 using MarketViewer.Application.Handlers.Market.Backtest;
 using MarketViewer.Contracts.Enums;
@@ -16,7 +16,7 @@ namespace MarketViewer.Api.Controllers.Market;
 public class BacktestController(AuthContext authContext, BacktestHandler handler, ILogger<BacktestController> logger) : ControllerBase
 {
     [HttpPost]
-    // [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> StartBacktest([FromBody] BacktestCreateRequest request)
     {
         request.UserId = "rob.witzlib@gmail.com"; //authContext.UserId;
@@ -33,7 +33,7 @@ public class BacktestController(AuthContext authContext, BacktestHandler handler
 
     [HttpGet]
     [Route("{id}")]
-    // [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> GetBacktestEntry(string id)
     {
         var response = await handler.GetEntry(id);
@@ -47,7 +47,7 @@ public class BacktestController(AuthContext authContext, BacktestHandler handler
     }
 
     [HttpGet]
-    // [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> ListBacktestEntries()
     {
         var userId = authContext.UserId;
@@ -64,7 +64,7 @@ public class BacktestController(AuthContext authContext, BacktestHandler handler
 
     [HttpGet]
     [Route("result/{id}")]
-    // [RequiredPermissions([UserRole.Basic, UserRole.Advanced, UserRole.Premium, UserRole.Admin])]
+    [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> GetBacktestResult(string id)
     {
         var userId = authContext.UserId;

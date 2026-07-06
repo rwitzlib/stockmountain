@@ -1,3 +1,4 @@
+import { getAuthHeaders } from '../../api/authToken';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -77,10 +78,8 @@ const StrategyDetailPage = () => {
   const { data: tradesResponse, error: tradesError } = useQuery({
     queryKey: ['strategyTrades', strategyId],
     queryFn: async () => {
-      const response = await fetch(`https://api.stockmountain.io/api/trade?strategy=${strategyId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
+      const response = await fetch(`https://stockmountain.io/api/trade?strategy=${strategyId}`, {
+        headers: await getAuthHeaders()
       });
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -854,7 +853,7 @@ const StrategyDetailPage = () => {
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-8 text-primary dark:text-cyan-400 font-mono text-sm">
-            <div className="animate-pulse">» LOADING STRATEGY DATA...</div>
+            <div className="animate-pulse">Â» LOADING STRATEGY DATA...</div>
           </div>
         </div>
       </div>
@@ -866,8 +865,8 @@ const StrategyDetailPage = () => {
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-8 text-destructive dark:text-red-400 font-mono text-sm">
-            <div>⚠ STRATEGY NOT FOUND</div>
-            <div className="text-muted-foreground text-xs mt-2">» Invalid strategy ID or access denied</div>
+            <div>âš  STRATEGY NOT FOUND</div>
+            <div className="text-muted-foreground text-xs mt-2">Â» Invalid strategy ID or access denied</div>
           </div>
         </div>
       </div>
@@ -1005,7 +1004,7 @@ const StrategyDetailPage = () => {
               </AlertDialogTrigger>
               <AlertDialogContent className="bg-card border border-destructive dark:border-red-700">
                 <AlertDialogHeader>
-                  <AlertDialogTitle className="text-destructive dark:text-red-400 font-mono uppercase">⚠️ Terminate Strategy</AlertDialogTitle>
+                  <AlertDialogTitle className="text-destructive dark:text-red-400 font-mono uppercase">âš ï¸ Terminate Strategy</AlertDialogTitle>
                   <AlertDialogDescription className="text-muted-foreground font-mono text-sm">
                     {'>> '}CONFIRM DELETION OF &quot;{strategy.name}&quot;<br/>
                     {'>> '}THIS OPERATION IS IRREVERSIBLE<br/>
@@ -1154,7 +1153,7 @@ const StrategyDetailPage = () => {
                                 onClick={() => setSelectedDate(undefined)}
                                 className="text-[10px] font-mono text-muted-foreground hover:text-destructive dark:hover:text-red-400 transition-colors"
                               >
-                                ✕
+                                âœ•
                               </button>
                             </div>
                           </div>
@@ -1178,7 +1177,7 @@ const StrategyDetailPage = () => {
                                 </span>
                               </div>
                               <div className="flex justify-between text-[9px] font-mono text-muted-foreground mt-1">
-                                <span>{formatPrice(trade.entryPrice)} → {formatPrice(trade.closePrice)}</span>
+                                <span>{formatPrice(trade.entryPrice)} â†’ {formatPrice(trade.closePrice)}</span>
                                 <span>x{trade.shares}</span>
                               </div>
                             </div>
@@ -1306,14 +1305,14 @@ const StrategyDetailPage = () => {
                                 disabled={!hasPrevPage}
                                 className="px-1.5 py-0.5 border border-border bg-card text-foreground hover:border-primary dark:hover:border-cyan-700 hover:text-primary dark:hover:text-cyan-400 disabled:opacity-30 font-mono text-[10px] transition-colors"
                               >
-                                ◄◄
+                                â—„â—„
                               </button>
                               <button
                                 onClick={() => setCurrentPage(currentPage - 1)}
                                 disabled={!hasPrevPage}
                                 className="px-1.5 py-0.5 border border-border bg-card text-foreground hover:border-primary dark:hover:border-cyan-700 hover:text-primary dark:hover:text-cyan-400 disabled:opacity-30 font-mono text-[10px] transition-colors"
                               >
-                                ◄
+                                â—„
                               </button>
                               <span className="px-2 text-[10px] font-mono text-muted-foreground">{currentPage}/{totalPages}</span>
                               <button
@@ -1321,14 +1320,14 @@ const StrategyDetailPage = () => {
                                 disabled={!hasNextPage}
                                 className="px-1.5 py-0.5 border border-border bg-card text-foreground hover:border-primary dark:hover:border-cyan-700 hover:text-primary dark:hover:text-cyan-400 disabled:opacity-30 font-mono text-[10px] transition-colors"
                               >
-                                ►
+                                â–º
                               </button>
                               <button
                                 onClick={() => setCurrentPage(totalPages)}
                                 disabled={!hasNextPage}
                                 className="px-1.5 py-0.5 border border-border bg-card text-foreground hover:border-primary dark:hover:border-cyan-700 hover:text-primary dark:hover:text-cyan-400 disabled:opacity-30 font-mono text-[10px] transition-colors"
                               >
-                                ►►
+                                â–ºâ–º
                               </button>
                             </div>
                           </div>

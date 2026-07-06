@@ -16,7 +16,7 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { strategyApi } from '../../api/strategyApi';
 import { toast } from '../../hooks/use-toast';
-import { isAuthenticated } from '../../utils/auth';
+import { useUser } from '@clerk/react';
 import { 
   ChevronLeft, 
   Settings2, 
@@ -90,10 +90,11 @@ const StrategyEditorPage = () => {
   const [activeSection, setActiveSection] = useState<SectionId>('general');
   const [formData, setFormData] = useState<Strategy>(defaultFormData);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const { isLoaded, isSignedIn } = useUser();
 
-  // Check authentication
+  // Redirect once Clerk has loaded and the user is definitely signed out
   useEffect(() => {
-    if (!isAuthenticated()) {
+    if (isLoaded && !isSignedIn) {
       toast({
         title: "Authentication Required",
         description: "Please log in to create or edit strategies",
@@ -101,13 +102,13 @@ const StrategyEditorPage = () => {
       });
       navigate('/optimus');
     }
-  }, [navigate]);
+  }, [isLoaded, isSignedIn, navigate]);
 
   // Fetch existing strategy if editing
   const { data: existingStrategy, isLoading: isLoadingStrategy } = useQuery({
     queryKey: ['strategy', strategyId],
     queryFn: () => strategyApi.getStrategy(strategyId!),
-    enabled: isEditMode && isAuthenticated(),
+    enabled: isEditMode && !!isSignedIn,
   });
 
   // Initialize form with existing strategy data or from navigation state

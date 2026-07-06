@@ -1,4 +1,3 @@
-using MarketViewer.Api.Authentication;
 using MarketViewer.Api.Authorization;
 using MarketViewer.Api.Config;
 using MarketViewer.Api.Healthcheck;
@@ -93,32 +92,48 @@ public class Program
             options.JsonSerializerOptions.Converters.Add(new IndicatorPointConverter());
         });
 
-        var signingKeyCache = new SigningKeyCache();
+        var clerkAuthConfig = builder.Configuration.GetSection("ClerkAuth").Get<ClerkAuthConfig>() ?? new ClerkAuthConfig();
 
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
+                // Clerk publishes its JWKS via OIDC discovery on the instance authority.
+                options.Authority = clerkAuthConfig.Authority;
+                options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
-                    ValidateAudience = true,
+                    ValidIssuer = clerkAuthConfig.Authority,
+                    // Clerk session tokens carry no audience; azp is checked below instead.
+                    ValidateAudience = false,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = "http://auth.stockmountain.io",
-                    ValidAudience = "react",
-                    IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
+                    NameClaimType = "sub"
+                };
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = context =>
                     {
-                        var keys = signingKeyCache.GetKeys();
-                        return new JsonWebKeySet(keys).GetSigningKeys();
+                        if (clerkAuthConfig.AuthorizedParties.Length > 0)
+                        {
+                            var azp = context.Principal?.FindFirst("azp")?.Value;
+                            if (!string.IsNullOrEmpty(azp) && !clerkAuthConfig.AuthorizedParties.Contains(azp))
+                            {
+                                context.Fail("Token azp claim is not an authorized party.");
+                            }
+                        }
+
+                        return Task.CompletedTask;
                     }
                 };
             });
 
         // Register the authorization handler and policy
         builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-        builder.Services.AddScoped<IAuthorizationHandler, RequiredPermissionsHandler>();
+        builder.Services.AddScoped<IAuthorizationHandler, TierAuthorizationHandler>();
+        builder.Services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
         builder.Services.AddScoped<IAuthorizationHandler, MetricsBearerTokenHandler>();
-        builder.Services.AddSingleton<IAuthorizationPolicyProvider, RequiredPermissionsAuthorizationPolicyProvider>();
+        builder.Services.AddSingleton<IAuthorizationPolicyProvider, TierAuthorizationPolicyProvider>();
         builder.Services.AddAuthorization();
 
         builder.Services.AddHttpLogging(options => options.LoggingFields = HttpLoggingFields.All);
