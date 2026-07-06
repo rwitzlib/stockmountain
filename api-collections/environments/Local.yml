@@ -1,0 +1,10 @@
+name: Local
+variables:
+  - name: base_url
+    value: localhost
+  - name: protocol
+    value: https
+  - name: lambda_path
+    value: 2015-03-31/functions/function/invocations
+  - name: port
+    value: :7159

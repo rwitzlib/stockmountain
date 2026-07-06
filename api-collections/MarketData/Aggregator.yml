@@ -1,0 +1,24 @@
+info:
+  name: Aggregator
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{protocol}}://{{base_url}}:10001/{{lambda_path}}"
+  body:
+    type: json
+    data: |-
+      {
+        "Multiplier": 1,
+        "Timespan": "minute",
+        "Date": "2026-06-29",
+        "Source": "local"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

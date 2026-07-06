@@ -1,0 +1,21 @@
+info:
+  name: Clerk Auth
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: https://{{base_url}}{{port}}/api/webhooks/clerk
+  body:
+    type: json
+    data: |-
+      {
+        
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

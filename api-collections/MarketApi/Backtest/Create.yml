@@ -1,0 +1,62 @@
+info:
+  name: Create
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: https://{{base_url}}{{port}}/api/backtest
+  body:
+    type: json
+    data: |-
+      {
+        "UserId": "rob.witzlib@gmail.com",
+        "Start": "2026-06-01",
+        "End": "2026-06-01",
+        "PositionSettings": {
+          "StartingBalance": 100000,
+          "MaxConcurrentPositions": 1000,
+          "Model": {
+            "Type": "Fixed",
+            "Size": 1000
+          },
+          "Cooldown": {
+            "Multiplier": 15,
+            "Timeframe": "minute"
+          }
+        },
+        "EntrySettings": {
+          "Filters": [
+            "rsi(30,70,14,ema) > 70 [1m]"
+          ]
+        },
+        "ExitSettings": {
+          "StopLoss": {
+            "CandleType": "CurrentCandle",
+            "PriceActionType": "close",
+            "ExitValueType": "percent",
+            "Value": 5
+          },
+          "TakeProfit": {
+            "CandleType": "CurrentCandle",
+            "PriceActionType": "close",
+            "ExitValueType": "percent",
+            "Value": 10
+          },
+          "ConditionalExit": [],
+          "TimedExit": {
+            "Timeframe": {
+              
+            "Multiplier": 30,
+            "Timespan": "minute"
+            }
+          }
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
