@@ -16,7 +16,6 @@ namespace MarketViewer.Api.Controllers.Market;
 
 [ApiController]
 [Authorize]
-[Route("/api/scan")]
 [Route("/scan")]
 public class TickerController(IHttpContextAccessor contextAccessor, ILogger<TickerController> _logger, IMediator _mediator) : ControllerBase
 {

@@ -10,7 +10,7 @@ using System.Net;
 namespace MarketViewer.Api.Controllers.Management;
 
 [ApiController]
-[Route("api/user")]
+[Route("user")]
 public class UserController(IMediator mediator, AuthContext context, ILogger<UserController> logger) : ControllerBase
 {
 

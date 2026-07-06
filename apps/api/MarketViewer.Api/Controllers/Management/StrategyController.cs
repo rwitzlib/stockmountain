@@ -11,7 +11,7 @@ using System.Net;
 namespace MarketViewer.Api.Controllers.Management;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("/strategy")]
 public class StrategyController(IMediator mediator, AuthContext authContext, ILogger<StrategyController> logger) : ControllerBase
 {
     [HttpPost]

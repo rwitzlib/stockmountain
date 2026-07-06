@@ -10,7 +10,7 @@ namespace MarketViewer.Api.Controllers.Market
 {
     [ApiController]
     [Authorize]
-    [Route("api/[controller]")]
+    [Route("/tickerDetails")]
     public class TickerDetailsController(IMemoryCache memoryCache, IHttpClientFactory httpClientFactory, ILogger<TickerDetailsController> logger) : ControllerBase
     {
         [HttpGet("{ticker}")]

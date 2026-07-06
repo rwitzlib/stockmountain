@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MarketViewer.Api.Controllers.Market;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("/stocks")]
 public class StocksController(
     IMediator mediator,
     IHttpContextAccessor contextAccessor,

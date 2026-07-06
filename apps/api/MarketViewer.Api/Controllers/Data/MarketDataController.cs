@@ -9,7 +9,6 @@ using System.Net;
 namespace MarketViewer.Api.Controllers.Data;
 
 [ApiController]
-// [Authorize]
 [Route("/market-data")]
 public class MarketDataController(MarketDataHandler handler, ILogger<MarketDataController> logger) : ControllerBase
 {
