@@ -105,7 +105,7 @@ const TradeDetailPage = () => {
         startDate = start.toISOString().split('T')[0];
       }
       
-      const response = await fetch('https://api.stockmountain.io/api/stocks', {
+      const response = await fetch('https://stockmountain.io/api/stocks', {
         method: 'POST',
         headers: await getAuthHeaders(),
         body: JSON.stringify({

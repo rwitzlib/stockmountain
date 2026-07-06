@@ -18,7 +18,7 @@ export function ApiStatus() {
 
   const checkApiHealth = async () => {
     try {
-      const response = await fetch('https://api.stockmountain.io/health', {
+      const response = await fetch('https://stockmountain.io/health', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
