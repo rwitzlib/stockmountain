@@ -170,6 +170,7 @@ public class Program
 
         var app = builder.Build();
 
+        app.UseMiddleware<GlobalExceptionMiddleware>();
         app.UseHttpLogging();
 
         app.UseRewriter(new RewriteOptions().AddRewrite(@"^api/(.*)", "$1", skipRemainingRules: true));
