@@ -1,9 +1,9 @@
 using MarketViewer.Api.Authorization;
+using MarketViewer.Application.Handlers.Management.Strategy;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Management.Strategy;
 using MarketViewer.Contracts.Responses.Management;
 using MarketViewer.Core.Auth;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -12,7 +12,17 @@ namespace MarketViewer.Api.Controllers.Management;
 
 [ApiController]
 [Route("/strategy")]
-public class StrategyController(IMediator mediator, AuthContext authContext, ILogger<StrategyController> logger) : ControllerBase
+public class StrategyController(
+    StrategyCreateHandler createHandler,
+    StrategyReadHandler readHandler,
+    StrategyListHandler listHandler,
+    StrategyUpdateHandler updateHandler,
+    StrategyDeleteHandler deleteHandler,
+    StrategyOptimizeHandler optimizeHandler,
+    StrategyStateHandler stateHandler,
+    BalanceHistoryHandler balanceHistoryHandler,
+    AuthContext authContext,
+    ILogger<StrategyController> logger) : ControllerBase
 {
     [HttpPost]
     [Authorize]
@@ -21,7 +31,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
     {
         try
         {
-            var strategy = await mediator.Send(request);
+            var strategy = await createHandler.Handle(request, HttpContext.RequestAborted);
 
             return strategy.Status switch
             {
@@ -43,10 +53,10 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
     {
         try
         {
-            var strategy = await mediator.Send(new StrategyReadRequest
+            var strategy = await readHandler.Handle(new StrategyReadRequest
             {
                 Id = id
-            });
+            }, HttpContext.RequestAborted);
 
             return strategy.Status switch
             {
@@ -68,7 +78,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
     {
         try
         {
-            var strategies = await mediator.Send(request);
+            var strategies = await listHandler.Handle(request, HttpContext.RequestAborted);
 
             return strategies.Status switch
             {
@@ -94,7 +104,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
         {
             request.Id = id;
 
-            var strategy = await mediator.Send(request);
+            var strategy = await updateHandler.Handle(request, HttpContext.RequestAborted);
 
             return strategy.Status switch
             {
@@ -118,10 +128,10 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
     {
         try
         {
-            var result = await mediator.Send(new StrategyDeleteRequest
+            var result = await deleteHandler.Handle(new StrategyDeleteRequest
             {
                 Id = id
-            });
+            }, HttpContext.RequestAborted);
 
             return result.Status switch
             {
@@ -146,7 +156,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
         {
             request.StrategyId = id;
 
-            var response = await mediator.Send(request);
+            var response = await optimizeHandler.Handle(request, HttpContext.RequestAborted);
 
             var statusCode = response.Status switch
             {
@@ -183,7 +193,7 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
     {
         try
         {
-            var response = await mediator.Send(new StrategyStateRequest { StrategyId = id });
+            var response = await stateHandler.Handle(new StrategyStateRequest { StrategyId = id }, HttpContext.RequestAborted);
 
             return response.Status switch
             {
@@ -212,12 +222,12 @@ public class StrategyController(IMediator mediator, AuthContext authContext, ILo
     {
         try
         {
-            var response = await mediator.Send(new BalanceHistoryRequest
+            var response = await balanceHistoryHandler.Handle(new BalanceHistoryRequest
             {
                 StrategyId = id,
                 StartDate = startDate,
                 EndDate = endDate
-            });
+            }, HttpContext.RequestAborted);
 
             return response.Status switch
             {

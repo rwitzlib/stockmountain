@@ -8,7 +8,7 @@ using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Requests.Market.Scan;
 using MarketViewer.Contracts.Responses.Tools;
-using MediatR;
+using MarketViewer.Application.Handlers.Market.Scan;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,7 +17,7 @@ namespace MarketViewer.Api.Controllers.Market;
 [ApiController]
 [Authorize]
 [Route("/scan")]
-public class TickerController(IMediator mediator, ILogger<TickerController> logger) : ControllerBase
+public class TickerController(ScanHandler scanHandler, ILogger<TickerController> logger) : ControllerBase
 {
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -26,7 +26,7 @@ public class TickerController(IMediator mediator, ILogger<TickerController> logg
     [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> Scan([FromBody] ScanRequest request)
     {
-        var response = await mediator.Send(request);
+        var response = await scanHandler.Handle(request, HttpContext.RequestAborted);
 
         return response.Status switch
         {

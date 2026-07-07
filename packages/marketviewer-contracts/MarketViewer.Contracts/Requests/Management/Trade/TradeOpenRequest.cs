@@ -1,12 +1,11 @@
 ﻿using MarketViewer.Contracts.Enums.Strategy;
 using MarketViewer.Contracts.Models;
-using MediatR;
 using System.Diagnostics.CodeAnalysis;
 
 namespace MarketViewer.Contracts.Requests.Management.Trade;
 
 [ExcludeFromCodeCoverage]
-public class TradeOpenRequest : IRequest<OperationResult<bool>>
+public class TradeOpenRequest
 {
     public string StrategyId { get; set; }
     public TradeType Type { get; set; }

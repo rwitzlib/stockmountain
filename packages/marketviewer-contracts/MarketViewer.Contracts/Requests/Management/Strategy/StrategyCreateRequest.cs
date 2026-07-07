@@ -3,13 +3,12 @@ using MarketViewer.Contracts.Enums.Strategy;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Responses.Management;
-using MediatR;
 using System.Diagnostics.CodeAnalysis;
 
 namespace MarketViewer.Contracts.Requests.Management.Strategy;
 
 [ExcludeFromCodeCoverage]
-public class StrategyCreateRequest : IRequest<OperationResult<StrategyResponse>>
+public class StrategyCreateRequest
 {
     public string Name { get; set; }
     public StrategyStateType State { get; set; }

@@ -4,7 +4,6 @@ using MarketViewer.Contracts.Requests.Management.Trade;
 using MarketViewer.Contracts.Records;
 using MarketViewer.Core.Auth;
 using MarketViewer.Core.Services;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Net;
@@ -16,7 +15,7 @@ namespace MarketViewer.Application.Handlers.Management.Trade;
 public class TradeOpenHandler(
     AuthContext authContext,
     ITradeRepository tradeRepository,
-    ILogger<TradeOpenHandler> logger) : IRequestHandler<TradeOpenRequest, OperationResult<bool>>
+    ILogger<TradeOpenHandler> logger)
 {
     public async Task<OperationResult<bool>> Handle(TradeOpenRequest request, CancellationToken cancellationToken)
     {

@@ -1,5 +1,4 @@
-﻿using MediatR;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
@@ -22,7 +21,7 @@ public class StocksHandler(
     IMarketDataRepository repository,
     IMarketCache marketCache,
     IIndicatorCalculationService indicatorCalculationService,
-    ILogger<StocksHandler> logger) : IRequestHandler<StocksRequest, OperationResult<StocksResponse>>
+    ILogger<StocksHandler> logger)
 {
     public async Task<OperationResult<StocksResponse>> Handle(StocksRequest request, CancellationToken cancellationToken)
     

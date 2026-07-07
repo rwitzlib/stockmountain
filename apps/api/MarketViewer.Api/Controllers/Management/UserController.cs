@@ -1,8 +1,8 @@
 using MarketViewer.Api.Authorization;
+using MarketViewer.Application.Handlers.Management.User;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Management.User;
 using MarketViewer.Core.Auth;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -11,7 +11,7 @@ namespace MarketViewer.Api.Controllers.Management;
 
 [ApiController]
 [Route("user")]
-public class UserController(IMediator mediator, AuthContext context, ILogger<UserController> logger) : ControllerBase
+public class UserController(UserReadHandler userReadHandler, AuthContext context, ILogger<UserController> logger) : ControllerBase
 {
 
     [HttpGet]
@@ -25,10 +25,10 @@ public class UserController(IMediator mediator, AuthContext context, ILogger<Use
     {
         try
         {
-            var user = await mediator.Send(new UserReadRequest
+            var user = await userReadHandler.Handle(new UserReadRequest
             {
                 UserId = userId
-            });
+            }, HttpContext.RequestAborted);
 
             return user.Status switch
             {

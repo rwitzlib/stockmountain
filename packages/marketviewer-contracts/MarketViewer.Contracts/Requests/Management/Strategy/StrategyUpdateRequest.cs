@@ -3,14 +3,13 @@ using MarketViewer.Contracts.Enums.Strategy;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Responses.Management;
-using MediatR;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
 
 namespace MarketViewer.Contracts.Requests.Management.Strategy;
 
 [ExcludeFromCodeCoverage]
-public class StrategyUpdateRequest : IRequest<OperationResult<StrategyResponse>>
+public class StrategyUpdateRequest
 {
     [IgnoreDataMember]
     public string Id { get; set; }

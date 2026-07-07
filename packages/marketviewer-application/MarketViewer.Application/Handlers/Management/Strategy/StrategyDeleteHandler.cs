@@ -2,7 +2,6 @@
 using MarketViewer.Contracts.Requests.Management.Strategy;
 using MarketViewer.Core.Auth;
 using MarketViewer.Core.Services;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Net;
@@ -14,7 +13,7 @@ namespace MarketViewer.Application.Handlers.Management.Strategy;
 public class StrategyDeleteHandler(
     AuthContext authContext,
     IStrategyRepository strategyRepository,
-    ILogger<StrategyCreateHandler> logger) : IRequestHandler<StrategyDeleteRequest, OperationResult<bool>>
+    ILogger<StrategyCreateHandler> logger)
 {
     public async Task<OperationResult<bool>> Handle(StrategyDeleteRequest request, CancellationToken cancellationToken)
     {

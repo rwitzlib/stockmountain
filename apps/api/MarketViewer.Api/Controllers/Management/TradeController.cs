@@ -1,9 +1,9 @@
 using MarketViewer.Api.Authorization;
+using MarketViewer.Application.Handlers.Management.Trade;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Management.Trade;
 using MarketViewer.Contracts.Responses.Management;
 using MarketViewer.Core.Auth;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -12,7 +12,12 @@ namespace MarketViewer.Api.Controllers.Management;
 
 [ApiController]
 [Route("/trade")]
-public class TradeController(IMediator mediator, AuthContext authContext, ILogger<TradeController> logger) : ControllerBase
+public class TradeController(
+    TradeOpenHandler openHandler,
+    TradeListHandler listHandler,
+    TradeCloseHandler closeHandler,
+    AuthContext authContext,
+    ILogger<TradeController> logger) : ControllerBase
 {
     [HttpPost]
     [Authorize]
@@ -21,7 +26,7 @@ public class TradeController(IMediator mediator, AuthContext authContext, ILogge
     {
         try
         {
-            var response = await mediator.Send(request);
+            var response = await openHandler.Handle(request, HttpContext.RequestAborted);
 
             return response.Status switch
             {
@@ -42,7 +47,7 @@ public class TradeController(IMediator mediator, AuthContext authContext, ILogge
     {
         try
         {
-            var response = await mediator.Send(request);
+            var response = await listHandler.Handle(request, HttpContext.RequestAborted);
             
             return response.Status switch
             {
@@ -68,7 +73,7 @@ public class TradeController(IMediator mediator, AuthContext authContext, ILogge
         {
             request.TradeId = id;
 
-            var response = await mediator.Send(request);
+            var response = await closeHandler.Handle(request, HttpContext.RequestAborted);
 
             return response.Status switch
             {

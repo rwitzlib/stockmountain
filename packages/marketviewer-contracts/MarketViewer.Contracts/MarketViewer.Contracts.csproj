@@ -19,7 +19,6 @@
   <ItemGroup>
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.21.7" />
     <PackageReference Include="AWSSDK.S3" Version="4.0.25.3" />
-    <PackageReference Include="MediatR" Version="14.1.0" />
     <PackageReference Include="MemoryPack" Version="1.21.4" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.3.11" />
     <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.9" />

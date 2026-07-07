@@ -1,5 +1,4 @@
-﻿using MediatR;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -22,7 +21,7 @@ namespace MarketViewer.Application.Handlers.Market.Scan;
 public class ScanHandler(
     IMarketCache marketCache,
     IndicatorExpressionEngine engine,
-    ILogger<ScanHandler> logger) : IRequestHandler<ScanRequest, OperationResult<ScanResponse>>
+    ILogger<ScanHandler> logger)
 {
     private const int MAX_RESULTS = 1000;
 

@@ -4,7 +4,6 @@ using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Contracts.Requests.Tools;
 using MarketViewer.Contracts.Responses.Tools;
 using MarketViewer.Filters;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace MarketViewer.Application.Handlers.Market.Tools;
 
-public class ToolsFilterHandler(IMarketDataRepository repository, IndicatorExpressionEngine engine, ILogger<ToolsFilterHandler> logger) : IRequestHandler<ToolsFilterRequest, ToolsFilterResponse>
+public class ToolsFilterHandler(IMarketDataRepository repository, IndicatorExpressionEngine engine, ILogger<ToolsFilterHandler> logger)
 {
     public async Task<ToolsFilterResponse> Handle(ToolsFilterRequest request, CancellationToken cancellationToken)
     {

@@ -7,14 +7,11 @@ using MarketViewer.Api.Jobs;
 using MarketViewer.Api.Middleware;
 using MarketViewer.Api.Services;
 using MarketViewer.Application.DependencyInjection;
-using MarketViewer.Application.Handlers.Market;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Converters;
 using MarketViewer.Core.DependencyInjection;
-using MarketViewer.Core.Services;
 using MarketViewer.Filters;
 using MarketViewer.Infrastructure.DependencyInjection;
-using MarketViewer.Infrastructure.Services;
 using MarketViewer.Studies.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -44,14 +41,7 @@ public class Program
         DotNetEnv.Env.Load($"../../../{builder.Environment.EnvironmentName}.env");
         builder.Configuration.AddEnvironmentVariables();
 
-        var microserviceApplicationAssemblies = new[]
-        {
-            typeof(StocksHandler).Assembly,
-            typeof(MarketDataRepository).Assembly,
-            typeof(IBacktestRepository).Assembly
-        };
-
-        builder.Services.AddMediatR(q => q.RegisterServicesFromAssemblies(microserviceApplicationAssemblies))
+        builder.Services
             .AddMemoryCache(options => options.TrackStatistics = true)
             .AddHttpClient()
             .RegisterStudies()

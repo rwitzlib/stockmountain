@@ -4,12 +4,11 @@ using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Indicator;
 using MarketViewer.Contracts.Responses.Market;
-using MediatR;
 
 namespace MarketViewer.Contracts.Requests.Market;
 
 [ExcludeFromCodeCoverage]
-public class StocksRequest : IRequest<OperationResult<StocksResponse>>
+public class StocksRequest
 {
     /// <summary>
     /// The ticker symbol of the stock/equity.

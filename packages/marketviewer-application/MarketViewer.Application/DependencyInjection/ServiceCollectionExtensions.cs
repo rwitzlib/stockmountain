@@ -11,6 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using MarketViewer.Application.Handlers.Data.Tickers;
+using MarketViewer.Application.Handlers.Management.Strategy;
+using MarketViewer.Application.Handlers.Management.Trade;
+using MarketViewer.Application.Handlers.Management.User;
+using MarketViewer.Application.Handlers.Market;
+using MarketViewer.Application.Handlers.Market.Scan;
+using MarketViewer.Application.Handlers.Market.Tools;
 using MarketViewer.Application.Handlers.MarketData;
 
 namespace MarketViewer.Application.DependencyInjection;
@@ -34,6 +40,21 @@ public static class ServiceCollectionExtensions
             .AddScoped<SnapshotHandler>()
             .AddScoped<BacktestHandler>()
             .AddScoped<MarketDataHandler>()
+            .AddScoped<StocksHandler>()
+            .AddScoped<ScanHandler>()
+            .AddScoped<ToolsFilterHandler>()
+            .AddScoped<StrategyCreateHandler>()
+            .AddScoped<StrategyReadHandler>()
+            .AddScoped<StrategyListHandler>()
+            .AddScoped<StrategyUpdateHandler>()
+            .AddScoped<StrategyDeleteHandler>()
+            .AddScoped<StrategyOptimizeHandler>()
+            .AddScoped<StrategyStateHandler>()
+            .AddScoped<BalanceHistoryHandler>()
+            .AddScoped<TradeOpenHandler>()
+            .AddScoped<TradeCloseHandler>()
+            .AddScoped<TradeListHandler>()
+            .AddScoped<UserReadHandler>()
             .AddSingleton<TickerHandler>()
             .AddSingleton<PerformanceHandler>();
     }

@@ -10,7 +10,6 @@ using MarketViewer.Core.Auth;
 using MarketViewer.Core.Services;
 using MarketViewer.Filters;
 using MarketViewer.Filters.Interfaces;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using Polygon.Client.Interfaces;
 using System;
@@ -29,7 +28,7 @@ public class StrategyOptimizeHandler(
     IMarketDataRepository marketDataRepository,
     IPolygonClient polygonClient,
     IndicatorExpressionEngine engine,
-    ILogger<StrategyCreateHandler> logger) : IRequestHandler<StrategyOptimizeRequest, OperationResult<TradeResponse>>
+    ILogger<StrategyCreateHandler> logger)
 {
     public async Task<OperationResult<TradeResponse>> Handle(StrategyOptimizeRequest request, CancellationToken cancellationToken)
     {

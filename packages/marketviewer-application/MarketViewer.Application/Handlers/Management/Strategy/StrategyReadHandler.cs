@@ -4,7 +4,6 @@ using MarketViewer.Contracts.Requests.Management.Strategy;
 using MarketViewer.Contracts.Responses.Management;
 using MarketViewer.Core.Auth;
 using MarketViewer.Core.Services;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Net;
@@ -16,7 +15,7 @@ namespace MarketViewer.Application.Handlers.Management.Strategy;
 public class StrategyReadHandler(
     AuthContext authContext,
     IStrategyRepository strategyRepository,
-    ILogger<StrategyReadHandler> logger) : IRequestHandler<StrategyReadRequest, OperationResult<StrategyResponse>>
+    ILogger<StrategyReadHandler> logger)
 {
     public async Task<OperationResult<StrategyResponse>> Handle(StrategyReadRequest request, CancellationToken cancellationToken)
     {

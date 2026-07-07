@@ -1,12 +1,11 @@
 ﻿using MarketViewer.Contracts.Models;
-using MediatR;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
 
 namespace MarketViewer.Contracts.Requests.Management.Trade;
 
 [ExcludeFromCodeCoverage]
-public class TradeCloseRequest : IRequest<OperationResult<bool>>
+public class TradeCloseRequest
 {
     [IgnoreDataMember]
     public string TradeId { get; set; }

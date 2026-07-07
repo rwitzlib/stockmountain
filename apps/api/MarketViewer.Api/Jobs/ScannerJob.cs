@@ -1,8 +1,8 @@
+using MarketViewer.Application.Handlers.Market.Scan;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Records.Scan;
 using MarketViewer.Core.Services;
 using MarketViewer.Infrastructure.Config;
-using MediatR;
 using Quartz;
 using ScanRequest = MarketViewer.Contracts.Requests.Market.Scan.ScanRequest;
 
@@ -11,7 +11,7 @@ namespace MarketViewer.Api.Jobs;
 public class ScannerJob(
     ScanConfig config,
     ScannerCache scannerCache,
-    IMediator mediator, 
+    ScanHandler scanHandler,
     IScanRepository scanRepository) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
@@ -25,7 +25,7 @@ public class ScannerJob(
                 Filters = entrySettings.Filters
             };
 
-            var response = await mediator.Send(scanRequest, cancellationToken);
+            var response = await scanHandler.Handle(scanRequest, cancellationToken);
 
             if (response.Data is null || !response.Data.Items.Any())
             {

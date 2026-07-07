@@ -4,7 +4,6 @@ using MarketViewer.Contracts.Requests.Management.User;
 using MarketViewer.Contracts.Responses.Management;
 using MarketViewer.Core.Auth;
 using MarketViewer.Core.Services;
-using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System;
@@ -18,7 +17,7 @@ public class UserReadHandler(
     AuthContext authContext,
     IUserRepository repository,
     IHttpContextAccessor contextAccessor,
-    ILogger<UserReadHandler> logger) : IRequestHandler<UserReadRequest, OperationResult<UserResponse>>
+    ILogger<UserReadHandler> logger)
 {
     public async Task<OperationResult<UserResponse>> Handle(UserReadRequest request, CancellationToken cancellationToken)
     {

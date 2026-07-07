@@ -8,8 +8,7 @@
 //using MarketViewer.Contracts.Responses.Tools;
 //using MarketViewer.Core.Scan;
 //using MarketViewer.Infrastructure.Utilities;
-//using MediatR;
-//using Microsoft.Extensions.Caching.Memory;
+////using Microsoft.Extensions.Caching.Memory;
 //using System;
 //using System.Collections.Generic;
 //using System.IO;
@@ -21,7 +20,7 @@
 
 //namespace MarketViewer.Application.Handlers.Tools;
 
-//public class ToolsScanHandler(IAmazonS3 s3, IMemoryCache memoryCache, ScanFilterFactoryV2 scanFitlerFactory) : IRequestHandler<ToolsScanRequest, OperationResult<ToolsScanResponse>>
+//public class ToolsScanHandler(IAmazonS3 s3, IMemoryCache memoryCache, ScanFilterFactoryV2 scanFitlerFactory)
 //{
 //    private const int MINIMUM_REQUIRED_CANDLES = 30;
 //    private const int CANDLES_TO_TAKE = 120;

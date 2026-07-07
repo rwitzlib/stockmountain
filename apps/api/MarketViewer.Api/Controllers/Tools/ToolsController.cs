@@ -8,7 +8,7 @@ using MarketViewer.Contracts.MarketData;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Requests.Tools;
 using MarketViewer.Contracts.Responses.Market;
-using MediatR;
+using MarketViewer.Application.Handlers.Market.Tools;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -26,7 +26,7 @@ public class ToolsController(
     IMarketCache marketCache,
     IMemoryCache memoryCache,
     IAmazonS3 s3,
-    IMediator mediator,
+    ToolsFilterHandler toolsFilterHandler,
     ILogger<ToolsController> logger) : ControllerBase
 {
     private readonly JsonSerializerOptions _jsonSerializerOptions = new()
@@ -108,19 +108,9 @@ public class ToolsController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [RequiresAdmin]
-    public async Task<IActionResult> Scan([FromBody] ToolsScanRequest request)
+    public IActionResult Scan([FromBody] ToolsScanRequest request)
     {
-        try
-        {
-            var response = await mediator.Send(request, CancellationToken.None);
-
-            return Ok(response.Data);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, e.Message);
-            return StatusCode(StatusCodes.Status500InternalServerError, new List<string> { "Internal error." });
-        }
+        return StatusCode(StatusCodes.Status501NotImplemented, new List<string> { "Tools scan is not implemented." });
     }
 
     [HttpGet]
@@ -215,7 +205,7 @@ public class ToolsController(
         try
         {
             contextAccessor.HttpContext.Items["UserId"].ToString();
-            var response = await mediator.Send(request);
+            var response = await toolsFilterHandler.Handle(request, HttpContext.RequestAborted);
             return Ok(response);
         }
         catch (Exception e)

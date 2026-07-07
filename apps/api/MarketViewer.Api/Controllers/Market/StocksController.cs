@@ -1,9 +1,9 @@
 ﻿using System.Net;
 using MarketViewer.Api.Authorization;
+using MarketViewer.Application.Handlers.Market;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Core.Metrics;
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MarketViewer.Api.Controllers.Market;
@@ -11,7 +11,7 @@ namespace MarketViewer.Api.Controllers.Market;
 [ApiController]
 [Route("/stocks")]
 public class StocksController(
-    IMediator mediator,
+    StocksHandler stocksHandler,
     MarketMetrics marketMetrics,
     ILogger<StocksController> logger) : ControllerBase
 {
@@ -22,7 +22,7 @@ public class StocksController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> HandleAggregateRequest([FromBody] StocksRequest request)
     {
-        var response = await mediator.Send(request);
+        var response = await stocksHandler.Handle(request, HttpContext.RequestAborted);
 
         marketMetrics.IncrementTickerCount(request.Ticker);
         marketMetrics.IncrementTimeframe(request.Multiplier, request.Timespan);

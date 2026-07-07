@@ -4,7 +4,6 @@ using MarketViewer.Contracts.Requests.Management.Trade;
 using MarketViewer.Contracts.Responses.Management;
 using MarketViewer.Core.Auth;
 using MarketViewer.Core.Services;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -20,7 +19,7 @@ public class TradeListHandler(
     ITradeRepository tradeRepository,
     IUserRepository userRepository,
     IStrategyRepository strategyRepository,
-    ILogger<TradeListHandler> logger) : IRequestHandler<TradeListRequest, OperationResult<TradeResponse>>
+    ILogger<TradeListHandler> logger)
 {
     public async Task<OperationResult<TradeResponse>> Handle(TradeListRequest request, CancellationToken cancellationToken)
     {
