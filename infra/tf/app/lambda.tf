@@ -83,9 +83,9 @@ resource "aws_lambda_function" "backtest_worker" {
     command = ["Backtest.Lambda::Backtest.Lambda.WorkerFunction::FunctionHandler"]
   }
 
-  environment {
-    variables = local.backtest_common_environment
-  }
+  # environment {
+  #   variables = local.backtest_common_environment
+  # }
 
   kms_key_arn = data.aws_kms_key.lambda.arn
 }
@@ -106,9 +106,9 @@ resource "aws_lambda_function" "backtest_orchestrator" {
     command = ["Backtest.Lambda::Backtest.Lambda.OrchestratorFunction::FunctionHandler"]
   }
 
-  environment {
-    variables = local.backtest_common_environment
-  }
+  # environment {
+  #   variables = local.backtest_common_environment
+  # }
 
   kms_key_arn = data.aws_kms_key.lambda.arn
 }
