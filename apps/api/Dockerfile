@@ -29,6 +29,8 @@ RUN dotnet publish apps/api/MarketViewer.Api/MarketViewer.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS final
 WORKDIR /app
 
+RUN apk add --no-cache tzdata
+
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
