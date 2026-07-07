@@ -116,7 +116,7 @@ resource "aws_iam_role" "backtest_lambda" {
           Action = [
             "lambda:InvokeFunction"
           ]
-          Resource = "arn:aws:lambda:${var.region}:${data.aws_caller_identity.current.account_id}:function:${var.team}-${var.environment}-${local.backtest_worker_service}"
+          Resource = "arn:aws:lambda:${var.region}:${data.aws_caller_identity.current.account_id}:function:${aws_lambda_function.backtest_worker.function_name}"
         },
         {
           Effect = "Allow"

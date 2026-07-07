@@ -10,7 +10,6 @@ http:
     type: json
     data: |-
       {
-        "UserId": "rob.witzlib@gmail.com",
         "Start": "2026-06-01",
         "End": "2026-06-01",
         "PositionSettings": {

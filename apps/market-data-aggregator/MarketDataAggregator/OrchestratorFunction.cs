@@ -10,6 +10,8 @@ using MarketViewer.Contracts.Records.MarketData;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using FluentValidation.Results;
+using Environment = System.Environment;
 
 namespace MarketDataAggregator;
 
@@ -19,7 +21,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
     private readonly IAmazonDynamoDB _dynamoDb = serviceProvider.GetRequiredService<IAmazonDynamoDB>();
     private readonly ILogger<OrchestratorFunction> _logger = serviceProvider.GetRequiredService<ILogger<OrchestratorFunction>>();
     private readonly IValidator<MarketDataOrchestratorRequest> _requestValidator = serviceProvider.GetRequiredService<IValidator<MarketDataOrchestratorRequest>>();
-    private readonly string _aggregatorFunctionName = System.Environment.GetEnvironmentVariable("MARKET_DATA_AGGREGATOR_FUNCTION_NAME") ?? string.Empty;
+    private readonly string _aggregatorFunctionName = Environment.GetEnvironmentVariable("MARKET_DATA_AGGREGATOR_FUNCTION_NAME") ?? string.Empty;
 
     public OrchestratorFunction() : this(Startup.ConfigureServices()) { }
 
@@ -27,13 +29,6 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
     {
         var startedAt = DateTimeOffset.UtcNow;
         var catalog = new MarketDataCatalogWriter(_dynamoDb, _logger);
-
-        if (request is null)
-        {
-            _logger.LogInformation("Invalid request. Request is required.");
-            await WriteFailedRunRecord(catalog, null, startedAt, "Invalid market data orchestrator request.");
-            return;
-        }
 
         if (string.IsNullOrWhiteSpace(_aggregatorFunctionName))
         {
@@ -129,7 +124,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
         });
     }
 
-    private void LogValidationErrors(FluentValidation.Results.ValidationResult validationResult)
+    private void LogValidationErrors(ValidationResult validationResult)
     {
         foreach (var error in validationResult.Errors)
         {

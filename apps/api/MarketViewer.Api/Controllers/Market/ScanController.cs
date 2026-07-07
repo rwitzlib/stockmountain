@@ -17,7 +17,7 @@ namespace MarketViewer.Api.Controllers.Market;
 [ApiController]
 [Authorize]
 [Route("/scan")]
-public class TickerController(IHttpContextAccessor contextAccessor, ILogger<TickerController> _logger, IMediator _mediator) : ControllerBase
+public class TickerController(IMediator mediator, ILogger<TickerController> logger) : ControllerBase
 {
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -26,24 +26,14 @@ public class TickerController(IHttpContextAccessor contextAccessor, ILogger<Tick
     [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> Scan([FromBody] ScanRequest request)
     {
-        try
-        {
-            request.UserId = contextAccessor.HttpContext.Items["UserId"].ToString();
+        var response = await mediator.Send(request);
 
-            var response = await _mediator.Send(request);
-
-            return response.Status switch
-            {
-                HttpStatusCode.OK => Ok(response.Data),
-                HttpStatusCode.BadRequest => BadRequest(response.ErrorMessages),
-                HttpStatusCode.NotFound => NotFound(response.ErrorMessages),
-                _ => StatusCode(StatusCodes.Status500InternalServerError, response.ErrorMessages)
-            };
-        }
-        catch (Exception e)
+        return response.Status switch
         {
-            _logger.LogError(e, e.Message);
-            return StatusCode(StatusCodes.Status500InternalServerError, new List<string> { "Internal error." });
-        }
+            HttpStatusCode.OK => Ok(response.Data),
+            HttpStatusCode.BadRequest => BadRequest(response.ErrorMessages),
+            HttpStatusCode.NotFound => NotFound(response.ErrorMessages),
+            _ => StatusCode(StatusCodes.Status500InternalServerError, response.ErrorMessages)
+        };
     }
 }

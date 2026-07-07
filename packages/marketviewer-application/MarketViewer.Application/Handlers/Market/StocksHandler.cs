@@ -25,6 +25,7 @@ public class StocksHandler(
     ILogger<StocksHandler> logger) : IRequestHandler<StocksRequest, OperationResult<StocksResponse>>
 {
     public async Task<OperationResult<StocksResponse>> Handle(StocksRequest request, CancellationToken cancellationToken)
+    
     {
         if (!ValidateAggregateRequest(request, out var errorMessages))
         {

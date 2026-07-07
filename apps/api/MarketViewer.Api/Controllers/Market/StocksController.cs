@@ -1,11 +1,9 @@
-﻿using System.Diagnostics.Metrics;
-using System.Net;
+﻿using System.Net;
 using MarketViewer.Api.Authorization;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Core.Metrics;
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MarketViewer.Api.Controllers.Market;
@@ -14,7 +12,6 @@ namespace MarketViewer.Api.Controllers.Market;
 [Route("/stocks")]
 public class StocksController(
     IMediator mediator,
-    IHttpContextAccessor contextAccessor,
     MarketMetrics marketMetrics,
     ILogger<StocksController> logger) : ControllerBase
 {
@@ -25,33 +22,24 @@ public class StocksController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> HandleAggregateRequest([FromBody] StocksRequest request)
     {
-        try
+        var response = await mediator.Send(request);
+
+        marketMetrics.IncrementTickerCount(request.Ticker);
+        marketMetrics.IncrementTimeframe(request.Multiplier, request.Timespan);
+
+        if (request.Indicators is not null)
         {
-            request.UserId = contextAccessor.HttpContext.Items["UserId"]?.ToString();
-
-            var response = await mediator.Send(request);
-
-            marketMetrics.IncrementTickerCount(request.Ticker);
-            marketMetrics.IncrementTimeframe(request.Multiplier, request.Timespan);
-
-            if (request.Indicators is not null)
+            foreach (var indicator in request.Indicators!)
             {
-                foreach (var indicator in request.Indicators)
-                {
-                    marketMetrics.IncrementIndicator(indicator);
-                }
+                marketMetrics.IncrementIndicator(indicator);
             }
-            return response.Status switch
-            {
-                HttpStatusCode.OK => Ok(response.Data),
-                HttpStatusCode.BadRequest => BadRequest(response.ErrorMessages),
-                _ => StatusCode(StatusCodes.Status500InternalServerError, response.ErrorMessages)
-            };
         }
-        catch (Exception e)
+        
+        return response.Status switch
         {
-            logger.LogError(e, e.Message);
-            return StatusCode(StatusCodes.Status500InternalServerError, new List<string> { "Internal error." });
-        }
+            HttpStatusCode.OK => Ok(response.Data),
+            HttpStatusCode.BadRequest => BadRequest(response.ErrorMessages),
+            _ => StatusCode(StatusCodes.Status500InternalServerError, response.ErrorMessages)
+        };
     }
 }

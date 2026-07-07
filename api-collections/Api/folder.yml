@@ -1,0 +1,60 @@
+info:
+  name: Api
+  type: folder
+  seq: 2
+
+request:
+  auth:
+    type: bearer
+    token: "{{clerkToken}}"
+  scripts:
+    - type: before-request
+      code: |-
+        // Mint a Clerk session token via the Backend API and cache it for the app session.
+        // Needs CLERK_SECRET_KEY and CLERK_USER_ID in api-collections/.env, plus one
+        // active session for that user (sign in via the web app; sessions last ~7 days).
+        const axios = require('axios');
+
+        // Requests with their own auth (e.g. Metrics' basic auth) keep it.
+        if (req.getHeader('Authorization')) {
+          return;
+        }
+
+        const lifetimeSeconds = 3600;
+        const now = Math.floor(Date.now() / 1000);
+        const expiresAt = Number(bru.getVar('clerkTokenExpiresAt') || 0);
+        let token = bru.getVar('clerkToken');
+
+        if (!token || now >= expiresAt - 60) {
+          const secretKey = bru.getProcessEnv('CLERK_SECRET_KEY');
+          const userId = bru.getProcessEnv('CLERK_USER_ID');
+          if (!secretKey || !userId) {
+            throw new Error('Set CLERK_SECRET_KEY and CLERK_USER_ID in api-collections/.env');
+          }
+
+          // Bruno's Safe Mode sandbox ships a limited axios shim without axios.create,
+          // so call axios.get/post directly with full URLs.
+          const clerkApi = 'https://api.clerk.com/v1';
+          const authHeaders = { Authorization: `Bearer ${secretKey}` };
+
+          const sessionsRes = await axios.get(
+            `${clerkApi}/sessions?user_id=${encodeURIComponent(userId)}&status=active`,
+            { headers: authHeaders }
+          );
+          const sessions = sessionsRes.data;
+          if (!sessions.length) {
+            throw new Error('No active Clerk session - sign in via the web app once, then retry.');
+          }
+
+          const tokenRes = await axios.post(
+            `${clerkApi}/sessions/${sessions[0].id}/tokens`,
+            { expires_in_seconds: lifetimeSeconds },
+            { headers: authHeaders }
+          );
+
+          token = tokenRes.data.jwt;
+          bru.setVar('clerkToken', token);
+          bru.setVar('clerkTokenExpiresAt', now + lifetimeSeconds);
+        }
+
+        req.setHeader('Authorization', `Bearer ${token}`);

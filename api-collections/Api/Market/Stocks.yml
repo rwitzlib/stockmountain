@@ -1,0 +1,25 @@
+info:
+  name: Stocks
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: https://{{base_url}}{{port}}/api/stocks
+  body:
+    type: json
+    data: |-
+      {
+        "Ticker": "TSLA",
+        "Multiplier": 1,
+        "Timespan": "minute",
+        "From": "2026-07-06",
+        "To": "2026-07-06"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

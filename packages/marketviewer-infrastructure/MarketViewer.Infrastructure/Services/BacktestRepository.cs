@@ -61,11 +61,6 @@ public class BacktestRepository(
                 }
             });
 
-            if (response.Item == null)
-            {
-                return null;
-            }
-
             var record = MapAttributeMapToContextRecord(response.Item);
             return record;
         }
@@ -90,11 +85,6 @@ public class BacktestRepository(
                     { ":userId", new AttributeValue { S = userId } }
                 }
             });
-
-            if (response == null || response.Count <= 0)
-            {
-                return null;
-            }
 
             return response.Items.Select(MapAttributeMapToContextRecord).ToList();
         }

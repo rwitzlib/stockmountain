@@ -20,7 +20,7 @@ namespace MarketViewer.Api.Controllers.Tools;
 
 [ApiController]
 [Authorize]
-[Route("api/tools")]
+[Route("tools")]
 public class ToolsController(
     IHttpContextAccessor contextAccessor,
     IMarketCache marketCache,
@@ -42,19 +42,9 @@ public class ToolsController(
     [RequiresAdmin]
     public IActionResult Aggregate([FromQuery] ToolsAggregateRequest request)
     {
-        try
-        {
-            request.UserId = contextAccessor.HttpContext.Items["UserId"].ToString();
+        var response = marketCache.GetStocksResponse(request.Ticker, new Timeframe(1, request.Timespan), DateTimeOffset.Now);
 
-            var response = marketCache.GetStocksResponse(request.Ticker, new Timeframe(1, request.Timespan), DateTimeOffset.Now);
-
-            return Ok(response);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, e.Message);
-            return StatusCode(StatusCodes.Status500InternalServerError, new List<string> { "Internal error." });
-        }
+        return Ok(response);
     }
 
     [HttpGet]

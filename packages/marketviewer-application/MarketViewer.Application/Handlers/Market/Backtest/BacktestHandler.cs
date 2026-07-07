@@ -17,17 +17,19 @@ using System.Linq;
 using System.Text.Json.Serialization;
 using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Records.Backtest;
+using MarketViewer.Core.Auth;
 
 namespace MarketViewer.Application.Handlers.Market.Backtest;
 
 public class BacktestHandler(
     BacktestConfig config,
+    AuthContext authContext,
     IAmazonLambda lambda,
     IBacktestRepository repository,
     ILogger<BacktestHandler> logger)
 {
-    private readonly TimeZoneInfo TimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
-    private readonly JsonSerializerOptions Options = new JsonSerializerOptions
+    private readonly TimeZoneInfo _timeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+    private readonly JsonSerializerOptions _options = new JsonSerializerOptions
     {
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -37,23 +39,14 @@ public class BacktestHandler(
     {
         try
         {
-            if (request is null || string.IsNullOrWhiteSpace(request.Id))
-            {
-                return new OperationResult<BacktestEntryResponse>
-                {
-                    Status = HttpStatusCode.BadRequest,
-                    ErrorMessages = ["Invalid request."]
-                };
-            }
-
-            logger.LogInformation("Creating backtest with ID: {id} for user {userId}", request.Id, request.UserId);
-
+            logger.LogInformation("Creating backtest with ID: {id} for user {userId}", request.Id, authContext.UserId);
+            
             var record = new BacktestContextRecord
             {
                 Id = request.Id,
-                UserId = request.UserId,
+                UserId = authContext.UserId,
                 Status = BacktestStatus.Pending,
-                CreatedAt = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:ssZzz"),
+                CreatedAt = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:ssZzzz"),
                 Start = request.Start.Date.ToString("yyyy-MM-dd"),
                 End = request.End.Date.ToString("yyyy-MM-dd"),
                 Request = request
@@ -61,7 +54,7 @@ public class BacktestHandler(
 
             await repository.Put(record);
 
-            var json = JsonSerializer.Serialize(request, Options);
+            var json = JsonSerializer.Serialize(request, _options);
 
             // Change this to SQS eventually for better scalability
             _ = lambda.InvokeAsync(new InvokeRequest
@@ -96,15 +89,6 @@ public class BacktestHandler(
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(userId))
-            {
-                return new OperationResult<List<BacktestEntryResponse>>
-                {
-                    Status = HttpStatusCode.BadRequest,
-                    ErrorMessages = ["Invalid user ID."]
-                };
-            }
-
             var records = await repository.List(userId);
 
             List<BacktestEntryResponse> entries = [];
@@ -327,7 +311,7 @@ public class BacktestHandler(
 
             foreach (var day in dayRange)
             {
-                var offset = TimeZone.IsDaylightSavingTime(day.Date) ? TimeSpan.FromHours(-4) : TimeSpan.FromHours(-5);
+                var offset = _timeZone.IsDaylightSavingTime(day.Date) ? TimeSpan.FromHours(-4) : TimeSpan.FromHours(-5);
                 var marketOpen = new DateTimeOffset(day.Year, day.Month, day.Day, 9, 30, 0, offset);
                 var marketClose = new DateTimeOffset(day.Year, day.Month, day.Day, 16, 0, 0, offset);
 

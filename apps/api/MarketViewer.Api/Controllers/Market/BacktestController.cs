@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace MarketViewer.Api.Controllers.Market;
 
 [ApiController]
-[Route("/backtest")]
+[Route("backtest")]
 
 public class BacktestController(AuthContext authContext, BacktestHandler handler, ILogger<BacktestController> logger) : ControllerBase
 {
@@ -18,8 +18,6 @@ public class BacktestController(AuthContext authContext, BacktestHandler handler
     [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> StartBacktest([FromBody] BacktestCreateRequest request)
     {
-        request.UserId = authContext.UserId;
-
         var response = await handler.Create(request);
 
         return response.Status switch

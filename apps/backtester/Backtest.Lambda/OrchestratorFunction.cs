@@ -22,7 +22,10 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
     private readonly BacktestRepository _backtestRepository = serviceProvider.GetService<BacktestRepository>();
     private readonly UserRepository _userRepository = serviceProvider.GetService<UserRepository>();
     private readonly ILogger<OrchestratorFunction> _logger = serviceProvider.GetService<ILogger<OrchestratorFunction>>();
-
+    
+    private readonly string _workerFunctionName = Environment.GetEnvironmentVariable("BACKTEST_WORKER_FUNCTION_NAME") ?? string.Empty;
+    private readonly string _backtestTableName = Environment.GetEnvironmentVariable("BACKTEST_TABLE_NAME") ?? string.Empty;
+    
     private readonly TimeZoneInfo TimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
     private const int ESTIMATED_DAILY_CREDIT_COST = 120; // Estimated Credit Cost per Day
 
@@ -39,7 +42,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
             _logger.LogInformation("Processing backtest request with ID {RequestId}.", request.Id);
 
-            if (record is null || record.Status is not BacktestStatus.Pending)
+            if (record.Status is not BacktestStatus.Pending)
             {
                 _logger.LogInformation("Backtest record not found or already completed for request ID {RequestId}.", request.Id);
 
