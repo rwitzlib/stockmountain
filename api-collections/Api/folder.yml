@@ -10,22 +10,33 @@ request:
   scripts:
     - type: before-request
       code: |-
-        // Mint a Clerk session token via the Backend API and cache it for the app session.
-        // Needs CLERK_SECRET_KEY and CLERK_USER_ID in api-collections/.env, plus one
-        // active session for that user (sign in via the web app; sessions last ~7 days).
+        // Keeps the clerkToken variable fresh; the folder's bearer auth ({{clerkToken}})
+        // is interpolated after this script runs. Needs CLERK_SECRET_KEY and CLERK_USER_ID
+        // in api-collections/.env, plus one active session for that user (sign in via the
+        // web app; sessions stay active for ~7 days).
         const axios = require('axios');
 
-        // Requests with their own auth (e.g. Metrics' basic auth) keep it.
-        if (req.getHeader('Authorization')) {
-          return;
-        }
+        // Clerk may cap expires_in_seconds at the instance default (60s), so cache
+        // validity comes from the minted token's own exp claim, not the requested lifetime.
+        const decodeJwtExp = (jwt) => {
+          const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+          const payload = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '');
+          let bits = 0, buf = 0, json = '';
+          for (const c of payload) {
+            buf = (buf << 6) | alphabet.indexOf(c);
+            bits += 6;
+            if (bits >= 8) {
+              bits -= 8;
+              json += String.fromCharCode((buf >> bits) & 0xff);
+            }
+          }
+          return JSON.parse(json).exp;
+        };
 
-        const lifetimeSeconds = 3600;
         const now = Math.floor(Date.now() / 1000);
         const expiresAt = Number(bru.getVar('clerkTokenExpiresAt') || 0);
-        let token = bru.getVar('clerkToken');
 
-        if (!token || now >= expiresAt - 60) {
+        if (!bru.getVar('clerkToken') || now >= expiresAt - 30) {
           const secretKey = bru.getProcessEnv('CLERK_SECRET_KEY');
           const userId = bru.getProcessEnv('CLERK_USER_ID');
           if (!secretKey || !userId) {
@@ -48,13 +59,11 @@ request:
 
           const tokenRes = await axios.post(
             `${clerkApi}/sessions/${sessions[0].id}/tokens`,
-            { expires_in_seconds: lifetimeSeconds },
+            { expires_in_seconds: 3600 },
             { headers: authHeaders }
           );
 
-          token = tokenRes.data.jwt;
+          const token = tokenRes.data.jwt;
           bru.setVar('clerkToken', token);
-          bru.setVar('clerkTokenExpiresAt', now + lifetimeSeconds);
+          bru.setVar('clerkTokenExpiresAt', decodeJwtExp(token));
         }
-
-        req.setHeader('Authorization', `Bearer ${token}`);
