@@ -4,7 +4,6 @@ import { formatCurrency } from '../../utils/formatters';
 import { formatDateNoTimezone } from '../../utils/dateFormatter';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, Award, AlertCircle } from 'lucide-react';
-import { Badge } from '../ui/badge';
 
 interface BacktestInsightsProps {
   results: BacktestEntry[];
@@ -30,11 +29,22 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
   const profitDistribution = useMemo((): ProfitDistributionData[] => {
     if (completedResults.length === 0) return [];
     
-    const profits = completedResults.map(r => r.highProfit || 0);
+    const profits = completedResults.map(r => r.holdProfit || 0);
     const minProfit = Math.min(...profits);
     const maxProfit = Math.max(...profits);
     const range = maxProfit - minProfit;
-    const bucketCount = 10;
+
+    // All profits identical (or a single result) — one bucket avoids divide-by-zero / NaN index
+    if (range === 0) {
+      return [{
+        range: formatCurrency(minProfit),
+        count: profits.length,
+        min: minProfit,
+        max: maxProfit
+      }];
+    }
+
+    const bucketCount = Math.min(10, Math.max(1, profits.length));
     const bucketSize = range / bucketCount;
 
     const buckets: ProfitDistributionData[] = Array.from({ length: bucketCount }, (_, i) => ({
@@ -49,7 +59,9 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
         Math.floor((profit - minProfit) / bucketSize),
         bucketCount - 1
       );
-      buckets[bucketIndex].count++;
+      if (buckets[bucketIndex]) {
+        buckets[bucketIndex].count++;
+      }
     });
 
     return buckets;
@@ -65,7 +77,7 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
       const date = formatDateNoTimezone(result.createdAt);
       const existing = dataMap.get(date) || { profit: 0, count: 0 };
       dataMap.set(date, {
-        profit: existing.profit + (result.highProfit || 0),
+        profit: existing.profit + (result.holdProfit || 0),
         count: existing.count + 1
       });
     });
@@ -83,22 +95,22 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
   const creditsEfficiency = useMemo(() => {
     if (completedResults.length === 0) return null;
     
-    const totalProfit = completedResults.reduce((sum, r) => sum + (r.highProfit || 0), 0);
+    const totalProfit = completedResults.reduce((sum, r) => sum + (r.holdProfit || 0), 0);
     const totalCredits = completedResults.reduce((sum, r) => sum + (r.creditsUsed || 0), 0);
     
     return totalCredits > 0 ? totalProfit / totalCredits : 0;
   }, [completedResults]);
 
-  // Find best and worst performers
+  // Find best and worst performers (hold = realistic P/L)
   const bestPerformer = completedResults.length > 0
     ? completedResults.reduce((best, current) => 
-        (current.highProfit || 0) > (best.highProfit || 0) ? current : best
+        (current.holdProfit || 0) > (best.holdProfit || 0) ? current : best
       )
     : null;
 
   const worstPerformer = completedResults.length > 0
     ? completedResults.reduce((worst, current) => 
-        (current.highProfit || 0) < (worst.highProfit || 0) ? current : worst
+        (current.holdProfit || 0) < (worst.holdProfit || 0) ? current : worst
       )
     : null;
 
@@ -118,7 +130,7 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
       {profitDistribution.length > 0 && (
         <div className="bg-card border border-border p-4">
           <h3 className="text-sm font-mono uppercase tracking-wider text-foreground mb-4">
-            :: Profit Distribution
+            :: Hold Profit Distribution
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -244,11 +256,11 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
                 ID: <span className="text-primary dark:text-cyan-400">{bestPerformer.id.substring(0, 12)}...</span>
               </div>
               <div className={`text-xl font-mono font-bold ${
-                (bestPerformer.highProfit || 0) >= 0 
+                (bestPerformer.holdProfit || 0) >= 0 
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-red-600 dark:text-red-400'
               }`}>
-                {formatCurrency(bestPerformer.highProfit || 0)}
+                {formatCurrency(bestPerformer.holdProfit || 0)}
               </div>
               <div className="text-xs font-mono text-muted-foreground">
                 {formatDateNoTimezone(bestPerformer.createdAt)}
@@ -271,11 +283,11 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
                 ID: <span className="text-primary dark:text-cyan-400">{worstPerformer.id.substring(0, 12)}...</span>
               </div>
               <div className={`text-xl font-mono font-bold ${
-                (worstPerformer.highProfit || 0) >= 0 
+                (worstPerformer.holdProfit || 0) >= 0 
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-red-600 dark:text-red-400'
               }`}>
-                {formatCurrency(worstPerformer.highProfit || 0)}
+                {formatCurrency(worstPerformer.holdProfit || 0)}
               </div>
               <div className="text-xs font-mono text-muted-foreground">
                 {formatDateNoTimezone(worstPerformer.createdAt)}

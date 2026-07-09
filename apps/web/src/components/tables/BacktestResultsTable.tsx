@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateTime, formatDateTimeNoMinutes, formatDateNoTimezone } from '../../utils/dateFormatter';
 import { formatCurrency } from '../../utils/formatters';
 import { BacktestEntry } from '../../types/backtest';
+import { getBacktestRequestInfo } from '../../utils/backtestRequest';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { ArrowUpDown, ChevronDown, ChevronRight, Award, AlertTriangle } from 'lucide-react';
 import { Badge } from '../ui/badge';
@@ -196,7 +197,8 @@ export function BacktestResultsTable({ results, sortConfig, onSort }: BacktestRe
           {results.map((result) => {
             const isExpanded = expandedRows.has(result.id);
             const performanceBadge = getPerformanceBadge(result, results);
-            const conditionalProfit = (result as any).conditionalProfit ?? null;
+            const conditionalProfit = result.conditionalProfit ?? null;
+            const requestInfo = getBacktestRequestInfo(result);
             
             // Calculate profit intensity for color coding
             let profitIntensity = 0.5;
@@ -221,9 +223,8 @@ export function BacktestResultsTable({ results, sortConfig, onSort }: BacktestRe
             };
 
             return (
-              <>
+              <Fragment key={result.id}>
                 <TableRow 
-                  key={result.id} 
                   className="border-border hover:bg-muted/50 hover:border-primary cursor-pointer transition-all"
                   onClick={(e) => handleRowClick(result, e)}
                 >
@@ -363,25 +364,25 @@ export function BacktestResultsTable({ results, sortConfig, onSort }: BacktestRe
                 </TableRow>
                 {isExpanded && (
                   <TableRow key={`${result.id}-details`} className="border-border bg-muted/20">
-                    <TableCell colSpan={10} className="p-4">
+                    <TableCell colSpan={14} className="p-4">
                       <div className="space-y-3 font-mono text-xs">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
                             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Starting Balance</div>
                             <div className="text-primary dark:text-cyan-400">
-                              {formatCurrency(result.requestDetails?.positionInfo?.startingBalance || 0)}
+                              {formatCurrency(requestInfo.positionInfo.startingBalance || 0)}
                             </div>
                           </div>
                           <div>
                             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Max Positions</div>
                             <div className="text-primary dark:text-cyan-400">
-                              {result.requestDetails?.positionInfo?.maxConcurrentPositions || 'N/A'}
+                              {requestInfo.positionInfo.maxConcurrentPositions || 'N/A'}
                             </div>
                           </div>
                           <div>
                             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Position Size</div>
                             <div className="text-primary dark:text-cyan-400">
-                              {result.requestDetails?.positionInfo?.positionSize || 'N/A'}
+                              {requestInfo.positionInfo.positionSize || 'N/A'}
                             </div>
                           </div>
                           <div>
@@ -391,44 +392,47 @@ export function BacktestResultsTable({ results, sortConfig, onSort }: BacktestRe
                             </div>
                           </div>
                         </div>
-                        {result.requestDetails?.exitInfo && (
+                        {requestInfo.exitInfo && (requestInfo.exitInfo.stopLoss || requestInfo.exitInfo.profitTarget || requestInfo.exitInfo.timedExit) && (
                           <div className="border-t border-border pt-3">
                             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Exit Settings</div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-                              {result.requestDetails.exitInfo.stopLoss && (
+                              {requestInfo.exitInfo.stopLoss && (
                                 <div className="bg-card border border-border p-2 rounded">
                                   <div className="text-muted-foreground">Stop Loss:</div>
                                   <div className="text-foreground">
-                                    {result.requestDetails.exitInfo.stopLoss.type} @ {result.requestDetails.exitInfo.stopLoss.value}
+                                    {(requestInfo.exitInfo.stopLoss.type || requestInfo.exitInfo.stopLoss.priceActionType || 'value')} @ {requestInfo.exitInfo.stopLoss.value}
                                   </div>
                                 </div>
                               )}
-                              {result.requestDetails.exitInfo.profitTarget && (
+                              {requestInfo.exitInfo.profitTarget && (
                                 <div className="bg-card border border-border p-2 rounded">
                                   <div className="text-muted-foreground">Profit Target:</div>
                                   <div className="text-foreground">
-                                    {result.requestDetails.exitInfo.profitTarget.type} @ {result.requestDetails.exitInfo.profitTarget.value}
+                                    {(requestInfo.exitInfo.profitTarget.type || requestInfo.exitInfo.profitTarget.priceActionType || 'value')} @ {requestInfo.exitInfo.profitTarget.value}
                                   </div>
                                 </div>
                               )}
-                              {result.requestDetails.exitInfo.timedExit && (
+                              {requestInfo.exitInfo.timedExit && (
                                 <div className="bg-card border border-border p-2 rounded">
                                   <div className="text-muted-foreground">Timed Exit:</div>
                                   <div className="text-foreground">
-                                    {result.requestDetails.exitInfo.timedExit.timeframe.multiplier} {result.requestDetails.exitInfo.timedExit.timeframe.timespan}
+                                    {requestInfo.exitInfo.timedExit.timeframe.multiplier}
+                                    {requestInfo.exitInfo.timedExit.timeframe.timespan
+                                      ? ` ${requestInfo.exitInfo.timedExit.timeframe.timespan}`
+                                      : ' bars'}
                                   </div>
                                 </div>
                               )}
                             </div>
                           </div>
                         )}
-                        {result.requestDetails?.entryInfo?.filters && result.requestDetails.entryInfo.filters.length > 0 && (
+                        {requestInfo.filters && requestInfo.filters.length > 0 && (
                           <div className="border-t border-border pt-3">
                             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
-                              Entry Filters ({result.requestDetails.entryInfo.filters.length})
+                              Entry Filters ({requestInfo.filters.length})
                             </div>
                             <div className="flex flex-wrap gap-1">
-                              {result.requestDetails.entryInfo.filters.map((filter, idx) => (
+                              {requestInfo.filters.map((filter, idx) => (
                                 <Badge key={idx} variant="outline" className="text-[9px] font-mono">
                                   {filter}
                                 </Badge>
@@ -440,7 +444,7 @@ export function BacktestResultsTable({ results, sortConfig, onSort }: BacktestRe
                     </TableCell>
                   </TableRow>
                 )}
-              </>
+              </Fragment>
             );
           })}
         </TableBody>

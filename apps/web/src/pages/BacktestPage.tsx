@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BacktestResultsTable } from '../components/tables/BacktestResultsTable';
 import { BacktestStatistics } from '../components/backtest/BacktestStatistics';
@@ -35,6 +35,17 @@ export function BacktestPage() {
   const startDate = searchParams.get('startDate') || '';
   const endDate = searchParams.get('endDate') || '';
 
+  const fetchBacktestList = useCallback(async () => {
+    try {
+      const apiResults = await backtestApi.getBacktests();
+      setBacktestResults(apiResults);
+      setError('');
+    } catch (e) {
+      console.error('Failed to fetch backtest list:', e);
+      setError('Failed to fetch backtest data');
+    }
+  }, []);
+
   useEffect(() => {
     fetchBacktestList();
     
@@ -43,17 +54,7 @@ export function BacktestPage() {
     
     // Cleanup interval on component unmount
     return () => clearInterval(interval);
-  }, []);
-
-  const fetchBacktestList = async () => {
-    try {
-      const apiResults = await backtestApi.getBacktests();
-      setBacktestResults(apiResults);
-    } catch (e) {
-      console.error('Failed to fetch backtest list:', e);
-      setError('Failed to fetch backtest data');
-    }
-  };
+  }, [fetchBacktestList]);
 
   const updateFilter = (key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -74,7 +75,7 @@ export function BacktestPage() {
     setSortConfig({ key, direction });
   };
 
-  const getFilteredAndSortedData = (): BacktestEntry[] => {
+  const filteredAndSortedData = useMemo((): BacktestEntry[] => {
     let filtered = [...backtestResults];
 
     // Status filter
@@ -98,15 +99,15 @@ export function BacktestPage() {
       );
     }
 
-    // Profit range filter
+    // Profit range filter (hold = realistic P/L)
     if (minProfit !== null) {
       filtered = filtered.filter(result => 
-        (result.highProfit || 0) >= minProfit
+        (result.holdProfit || 0) >= minProfit
       );
     }
     if (maxProfit !== null) {
       filtered = filtered.filter(result => 
-        (result.highProfit || 0) <= maxProfit
+        (result.holdProfit || 0) <= maxProfit
       );
     }
 
@@ -144,7 +145,7 @@ export function BacktestPage() {
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  };
+  }, [backtestResults, statusFilter, searchQuery, minProfit, maxProfit, startDate, endDate, sortConfig]);
 
   const hasActiveFilters = statusFilter !== 'All' || searchQuery || minProfit !== null || maxProfit !== null || startDate || endDate;
 
@@ -302,7 +303,7 @@ export function BacktestPage() {
           </div>
 
           <BacktestResultsTable 
-            results={getFilteredAndSortedData()} 
+            results={filteredAndSortedData} 
             sortConfig={sortConfig}
             onSort={sortData}
           />
