@@ -7,6 +7,7 @@ using MarketViewer.Core.Services;
 using MarketViewer.Core.Utilities;
 using MarketViewer.Infrastructure.Config;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using System.Net;
 
 namespace MarketViewer.Infrastructure.Services;
@@ -90,7 +91,13 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
                 { "Id", new AttributeValue { S = id } }
             }
         });
-        
+
+        if (response.Item == null || response.Item.Count == 0)
+        {
+            logger.LogWarning("No user record found for user {UserId}", id);
+            return null;
+        }
+
         var userRecord = new UserRecord
         {
             Id = response.Item["Id"].S,
@@ -110,5 +117,44 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             id, userRecord.Role);
 
         return userRecord;
+    }
+
+    public async Task<bool> TryDebitCredits(string id, float credits)
+    {
+        if (credits <= 0)
+        {
+            return true;
+        }
+
+        try
+        {
+            var request = new UpdateItemRequest
+            {
+                TableName = config.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { "Id", new AttributeValue { S = id } }
+                },
+                UpdateExpression = "SET Credits = Credits - :credits",
+                ConditionExpression = "attribute_exists(Id) AND Credits >= :credits",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":credits", new AttributeValue { N = credits.ToString(CultureInfo.InvariantCulture) } }
+                }
+            };
+
+            var response = await dynamodb.UpdateItemAsync(request);
+            return response.HttpStatusCode == HttpStatusCode.OK;
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            logger.LogWarning("Unable to debit {Credits} credits from user {UserId}; balance changed or user does not exist", credits, id);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error debiting credits for user {UserId}: {Message}", id, ex.Message);
+            return false;
+        }
     }
 }

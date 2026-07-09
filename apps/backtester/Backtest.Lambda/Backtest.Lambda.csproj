@@ -32,6 +32,7 @@
     <PackageReference Include="Polygon.Client" Version="2.2.0" />
     <ProjectReference Include="..\..\..\packages\marketviewer-contracts\MarketViewer.Contracts\MarketViewer.Contracts.csproj" />
     <ProjectReference Include="..\..\..\packages\marketviewer-filters\MarketViewer.Filters\MarketViewer.Filters.csproj" />
+    <ProjectReference Include="..\..\..\packages\marketviewer-infrastructure\MarketViewer.Infrastructure\MarketViewer.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\packages\marketviewer-studies\MarketViewer.Studies\MarketViewer.Studies.csproj" />
   </ItemGroup>
   <ItemGroup>

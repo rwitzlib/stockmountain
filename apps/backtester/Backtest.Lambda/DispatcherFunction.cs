@@ -1,8 +1,8 @@
 using Amazon.Lambda.Core;
 using Amazon.Lambda.SQSEvents;
 using Amazon.SQS;
-using Backtest.Lambda.Repository;
 using MarketViewer.Contracts.Enums.Backtest;
+using MarketViewer.Core.Services;
 using MarketViewer.Contracts.Requests.Market.Backtest;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -20,8 +20,8 @@ public class DispatcherFunction(IServiceProvider serviceProvider)
 {
     public IServiceProvider ServiceProvider => serviceProvider; // Expose the service provider for testing purposes
 
-    private readonly BacktestRepository _backtestRepository = serviceProvider.GetService<BacktestRepository>();
-    private readonly UserRepository _userRepository = serviceProvider.GetService<UserRepository>();
+    private readonly IBacktestRepository _backtestRepository = serviceProvider.GetService<IBacktestRepository>();
+    private readonly IUserRepository _userRepository = serviceProvider.GetService<IUserRepository>();
     private readonly IAmazonSQS _sqs = serviceProvider.GetService<IAmazonSQS>();
     private readonly ILogger<OrchestratorFunction> _logger = serviceProvider.GetService<ILogger<OrchestratorFunction>>();
 

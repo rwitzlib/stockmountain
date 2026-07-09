@@ -5,12 +5,13 @@ using Amazon.Lambda.Core;
 using Amazon.S3;
 using Amazon.SQS;
 using Backtest.Lambda;
-using Backtest.Lambda.Config;
-using Backtest.Lambda.Repository;
 using Backtest.Lambda.Services;
 using DotNetEnv.Configuration;
 using MarketViewer.Contracts.Caching;
+using MarketViewer.Core.Services;
 using MarketViewer.Filters;
+using MarketViewer.Infrastructure.Config;
+using MarketViewer.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -57,9 +58,10 @@ public static class Startup
             .AddSingleton<IMarketCache, MemoryMarketCache>()
             .AddSingleton<BacktestConfig>(configuration.GetSection("BacktestConfig").Get<BacktestConfig>())
             .AddSingleton<UserConfig>(configuration.GetSection("UserConfig").Get<UserConfig>())
-            .AddSingleton<UserRepository>()
+            .AddSingleton<IUserRepository, UserRepository>()
             .AddSingleton<IndicatorExpressionEngine>()
-            .AddSingleton<BacktestRepository>() 
+            .AddSingleton<IBacktestRepository, BacktestRepository>()
+            .AddSingleton<BacktestWorkerService>()
             .AddSingleton<DataCache>()
             .AddLogging();
 

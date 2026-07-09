@@ -22,22 +22,26 @@ public class BacktestRepository(
     {
         try
         {
+            if (entries is not null)
+            {
+                var key = $"backtestResults/{record.UserId}/{record.Id}";
+
+                var s3Response = await s3.PutObjectAsync(new PutObjectRequest
+                {
+                    BucketName = config.S3BucketName,
+                    Key = key,
+                    ContentBody = JsonSerializer.Serialize(entries)
+                });
+
+                record.S3ObjectName = key;
+            }
+
             var putRequest = new PutItemRequest
             {
                 TableName = config.TableName,
                 Item = MapContextRecordToAttributeMap(record)
             };
             var response = await dynamoDb.PutItemAsync(putRequest);
-
-            if (entries is null)
-            {
-                var s3Response = await s3.PutObjectAsync(new PutObjectRequest
-                {
-                    BucketName = config.S3BucketName,
-                    Key = $"backtestResults/{record.S3ObjectName}",
-                    ContentBody = JsonSerializer.Serialize(entries)
-                });
-            }
 
             return true;
         }
@@ -57,9 +61,15 @@ public class BacktestRepository(
                 TableName = config.TableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
-                    { "Id", new AttributeValue{ S = id } }
+                    { "PK", new AttributeValue { S = id } },
+                    { "SK", new AttributeValue { S = "Context" } }
                 }
             });
+
+            if (response.Item == null || response.Item.Count == 0)
+            {
+                return null;
+            }
 
             var record = MapAttributeMapToContextRecord(response.Item);
             return record;
@@ -133,6 +143,7 @@ public class BacktestRepository(
         {
             { "PK", new AttributeValue { S = record.Id } },
             { "SK", new AttributeValue { S = "Context" } },
+            { "Id", new AttributeValue { S = record.Id } },
             { "UserId", new AttributeValue { S = record.UserId } },
             { "Status", new AttributeValue { S = record.Status.ToString() } },
             { "CreatedAt", new AttributeValue { S = record.CreatedAt } },
@@ -171,12 +182,14 @@ public class BacktestRepository(
 
     private static BacktestContextRecord MapAttributeMapToContextRecord(Dictionary<string, AttributeValue> item)
     {
-        //item.TryGetValue("PK", out var pk);
-        
         var json = Document.FromAttributeMap(item).ToJson();
         var record = JsonSerializer.Deserialize<BacktestContextRecord>(json);
 
-        //record.Id = pk.S;
+        if (string.IsNullOrEmpty(record.Id) && item.TryGetValue("PK", out var pk))
+        {
+            record.Id = pk.S;
+        }
+
         return record;
     }
 

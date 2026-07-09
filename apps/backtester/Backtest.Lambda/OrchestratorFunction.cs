@@ -6,8 +6,9 @@ using System.Net;
 using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Backtest;
-using Backtest.Lambda.Repository;
+using Backtest.Lambda.Services;
 using MarketViewer.Contracts.Requests.Market.Backtest;
+using MarketViewer.Core.Services;
 using MarketViewer.Contracts.Responses.Market.Backtest;
 using MarketViewer.Contracts.Records;
 using Microsoft.Extensions.Logging;
@@ -19,8 +20,9 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 {
     public IServiceProvider ServiceProvider => serviceProvider; // Expose the service provider for testing purposes
 
-    private readonly BacktestRepository _backtestRepository = serviceProvider.GetService<BacktestRepository>();
-    private readonly UserRepository _userRepository = serviceProvider.GetService<UserRepository>();
+    private readonly IBacktestRepository _backtestRepository = serviceProvider.GetService<IBacktestRepository>();
+    private readonly IUserRepository _userRepository = serviceProvider.GetService<IUserRepository>();
+    private readonly BacktestWorkerService _workerService = serviceProvider.GetService<BacktestWorkerService>();
     private readonly ILogger<OrchestratorFunction> _logger = serviceProvider.GetService<ILogger<OrchestratorFunction>>();
     
     private readonly string _workerFunctionName = Environment.GetEnvironmentVariable("BACKTEST_WORKER_FUNCTION_NAME") ?? string.Empty;
@@ -42,7 +44,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
             _logger.LogInformation("Processing backtest request with ID {RequestId}.", request.Id);
 
-            if (record.Status is not BacktestStatus.Pending)
+            if (record is null || record.Status is not BacktestStatus.Pending)
             {
                 _logger.LogInformation("Backtest record not found or already completed for request ID {RequestId}.", request.Id);
 
@@ -78,7 +80,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
             record.Status = BacktestStatus.InProgress;
             await _backtestRepository.Put(record);
             
-            var entries = await _backtestRepository.GetBacktestResultsFromLambda(request);
+            var entries = await _workerService.GetBacktestResultsFromLambda(request);
 
             _logger.LogInformation("Found {EntryCount} entries for the backtest request ID {RequestId} after {ElapsedSeconds} seconds.", entries.Count, request.Id, sp.Elapsed.TotalSeconds);
 
