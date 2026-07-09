@@ -110,11 +110,6 @@ public class BacktestRepository(
     {
         try
         {
-            if (record is null || record.S3ObjectName is null)
-            {
-                return [];
-            }
-
             var s3Response = await s3.GetObjectAsync(new GetObjectRequest
             {
                 BucketName = config.S3BucketName,

@@ -52,6 +52,11 @@ http:
       }
   auth: inherit
 
+runtime:
+  scripts:
+    - type: after-response
+      code: bru.setVar("backtest_id", res.body.id)
+
 settings:
   encodeUrl: true
   timeout: 0

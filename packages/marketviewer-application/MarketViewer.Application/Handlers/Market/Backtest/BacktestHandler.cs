@@ -104,8 +104,8 @@ public class BacktestHandler(
                     HighProfit = record.HighProfit,
                     ConditionalProfit = record.ConditionalProfit,
                     Request = record.Request,
-                    Start = DateTimeOffset.Parse(record.Start),
-                    End = DateTimeOffset.Parse(record.End),
+                    Start = DateTime.Parse(record.Start),
+                    End = DateTime.Parse(record.End),
                     DurationSeconds = record.DurationSeconds,
                     Errors = record.Errors
                 };

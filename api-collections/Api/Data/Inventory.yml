@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: https://{{base_url}}{{port}}/api/market-data/inventory?start=2026-06-01&end=2026-07-01
+  url: https://{{base_url}}{{port}}/api/market-data/inventory?start=2026-06-01&end=2026-07-01&timespan=minute
   params:
     - name: start
       value: 2026-06-01
@@ -16,9 +16,8 @@ http:
     - name: timespan
       value: minute
       type: query
-      disabled: true
     - name: multiplier
-      value: "5"
+      value: "1"
       type: query
       disabled: true
   auth: inherit

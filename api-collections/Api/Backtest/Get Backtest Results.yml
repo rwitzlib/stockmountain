@@ -1,0 +1,15 @@
+info:
+  name: Get Backtest Results
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: https://{{base_url}}/api/backtest/d14f01c9-728a-489e-ad92-11550e60cf82
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
