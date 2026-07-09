@@ -19,36 +19,54 @@ public class BacktestRepository(
     IAmazonS3 s3,
     ILogger<BacktestRepository> logger) : IBacktestRepository
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
     public async Task<bool> Put(BacktestContextRecord record, IEnumerable<WorkerResponse> entries = null)
     {
         try
         {
             if (entries is not null)
             {
-                var key = $"backtestResults/{record.UserId}/{record.Id}";
-
-                var s3Response = await s3.PutObjectAsync(new PutObjectRequest
-                {
-                    BucketName = config.S3BucketName,
-                    Key = key,
-                    ContentBody = JsonSerializer.Serialize(entries)
-                });
-
+                var key = BuildUniverseKey(record);
+                await PutS3JsonAsync(key, entries);
                 record.S3ObjectName = key;
             }
 
-            var putRequest = new PutItemRequest
-            {
-                TableName = config.TableName,
-                Item = MapContextRecordToAttributeMap(record)
-            };
-            var response = await dynamoDb.PutItemAsync(putRequest);
-
-            return true;
+            return await PutDynamoRecordAsync(record);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error creating backtest record");
+            return false;
+        }
+    }
+
+    public async Task<bool> PutCompleted(
+        BacktestContextRecord record,
+        BacktestResultResponse portfolio,
+        IEnumerable<WorkerResponse> universe)
+    {
+        try
+        {
+            var universeKey = BuildUniverseKey(record);
+            var portfolioKey = BuildPortfolioKey(record);
+
+            await PutS3JsonAsync(universeKey, universe);
+            await PutS3JsonAsync(portfolioKey, portfolio);
+
+            record.S3ObjectName = universeKey;
+            record.PortfolioS3ObjectName = portfolioKey;
+
+            return await PutDynamoRecordAsync(record);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error persisting completed backtest artifacts for {id}", record.Id);
             return false;
         }
     }
@@ -72,8 +90,7 @@ public class BacktestRepository(
                 return null;
             }
 
-            var record = MapAttributeMapToContextRecord(response.Item);
-            return record;
+            return MapAttributeMapToContextRecord(response.Item);
         }
         catch (Exception e)
         {
@@ -106,32 +123,92 @@ public class BacktestRepository(
         }
     }
 
-    public async Task<List<WorkerResponse>> GetBacktestResultsFromS3(BacktestContextRecord record)
+    public async Task<BacktestResultResponse> GetPortfolioFromS3(BacktestContextRecord record)
     {
         try
         {
-            var s3Response = await s3.GetObjectAsync(new GetObjectRequest
+            if (string.IsNullOrEmpty(record.PortfolioS3ObjectName))
             {
-                BucketName = config.S3BucketName,
-                Key = record.S3ObjectName
-            });
+                logger.LogWarning("No portfolio S3 key for backtest {recordId}", record.Id);
+                return null;
+            }
 
-            using var streamReader = new StreamReader(s3Response.ResponseStream);
-            var json = await streamReader.ReadToEndAsync();
-
-            var s3Results = JsonSerializer.Deserialize<IEnumerable<WorkerResponse>>(json);
-            s3Results.ToList().ForEach(q => q.CreditsUsed = 0);
-
-            return s3Results.ToList();
+            var json = await GetS3JsonAsync(record.PortfolioS3ObjectName);
+            return JsonSerializer.Deserialize<BacktestResultResponse>(json, SerializerOptions);
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Error retrieving backtest results from S3 for record {recordId}", record.Id);
+            logger.LogError(e, "Error retrieving portfolio from S3 for record {recordId}", record.Id);
+            return null;
+        }
+    }
+
+    public async Task<List<WorkerResponse>> GetUniverseFromS3(BacktestContextRecord record)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(record.S3ObjectName))
+            {
+                logger.LogWarning("No universe S3 key for backtest {recordId}", record.Id);
+                return [];
+            }
+
+            var json = await GetS3JsonAsync(record.S3ObjectName);
+            var s3Results = JsonSerializer.Deserialize<IEnumerable<WorkerResponse>>(json, SerializerOptions);
+            var list = s3Results?.ToList() ?? [];
+            list.ForEach(q => q.CreditsUsed = 0);
+            return list;
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Error retrieving universe from S3 for record {recordId}", record.Id);
             return [];
         }
     }
 
+    public Task<List<WorkerResponse>> GetBacktestResultsFromS3(BacktestContextRecord record) =>
+        GetUniverseFromS3(record);
+
     #region Private Methods
+
+    private static string BuildUniverseKey(BacktestContextRecord record) =>
+        $"backtestResults/{record.UserId}/{record.Id}/universe.json";
+
+    private static string BuildPortfolioKey(BacktestContextRecord record) =>
+        $"backtestResults/{record.UserId}/{record.Id}/portfolio.json";
+
+    private async Task PutS3JsonAsync<T>(string key, T payload)
+    {
+        await s3.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = config.S3BucketName,
+            Key = key,
+            ContentBody = JsonSerializer.Serialize(payload, SerializerOptions)
+        });
+    }
+
+    private async Task<string> GetS3JsonAsync(string key)
+    {
+        var s3Response = await s3.GetObjectAsync(new GetObjectRequest
+        {
+            BucketName = config.S3BucketName,
+            Key = key
+        });
+
+        using var streamReader = new StreamReader(s3Response.ResponseStream);
+        return await streamReader.ReadToEndAsync();
+    }
+
+    private async Task<bool> PutDynamoRecordAsync(BacktestContextRecord record)
+    {
+        var putRequest = new PutItemRequest
+        {
+            TableName = config.TableName,
+            Item = MapContextRecordToAttributeMap(record)
+        };
+        await dynamoDb.PutItemAsync(putRequest);
+        return true;
+    }
 
     private static Dictionary<string, AttributeValue> MapContextRecordToAttributeMap(BacktestContextRecord record)
     {
@@ -156,6 +233,11 @@ public class BacktestRepository(
         if (!string.IsNullOrEmpty(record.S3ObjectName))
         {
             attributeMap.Add("S3ObjectName", new AttributeValue { S = record.S3ObjectName });
+        }
+
+        if (!string.IsNullOrEmpty(record.PortfolioS3ObjectName))
+        {
+            attributeMap.Add("PortfolioS3ObjectName", new AttributeValue { S = record.PortfolioS3ObjectName });
         }
 
         if (record.Errors != null && record.Errors.Count > 0)

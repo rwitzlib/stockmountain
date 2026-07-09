@@ -21,7 +21,17 @@ public class BacktestContextRecord
     public string Start { get; set; }
     public string End { get; set; }
     public BacktestCreateRequest Request { get; set; }
+
+    /// <summary>
+    /// S3 key for the unconstrained trade universe (worker results).
+    /// </summary>
     public string S3ObjectName { get; set; }
+
+    /// <summary>
+    /// S3 key for the capital-constrained portfolio outcome (stats + equity + taken trades).
+    /// </summary>
+    public string PortfolioS3ObjectName { get; set; }
+
     public List<string> Errors { get; set; }
     public float DurationSeconds { get; set; }
 

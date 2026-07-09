@@ -64,14 +64,33 @@ public class BacktestController(AuthContext authContext, BacktestHandler handler
     [RequiresTier(UserRole.Basic)]
     public async Task<IActionResult> GetBacktestResult(string id)
     {
-        var userId = authContext.UserId;
-
         var response = await handler.GetResult(id);
 
         return response.Status switch
         {
             HttpStatusCode.OK => Ok(response.Data),
             HttpStatusCode.BadRequest => BadRequest(response.ErrorMessages),
+            HttpStatusCode.NotFound => NotFound(response.ErrorMessages),
+            _ => StatusCode(StatusCodes.Status500InternalServerError, response.ErrorMessages)
+        };
+    }
+
+    /// <summary>
+    /// Stub: unconstrained trade universe for pattern exploration (not implemented yet).
+    /// </summary>
+    [HttpGet]
+    [Route("universe/{id}")]
+    [RequiresTier(UserRole.Basic)]
+    public async Task<IActionResult> GetBacktestUniverse(string id)
+    {
+        var response = await handler.GetUniverse(id);
+
+        return response.Status switch
+        {
+            HttpStatusCode.OK => Ok(response.Data),
+            HttpStatusCode.NotImplemented => StatusCode(StatusCodes.Status501NotImplemented, response.ErrorMessages),
+            HttpStatusCode.BadRequest => BadRequest(response.ErrorMessages),
+            HttpStatusCode.NotFound => NotFound(response.ErrorMessages),
             _ => StatusCode(StatusCodes.Status500InternalServerError, response.ErrorMessages)
         };
     }

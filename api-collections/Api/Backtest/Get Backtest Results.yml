@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: https://{{base_url}}/api/backtest/d14f01c9-728a-489e-ad92-11550e60cf82
+  url: https://{{base_url}}{{port}}/api/backtest/result/d14f01c9-728a-489e-ad92-11550e60cf82
   auth: inherit
 
 settings:

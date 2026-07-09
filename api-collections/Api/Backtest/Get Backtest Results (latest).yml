@@ -1,0 +1,19 @@
+docs: |
+  Returns the capital-constrained portfolio outcome for a completed backtest:
+  hold/high/other strategy portfolios with stats, equity curve, and taken trades.
+  Does not include the unconstrained trade universe (see universe endpoint stub).
+info:
+  name: Get Backtest Results (latest)
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: https://{{base_url}}{{port}}/api/backtest/result/{{backtest_id}}
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

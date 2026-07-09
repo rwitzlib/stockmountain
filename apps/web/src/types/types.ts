@@ -1,4 +1,3 @@
-
 export interface TradeStrategy {
   endBalance: number;
   balanceChange: number;
@@ -15,6 +14,46 @@ export interface TradeStrategy {
   profitFactor?: number;
 }
 
+export interface EquityPoint {
+  date: string;
+  startCash: number;
+  endCash: number;
+  totalBalance: number;
+  openPositions: number;
+  maxConcurrentPositions: number;
+  dayProfit: number;
+  tradesTaken: number;
+}
+
+export interface ExecutedTrade {
+  ticker: string;
+  boughtAt: string;
+  soldAt: string;
+  startPrice: number;
+  endPrice: number;
+  shares: number;
+  startPosition: number;
+  endPosition: number;
+  profit: number;
+  stoppedOut: boolean;
+}
+
+export interface StrategyPortfolio {
+  stats: TradeStrategy;
+  equity: EquityPoint[];
+  trades: ExecutedTrade[];
+}
+
+/** Portfolio outcome from GET /backtest/result/{id} */
+export interface TradingData {
+  id: string;
+  creditsUsed: number;
+  hold: StrategyPortfolio;
+  high: StrategyPortfolio;
+  other?: StrategyPortfolio | null;
+}
+
+/** @deprecated Legacy day-nested shape — kept for BalanceChart until removed */
 export interface DailyResult {
   date: string;
   hold: DailyStrategyResult;
@@ -40,16 +79,6 @@ export interface Trade {
   profit: number;
   timestamp: string;
   stoppedOut: boolean;
-}
-
-export interface TradingData {
-  id: string;
-  creditsUsed: number;
-  hold: TradeStrategy;
-  high: TradeStrategy;
-  other?: TradeStrategy;
-  results: DailyResult[];
-  entries: TradingEntry[];
 }
 
 export interface TradingEntry {

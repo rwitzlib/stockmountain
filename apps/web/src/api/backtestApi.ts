@@ -1,5 +1,6 @@
 import { getAuthHeaders } from './authToken';
 import { BacktestEntry, BacktestRequest } from "../types/backtest";
+import { TradingData } from "../types/types";
 
 const BASE_URL = 'https://stockmountain.io/api';
 
@@ -47,7 +48,8 @@ export const backtestApi = {
     return await response.json();
   },
 
-  getBacktestResult: async (id: string): Promise<any> => {
+  /** Portfolio outcome (stats + equity + taken trades). */
+  getBacktestResult: async (id: string): Promise<TradingData> => {
     const response = await fetch(`${BASE_URL}/backtest/result/${id}`, {
       method: 'GET',
       headers: await getAuthHeaders()
