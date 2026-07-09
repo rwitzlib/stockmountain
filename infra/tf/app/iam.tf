@@ -94,7 +94,9 @@ resource "aws_iam_role" "backtest_lambda" {
           ]
           Resource = [
             aws_s3_bucket.market_data.arn,
-            "${aws_s3_bucket.market_data.arn}/*"
+            "${aws_s3_bucket.market_data.arn}/*",
+            aws_s3_bucket.backtest_data.arn,
+            "${aws_s3_bucket.backtest_data.arn}/*"
           ]
         },
         {
