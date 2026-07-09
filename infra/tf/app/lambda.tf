@@ -83,9 +83,11 @@ resource "aws_lambda_function" "backtest_worker" {
     command = ["Backtest.Lambda::Backtest.Lambda.WorkerFunction::FunctionHandler"]
   }
 
-  # environment {
-  #   variables = local.backtest_common_environment
-  # }
+  environment {
+    variables = {
+      POLYGON_TOKEN = data.aws_ssm_parameter.polygon_token.value
+    }
+  }
 
   kms_key_arn = data.aws_kms_key.lambda.arn
 }

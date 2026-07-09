@@ -11,7 +11,7 @@ http:
     data: |-
       {
         "Start": "2026-06-01",
-        "End": "2026-06-01",
+        "End": "2026-06-30",
         "PositionSettings": {
           "StartingBalance": 100000,
           "MaxConcurrentPositions": 1000,
