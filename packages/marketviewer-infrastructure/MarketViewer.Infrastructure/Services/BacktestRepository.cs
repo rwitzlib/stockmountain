@@ -5,6 +5,7 @@ using Amazon.S3.Model;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Document = Amazon.DynamoDBv2.DocumentModel.Document;
+using MarketViewer.Contracts.Requests.Market.Backtest;
 using MarketViewer.Contracts.Responses.Market.Backtest;
 using MarketViewer.Core.Services;
 using MarketViewer.Infrastructure.Config;
@@ -182,8 +183,23 @@ public class BacktestRepository(
 
     private static BacktestContextRecord MapAttributeMapToContextRecord(Dictionary<string, AttributeValue> item)
     {
-        var json = Document.FromAttributeMap(item).ToJson();
+        // "Request" is stored as a serialized JSON string, but older records (written by the
+        // lambda before consolidation) stored it as a native map, so handle both shapes.
+        var attributes = item;
+        item.TryGetValue("Request", out var requestAttribute);
+        if (requestAttribute?.S is not null)
+        {
+            attributes = new Dictionary<string, AttributeValue>(item);
+            attributes.Remove("Request");
+        }
+
+        var json = Document.FromAttributeMap(attributes).ToJson();
         var record = JsonSerializer.Deserialize<BacktestContextRecord>(json);
+
+        if (requestAttribute?.S is not null)
+        {
+            record.Request = JsonSerializer.Deserialize<BacktestCreateRequest>(requestAttribute.S);
+        }
 
         if (string.IsNullOrEmpty(record.Id) && item.TryGetValue("PK", out var pk))
         {
