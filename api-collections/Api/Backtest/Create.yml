@@ -21,7 +21,7 @@ http:
           },
           "Cooldown": {
             "Multiplier": 15,
-            "Timeframe": "minute"
+            "Timespan": "minute"
           }
         },
         "EntrySettings": {
@@ -42,12 +42,10 @@ http:
             "ExitValueType": "percent",
             "Value": 10
           },
-          "ConditionalExit": [],
           "TimedExit": {
             "Timeframe": {
-              
-            "Multiplier": 30,
-            "Timespan": "minute"
+              "Multiplier": 30,
+              "Timespan": "minute"
             }
           }
         }
