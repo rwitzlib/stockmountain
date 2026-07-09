@@ -36,8 +36,8 @@ data "aws_iam_policy_document" "api_runtime" {
     resources = [
       aws_s3_bucket.market_data.arn,
       "${aws_s3_bucket.market_data.arn}/*",
-      aws_s3_bucket.backtest.arn,
-      "${aws_s3_bucket.backtest.arn}/*"
+      aws_s3_bucket.backtest_data.arn,
+      "${aws_s3_bucket.backtest_data.arn}/*"
     ]
   }
 
