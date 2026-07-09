@@ -29,24 +29,15 @@ data "aws_iam_policy_document" "api_runtime" {
 
     actions = [
       "s3:GetObject",
-      "s3:PutObject"
-    ]
-
-    resources = [
-      "${aws_s3_bucket.market_data.arn}/*"
-    ]
-  }
-
-  statement {
-    sid    = "ListMarketDataBucket"
-    effect = "Allow"
-
-    actions = [
+      "s3:PutObject",
       "s3:ListBucket"
     ]
 
     resources = [
-      aws_s3_bucket.market_data.arn
+      aws_s3_bucket.market_data.arn,
+      "${aws_s3_bucket.market_data.arn}/*",
+      aws_s3_bucket.backtest.arn,
+      "${aws_s3_bucket.backtest.arn}/*"
     ]
   }
 
