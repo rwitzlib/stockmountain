@@ -44,3 +44,5 @@ coverage/
 .claude/**
 .github/skills/**
 .github/skills-lock.json
+
+**.sln
