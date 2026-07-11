@@ -390,7 +390,7 @@ public class ExpressionParser : IExpressionParser
             return (new LiteralExpression(number), index + 1);
         }
 
-        // Check for data access literals (close, open, high, low, vwap)
+        // Check for data access literals (close, open, high, low, vwap, volume, float)
         if (!string.IsNullOrEmpty(token) && char.IsLetter(token[0]))
         {
             var lowerToken = token.ToLowerInvariant();
@@ -433,7 +433,7 @@ public class ExpressionParser : IExpressionParser
     {
         return token switch
         {
-            "close" or "open" or "high" or "low" or "vwap" or "volume" => true,
+            "close" or "open" or "high" or "low" or "vwap" or "volume" or "float" => true,
             _ => false
         };
     }

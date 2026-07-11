@@ -1,19 +1,26 @@
-﻿using Amazon.Runtime.Internal.Util;
+﻿using Amazon.S3;
+using Amazon.S3.Model;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Enums;
+using MarketViewer.Contracts.MarketData;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Responses.Market;
 using Microsoft.Extensions.Logging;
 using Polygon.Client.Models;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace Backtest.Lambda.Services;
 
-public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
+public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache> logger)
 {
     private List<string> Tickers { get; set; } = [];
     private Dictionary<string, StocksResponse> StocksResponses { get; set; } = [];
     private Dictionary<string, Bar[]> NextCandlesCache { get; set; } = [];
+    private readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     public async Task<bool> Setup(DateTimeOffset date, List<Timeframe> timeframes)
     {
@@ -43,7 +50,9 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
                 initializeTasks.Add(marketCache.Initialize(date.AddMonths(-1), new Timeframe(1, Timespan.hour)));
             }
 
-            await Task.WhenAll(initializeTasks);
+            // Load ticker details in parallel with aggregates so float filters can resolve.
+            var tickerDetailsTask = LoadTickerDetailsAsync();
+            await Task.WhenAll(initializeTasks.Cast<Task>().Append(tickerDetailsTask));
 
             var sp = Stopwatch.StartNew();
 
@@ -78,6 +87,8 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
                         {
                             return;
                         }
+
+                        AttachTickerDetails(stocksResponse);
 
                         if (timeframe.Multiplier == 1 && timeframe.Timespan == Timespan.minute)
                         {
@@ -202,6 +213,51 @@ public class DataCache(IMarketCache marketCache, ILogger<DataCache> logger)
     }
 
     #region Private Methods
+
+    private async Task LoadTickerDetailsAsync()
+    {
+        try
+        {
+            var s3Request = new GetObjectRequest
+            {
+                BucketName = Environment.GetEnvironmentVariable("MARKET_DATA_BUCKET_NAME") ?? MarketDataStorageContract.DefaultBucketName,
+                Key = MarketDataStorageContract.TickerDetailsKey
+            };
+
+            using var s3Response = await s3.GetObjectAsync(s3Request);
+            using var streamReader = new StreamReader(s3Response.ResponseStream);
+            var json = await streamReader.ReadToEndAsync();
+
+            var tickerDetailsList = JsonSerializer.Deserialize<IEnumerable<TickerDetails>>(json, _jsonOptions)
+                ?? Enumerable.Empty<TickerDetails>();
+
+            foreach (var tickerDetails in tickerDetailsList)
+            {
+                if (tickerDetails?.Ticker is null)
+                {
+                    continue;
+                }
+
+                marketCache.SetTickerDetails(tickerDetails);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Unable to load ticker details; float filters may not evaluate correctly.");
+        }
+    }
+
+    private void AttachTickerDetails(StocksResponse stocksResponse)
+    {
+        var tickerDetails = marketCache.GetTickerDetails(stocksResponse.Ticker);
+        if (tickerDetails is null)
+        {
+            return;
+        }
+
+        stocksResponse.TickerInfo ??= new StocksResponse.Information();
+        stocksResponse.TickerInfo.TickerDetails = tickerDetails;
+    }
 
     private void MergePreviousPeriod(Timeframe timeframe, DateTimeOffset date, DateTimeOffset previousDate)
     {

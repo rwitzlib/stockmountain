@@ -124,6 +124,23 @@ public class FilterSession
 
     private object EvaluateDataAccess(IExpression key, DataAccessExpression expr, ExpressionContext ctx, bool incremental)
     {
+        if (expr.IsScalar)
+        {
+            if (_cache.TryGetValue(key, out var scalarEntry))
+            {
+                return scalarEntry.Result!;
+            }
+
+            var scalar = expr.Evaluate(ctx);
+            _cache[key] = new NodeCache
+            {
+                Result = scalar,
+                DataCount = ctx.StockData.Results.Count,
+                LastTimestamp = ctx.StockData.Results.LastOrDefault()?.Timestamp ?? 0
+            };
+            return scalar;
+        }
+
         var data = ctx.StockData.Results;
         if (!_cache.TryGetValue(key, out var entry) || !incremental || entry.Result is not List<IIndicatorResult> prevSeries)
         {

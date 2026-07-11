@@ -13,8 +13,11 @@ public static class ExpressionPlanner
             case FunctionCallExpression funcCall:
                 var (cost, selectivity) = FunctionHeuristicsRegistry.GetHeuristics(funcCall.FunctionName);
                 return new ExpressionHeuristics(cost, selectivity);
-            case DataAccessExpression _:
-                return new ExpressionHeuristics(1, 0.5);
+            case DataAccessExpression dataAccess:
+                // Ticker fundamentals (e.g. float) are essentially free and useful for short-circuiting.
+                return dataAccess.IsScalar
+                    ? new ExpressionHeuristics(0.01, 0.5)
+                    : new ExpressionHeuristics(1, 0.5);
             case FieldAccessExpression field:
                 // Cost is cost of evaluating the target expression; field extraction is cheap
                 var target = Analyze(field.GetTargetExpression());

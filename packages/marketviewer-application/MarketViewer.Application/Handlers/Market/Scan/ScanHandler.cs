@@ -72,7 +72,7 @@ public class ScanHandler(
     {
         foreach (var filter in fitlers)
         {
-            var timeframe = engine.ExtractTimeframe(filter);
+            var timeframe = engine.ExtractTimeframe(filter) ?? new Timeframe(1, Timespan.minute);
 
             var stocksResponse = marketCache.GetStocksResponse(ticker, timeframe, timestamp);
 
@@ -82,6 +82,7 @@ public class ScanHandler(
             }
 
             var clonedResponse = stocksResponse.Clone();
+            AttachTickerDetails(ticker, clonedResponse);
             var latestBar = marketCache.GetLiveBar(ticker);
 
             // TODO: add if statement to conditionally include latest bar
@@ -103,12 +104,26 @@ public class ScanHandler(
             return null;
         }
 
+        var tickerDetails = marketCache.GetTickerDetails(ticker) ?? minStocksResponse.TickerInfo?.TickerDetails;
+
         return new ScanResponse.Item
         {
             Ticker = ticker,
             Price = minStocksResponse.Results.Last().Close,
-            Float = minStocksResponse.TickerInfo?.TickerDetails?.Float
+            Float = tickerDetails?.Float
         };
+    }
+
+    private void AttachTickerDetails(string ticker, StocksResponse stocksResponse)
+    {
+        var tickerDetails = marketCache.GetTickerDetails(ticker);
+        if (tickerDetails is null)
+        {
+            return;
+        }
+
+        stocksResponse.TickerInfo ??= new StocksResponse.Information();
+        stocksResponse.TickerInfo.TickerDetails = tickerDetails;
     }
 
     private static void TryAddBarToResponse(int multiplier, Timespan timespan, Bar latestBar, StocksResponse response)

@@ -1,7 +1,12 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { BacktestStrategyCard } from '../components/BacktestStrategyCard';
 import { FilterDisplay } from '../components/backtest/FilterDisplay';
+import { EquityCurveCard, EquitySeriesDef } from '../components/backtest/charts/EquityCurveCard';
+import { DailyPnlChart } from '../components/backtest/charts/DailyPnlChart';
+import { HistogramChart } from '../components/backtest/charts/HistogramChart';
+import { EntryTimingPanel } from '../components/backtest/EntryTimingPanel';
+import { TickerLeadersPanel } from '../components/backtest/TickerLeadersPanel';
+import { BacktestTradesTable } from '../components/backtest/BacktestTradesTable';
 import { backtestApi } from '../api/backtestApi';
 import {
   TradingData,
@@ -11,15 +16,26 @@ import {
   EquityPoint,
 } from '../types/types';
 import { BacktestEntry, BacktestRequest } from '../types/backtest';
-import { Strategy } from '../types/strategy';
+import { ScanArgument, Strategy } from '../types/strategy';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
-import { ArrowLeft, Clock, RefreshCw, MoreVertical, Copy, Bot } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Copy, Bot } from 'lucide-react';
 import { formatDateNoTimezone } from '../utils/dateFormatter';
-import { formatPrice } from '../utils/chartUtils';
+import {
+  formatAxisCurrency,
+  formatCurrency,
+  formatSignedCurrency,
+  formatSignedPercent,
+} from '../utils/formatters';
+import {
+  computeDerivedTradeStats,
+  computeDrawdown,
+  computeDurationHistogram,
+  computeEntryTimeBuckets,
+  computeProfitHistogram,
+  computeTickerAggregates,
+} from '../utils/backtestAnalytics';
 import { toast } from '../hooks/use-toast';
-import { createChart, LineSeries, ColorType, LineStyle, type IChartApi, type ISeriesApi } from 'lightweight-charts';
 import { fetchMarketData } from '../services/polygon';
 import { useQuery } from '@tanstack/react-query';
 
@@ -29,8 +45,30 @@ interface BacktestDetailData {
   isProcessing: boolean;
 }
 
-interface TakenTradeRow extends ExecutedTrade {
-  strategy: 'hold' | 'high' | 'other';
+interface StopConfigView {
+  candleType?: string;
+  priceActionType?: string;
+  type?: string;
+  value?: number;
+}
+
+/** Request settings normalized across the current `request` and legacy `requestDetails` shapes */
+interface RequestDataView {
+  positionInfo: {
+    startingBalance?: number;
+    maxConcurrentPositions?: number;
+    positionSize?: number;
+    allowSimultaneous?: boolean;
+    modelType?: string;
+  };
+  exitInfo: {
+    stopLoss?: StopConfigView;
+    profitTarget?: StopConfigView;
+    timeframe?: { multiplier?: number; timespan?: string };
+    avoidOvernight?: boolean;
+  };
+  argument?: ScanArgument;
+  filters: string[];
 }
 
 function normalizeStats(raw: unknown): TradeStrategy {
@@ -127,18 +165,32 @@ function normalizeTradingData(raw: unknown): TradingData | null {
   };
 }
 
-function equityToChartData(equity: EquityPoint[]): { time: number; value: number }[] {
-  return equity
-    .filter((point) => point.date)
-    .map((point) => {
-      const dateStr = point.date.includes('T') ? point.date.split('T')[0] : point.date.split(' ')[0];
-      const date = new Date(`${dateStr}T16:00:00`);
-      return {
-        time: Math.floor(date.getTime() / 1000),
-        value: point.totalBalance,
-      };
-    })
-    .sort((a, b) => a.time - b.time);
+function KpiTile({ label, value, sub, valueColor }: {
+  label: string;
+  value: string;
+  sub?: string;
+  valueColor?: string;
+}) {
+  return (
+    <Card className="p-3.5">
+      <div className="mb-0.5 whitespace-nowrap text-[10.5px] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-[22px] font-semibold leading-tight tabular-nums" style={{ color: valueColor }}>
+        {value}
+      </div>
+      {sub && <div className="mt-0.5 text-[11.5px] text-muted-foreground tabular-nums">{sub}</div>}
+    </Card>
+  );
+}
+
+function RailRow({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+  return (
+    <div className="flex items-baseline justify-between border-b border-border/60 py-1.5 text-[13px] last:border-b-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-semibold tabular-nums" style={{ color: valueColor }}>{value}</span>
+    </div>
+  );
 }
 
 export function BacktestDetailPage() {
@@ -148,17 +200,6 @@ export function BacktestDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isPolling, setIsPolling] = useState(false);
-  const [tickerSearch, setTickerSearch] = useState('');
-  const [debouncedTickerSearch, setDebouncedTickerSearch] = useState('');
-
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const holdSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const highSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const spySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(() =>
-    document.documentElement.classList.contains('dark')
-  );
 
   useEffect(() => {
     if (id) {
@@ -194,13 +235,6 @@ export function BacktestDetailPage() {
       }
     };
   }, [data?.backtestEntry?.status, id]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedTickerSearch(tickerSearch.trim());
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [tickerSearch]);
 
   const fetchBacktestDetails = async () => {
     try {
@@ -322,9 +356,9 @@ export function BacktestDetailPage() {
     enabled: !!data?.backtestEntry?.start && !!data?.backtestEntry?.end && !!data?.tradingData,
   });
 
-  const getRequestData = useCallback((backtestEntry: BacktestEntry) => {
-    if ((backtestEntry as any).request) {
-      const req = (backtestEntry as any).request;
+  const getRequestData = useCallback((backtestEntry: BacktestEntry): RequestDataView => {
+    if (backtestEntry.request) {
+      const req = backtestEntry.request;
       return {
         positionInfo: {
           startingBalance: req.positionSettings?.startingBalance ?? 10000,
@@ -339,11 +373,12 @@ export function BacktestDetailPage() {
           timeframe: req.exitSettings?.timedExit?.timeframe,
           avoidOvernight: req.exitSettings?.timedExit?.avoidOvernight,
         },
+        // Expression filters carried as a legacy ScanArgument for the create-strategy flow
         argument: req.entrySettings?.filters
-          ? {
+          ? ({
               operator: 'AND' as const,
               filters: req.entrySettings.filters.map((f: string) => ({ expression: f })),
-            }
+            } as unknown as ScanArgument)
           : undefined,
         filters: req.entrySettings?.filters || [],
       };
@@ -356,9 +391,9 @@ export function BacktestDetailPage() {
           maxConcurrentPositions: 1,
           positionSize: 1000,
         },
-        exitInfo: backtestEntry.requestDetails.exitInfo,
+        exitInfo: backtestEntry.requestDetails.exitInfo ?? {},
         argument: backtestEntry.requestDetails.argument,
-        filters: [] as string[],
+        filters: [],
       };
     }
 
@@ -368,13 +403,13 @@ export function BacktestDetailPage() {
         maxConcurrentPositions: 1,
         positionSize: 1000,
       },
-      exitInfo: {} as Record<string, unknown>,
+      exitInfo: {},
       argument: undefined,
-      filters: [] as string[],
+      filters: [],
     };
   }, []);
 
-  const formatStopConfig = (config: any) => {
+  const formatStopConfig = (config: StopConfigView | undefined) => {
     if (!config) return 'Not set';
 
     const priceActionDisplay = config.priceActionType ? `${config.priceActionType} ` : '';
@@ -388,9 +423,9 @@ export function BacktestDetailPage() {
     return `${priceActionDisplay}${config.value} (${config.type || 'unknown type'})`;
   };
 
-  const formatTimeframe = (timeframe: any) => {
+  const formatTimeframe = (timeframe: RequestDataView['exitInfo']['timeframe']) => {
     if (!timeframe) return 'Not set';
-    return `${timeframe.multiplier} ${timeframe.timespan}${timeframe.multiplier > 1 ? 's' : ''}`;
+    return `${timeframe.multiplier} ${timeframe.timespan}${(timeframe.multiplier ?? 1) > 1 ? 's' : ''}`;
   };
 
   const formatDuration = (seconds: number | undefined) => {
@@ -439,10 +474,10 @@ export function BacktestDetailPage() {
       end: backtestEntry.end ? backtestEntry.end.slice(0, 10) : '',
       PositionSettings: {
         StartingBalance: positionInfo.startingBalance ?? 10000,
-        AllowSimultaneous: (positionInfo as any).allowSimultaneous ?? ((positionInfo.maxConcurrentPositions ?? 1) > 1),
+        AllowSimultaneous: positionInfo.allowSimultaneous ?? ((positionInfo.maxConcurrentPositions ?? 1) > 1),
         MaxConcurrentPositions: positionInfo.maxConcurrentPositions ?? 1,
         Model: {
-          Type: ((positionInfo as any).modelType) ?? 'Fixed',
+          Type: positionInfo.modelType ?? 'Fixed',
           Size: positionInfo.positionSize ?? 1000,
         },
       },
@@ -509,262 +544,64 @@ export function BacktestDetailPage() {
     });
   };
 
-  const takenTrades = useMemo((): TakenTradeRow[] => {
-    if (!data?.tradingData) return [];
+  const requestData = data?.backtestEntry ? getRequestData(data.backtestEntry) : null;
+  const startingBalance = requestData?.positionInfo.startingBalance || 10000;
 
-    const rows: TakenTradeRow[] = [
-      ...data.tradingData.hold.trades.map((trade) => ({ ...trade, strategy: 'hold' as const })),
-      ...data.tradingData.high.trades.map((trade) => ({ ...trade, strategy: 'high' as const })),
-    ];
+  const analytics = useMemo(() => {
+    if (!data?.tradingData) return null;
 
-    if (data.tradingData.other) {
-      rows.push(
-        ...data.tradingData.other.trades.map((trade) => ({ ...trade, strategy: 'other' as const }))
-      );
-    }
-
-    return rows.sort(
-      (a, b) => new Date(b.boughtAt).getTime() - new Date(a.boughtAt).getTime()
-    );
-  }, [data?.tradingData]);
-
-  const filteredTakenTrades = useMemo(() => {
-    if (!debouncedTickerSearch) return takenTrades;
-    const searchLower = debouncedTickerSearch.toLowerCase();
-    return takenTrades.filter((trade) => trade.ticker.toLowerCase().includes(searchLower));
-  }, [takenTrades, debouncedTickerSearch]);
-
-  const getChartData = useCallback(() => {
-    if (!data?.tradingData) {
-      return { holdData: [] as { time: number; value: number }[], highData: [] as { time: number; value: number }[] };
-    }
+    const primary = data.tradingData.hold;
+    const ceiling = data.tradingData.high;
+    const netProfit = primary.stats.sumProfit ?? primary.stats.balanceChange ?? 0;
+    const ceilingProfit = ceiling.stats.sumProfit ?? ceiling.stats.balanceChange ?? 0;
 
     return {
-      holdData: equityToChartData(data.tradingData.hold.equity),
-      highData: equityToChartData(data.tradingData.high.equity),
+      primary,
+      ceiling,
+      netProfit,
+      netPct: (netProfit / startingBalance) * 100,
+      ceilingPct: (ceilingProfit / startingBalance) * 100,
+      exitEfficiency: ceilingProfit > 0 ? (netProfit / ceilingProfit) * 100 : null,
+      derived: computeDerivedTradeStats(primary.trades),
+      drawdown: computeDrawdown(primary.equity),
+      profitHist: computeProfitHistogram(primary.trades),
+      durationHist: computeDurationHistogram(primary.trades),
+      entryBuckets: computeEntryTimeBuckets(primary.trades),
+      tickers: computeTickerAggregates(primary.trades),
     };
-  }, [data?.tradingData]);
+  }, [data?.tradingData, startingBalance]);
 
-  const getSpyPerformanceData = useCallback(() => {
-    if (!spyDataResponse || !spyDataResponse.results || spyDataResponse.results.length === 0 || !data?.backtestEntry) {
-      return [];
-    }
+  const spySeries = useMemo(() => {
+    if (!analytics || !spyDataResponse?.results?.length) return null;
 
-    const startingBalance = getRequestData(data.backtestEntry).positionInfo.startingBalance || 10000;
-    const sortedSpyBars = [...spyDataResponse.results].sort((a, b) => a.t - b.t);
+    const bars = [...spyDataResponse.results].sort((a, b) => a.t - b.t);
+    const firstClose = bars[0].c;
+    if (!firstClose) return null;
 
-    if (sortedSpyBars.length === 0) {
-      return [];
-    }
-
-    const firstBar = sortedSpyBars[0];
-    const initialPrice = firstBar.c;
-    const initialShares = startingBalance / initialPrice;
-
-    const startDate = new Date(data.backtestEntry.start);
-    startDate.setHours(0, 0, 0, 0);
-    const startTimestamp = Math.floor(startDate.getTime() / 1000);
-
-    const spyDataPoints: { time: number; value: number }[] = [];
-
-    spyDataPoints.push({
-      time: startTimestamp,
-      value: startingBalance,
-    });
-
-    sortedSpyBars.forEach((bar) => {
-      const portfolioValue = initialShares * bar.c;
-      const barTimestamp = Math.floor(bar.t / 1000);
-
-      if (barTimestamp >= startTimestamp) {
-        spyDataPoints.push({
-          time: barTimestamp,
-          value: portfolioValue,
-        });
-      }
-    });
-
-    return spyDataPoints;
-  }, [spyDataResponse, data?.backtestEntry, getRequestData]);
-
-  const applyTheme = () => {
-    if (!chartRef.current) return;
-    const colors = isDarkMode
-      ? {
-          background: '#0b1220',
-          text: '#e5e7eb',
-          grid: '#1f2937',
-          crosshair: '#6b7280',
+    const balances = analytics.primary.equity.map((pt) => {
+      const day = pt.date.slice(0, 10);
+      let close: number | null = null;
+      for (const bar of bars) {
+        if (new Date(bar.t).toISOString().slice(0, 10) <= day) {
+          close = bar.c;
+        } else {
+          break;
         }
-      : {
-          background: '#ffffff',
-          text: '#1f2937',
-          grid: '#e5e7eb',
-          crosshair: '#9ca3af',
-        };
-    chartRef.current.applyOptions({
-      layout: {
-        background: { type: ColorType.Solid, color: colors.background },
-        textColor: colors.text,
-      },
-      grid: {
-        vertLines: { color: colors.grid },
-        horzLines: { color: colors.grid },
-      },
-      crosshair: {
-        mode: 0,
-        vertLine: { color: colors.crosshair },
-        horzLine: { color: colors.crosshair },
-      },
-    });
-  };
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'));
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!chartContainerRef.current || !data?.tradingData) return;
-    if (chartRef.current) return;
-
-    const initialIsDark = document.documentElement.classList.contains('dark');
-    const initialColors = initialIsDark
-      ? {
-          background: '#0b1220',
-          text: '#e5e7eb',
-          grid: '#1f2937',
-          crosshair: '#6b7280',
-          border: '#374151',
-        }
-      : {
-          background: '#ffffff',
-          text: '#1f2937',
-          grid: '#e5e7eb',
-          crosshair: '#9ca3af',
-          border: '#d1d5db',
-        };
-
-    const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
-      height: chartContainerRef.current.clientHeight || 600,
-      layout: {
-        background: { type: ColorType.Solid, color: initialColors.background },
-        textColor: initialColors.text,
-      },
-      crosshair: {
-        mode: 0,
-        vertLine: { color: initialColors.crosshair },
-        horzLine: { color: initialColors.crosshair },
-      },
-      grid: {
-        vertLines: { color: initialColors.grid },
-        horzLines: { color: initialColors.grid },
-      },
-      timeScale: { timeVisible: true, secondsVisible: false, lockVisibleTimeRangeOnResize: true },
-      rightPriceScale: { borderColor: initialColors.border },
-      autoSize: true,
-    });
-    chartRef.current = chart;
-
-    const holdLine = chart.addSeries(LineSeries, {
-      color: '#8b5cf6',
-      lineWidth: 3,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 6,
-      crosshairMarkerBorderColor: initialIsDark ? '#ffffff' : '#1f2937',
-      crosshairMarkerBackgroundColor: '#8b5cf6',
-      title: 'Hold Strategy',
-    });
-    holdSeriesRef.current = holdLine;
-
-    const highLine = chart.addSeries(LineSeries, {
-      color: '#16a34a',
-      lineWidth: 3,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 6,
-      crosshairMarkerBorderColor: initialIsDark ? '#ffffff' : '#1f2937',
-      crosshairMarkerBackgroundColor: '#16a34a',
-      title: 'High Strategy',
-    });
-    highSeriesRef.current = highLine;
-
-    const spyLine = chart.addSeries(LineSeries, {
-      color: '#f59e0b',
-      lineWidth: 2,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 5,
-      crosshairMarkerBorderColor: initialIsDark ? '#ffffff' : '#1f2937',
-      crosshairMarkerBackgroundColor: '#f59e0b',
-      lineStyle: LineStyle.Dashed,
-      title: 'SPY Buy & Hold',
-    });
-    spySeriesRef.current = spyLine;
-
-    const handleResize = () => {
-      if (!chartContainerRef.current || !chartRef.current) return;
-      chartRef.current.applyOptions({
-        width: chartContainerRef.current.clientWidth,
-        height: chartContainerRef.current.clientHeight,
-      });
-    };
-    window.addEventListener('resize', handleResize);
-
-    applyTheme();
-
-    const themeObserver = new MutationObserver(() => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'));
-      applyTheme();
-    });
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-
-    return () => {
-      themeObserver.disconnect();
-      window.removeEventListener('resize', handleResize);
-      if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
       }
-      holdSeriesRef.current = null;
-      highSeriesRef.current = null;
-      spySeriesRef.current = null;
-    };
-  }, [data?.tradingData]);
+      return close != null ? startingBalance * (close / firstClose) : null;
+    });
 
-  useEffect(() => {
-    if (!chartRef.current || !holdSeriesRef.current || !highSeriesRef.current) return;
-
-    const { holdData, highData } = getChartData();
-    const spyDataPoints = getSpyPerformanceData();
-
-    holdSeriesRef.current.setData(holdData.length > 0 ? holdData : []);
-    highSeriesRef.current.setData(highData.length > 0 ? highData : []);
-
-    if (spySeriesRef.current) {
-      spySeriesRef.current.setData(spyDataPoints.length > 0 ? spyDataPoints : []);
-    }
-
-    if (holdData.length > 0 || highData.length > 0 || spyDataPoints.length > 0) {
-      chartRef.current.timeScale().fitContent();
-    }
-  }, [getChartData, getSpyPerformanceData, isDarkMode]);
+    const lastClose = bars[bars.length - 1].c;
+    return { balances, pct: (lastClose / firstClose - 1) * 100 };
+  }, [analytics, spyDataResponse, startingBalance]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-4 md:p-8 pt-20 md:pt-8">
-        <div className="max-w-7xl mx-auto">
-          <Card className="p-8 bg-card border border-border text-center">
-            <div className="text-sm uppercase tracking-widest text-muted-foreground mb-2">Loading</div>
-            <div className="text-lg font-mono text-primary dark:text-cyan-400">Fetching backtest details…</div>
+      <div className="min-h-screen bg-background p-4 pt-20 text-foreground md:p-8 md:pt-8">
+        <div className="mx-auto max-w-[1240px]">
+          <Card className="p-8 text-center">
+            <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Loading</div>
+            <div className="text-base">Fetching backtest details…</div>
           </Card>
         </div>
       </div>
@@ -773,23 +610,19 @@ export function BacktestDetailPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-4 md:p-8 pt-20 md:pt-8">
-        <div className="max-w-7xl mx-auto space-y-6">
+      <div className="min-h-screen bg-background p-4 pt-20 text-foreground md:p-8 md:pt-8">
+        <div className="mx-auto max-w-[1240px] space-y-6">
           <div className="flex items-center gap-4">
             <Link to="/backtest">
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-background border border-border text-primary hover:border-primary hover:text-primary/80"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="mr-1 h-4 w-4" />
                 Back
               </Button>
             </Link>
-            <h1 className="text-xl font-mono font-bold uppercase tracking-wider text-foreground"># Backtest Details</h1>
+            <h1 className="text-xl font-semibold">Backtest details</h1>
           </div>
-          <Card className="p-6 bg-destructive/10 border border-destructive/30">
-            <div className="text-sm font-mono text-destructive">{error}</div>
+          <Card className="border-destructive/30 bg-destructive/10 p-6">
+            <div className="text-sm text-destructive">{error}</div>
           </Card>
         </div>
       </div>
@@ -798,499 +631,444 @@ export function BacktestDetailPage() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-4 md:p-8 pt-20 md:pt-8">
-        <div className="max-w-7xl mx-auto">
-          <Card className="p-8 bg-card border border-border text-center">
-            <div className="text-lg font-mono text-primary dark:text-cyan-400">No backtest data found.</div>
+      <div className="min-h-screen bg-background p-4 pt-20 text-foreground md:p-8 md:pt-8">
+        <div className="mx-auto max-w-[1240px]">
+          <Card className="p-8 text-center">
+            <div className="text-base">No backtest data found.</div>
           </Card>
         </div>
       </div>
     );
   }
 
-  const { tradingData, backtestEntry, isProcessing } = data;
-  const showOther = tradingData?.other != null;
+  const { backtestEntry, isProcessing } = data;
+  const stats = analytics?.primary.stats;
+  const derived = analytics?.derived;
+  const tradingDays = analytics?.primary.equity.length ?? 0;
+  const totalTrades = stats?.totalTradesTaken ?? analytics?.primary.trades.length ?? 0;
+
+  const equitySeries: EquitySeriesDef[] = analytics
+    ? [
+        {
+          key: 'strategy',
+          name: 'Strategy',
+          color: 'var(--chart-strategy)',
+          area: true,
+          balances: analytics.primary.equity.map((pt) => pt.totalBalance),
+        },
+        ...(spySeries
+          ? [
+              {
+                key: 'spy',
+                name: 'SPY',
+                color: 'var(--chart-benchmark)',
+                dashed: true,
+                balances: spySeries.balances,
+              },
+            ]
+          : []),
+        ...(analytics.ceiling.equity.length > 0
+          ? [
+              {
+                key: 'ceiling',
+                name: 'Max potential',
+                color: 'var(--chart-ceiling)',
+                defaultHidden: true,
+                hiddenHint: formatSignedPercent(analytics.ceilingPct, 0),
+                balances: analytics.ceiling.equity.map((pt) => pt.totalBalance),
+              },
+            ]
+          : []),
+      ]
+    : [];
+
+  const statusStyle =
+    backtestEntry.status === 'Completed'
+      ? 'text-green-600 dark:text-green-400 bg-green-500/10'
+      : backtestEntry.status === 'Failed'
+        ? 'text-red-600 dark:text-red-400 bg-red-500/10'
+        : 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/10';
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 md:p-8 pt-20 md:pt-8">
-      <div className="max-w-[1600px] mx-auto space-y-6">
-        <div className="flex flex-wrap items-center gap-4 border-b border-border pb-4">
-          <Link to="/backtest">
-            <Button
-              variant="outline"
-              size="sm"
-              className="bg-background border border-border text-foreground hover:text-primary dark:hover:text-cyan-400 hover:border-primary dark:hover:border-cyan-700"
-            >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back
-            </Button>
-          </Link>
-          <h1 className="text-xl font-mono font-bold uppercase tracking-wider text-foreground"># Backtest Details</h1>
-          {isProcessing && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30 rounded-full text-xs font-mono uppercase tracking-wide">
-              <Clock className="w-4 h-4" />
-              Processing
+    <div className="min-h-screen bg-background p-4 pt-20 text-foreground md:p-8 md:pt-8">
+      <div className="mx-auto max-w-[1240px]">
+        {/* ---------- Masthead ---------- */}
+        <header className="mb-6 flex flex-wrap items-end gap-4 border-b-2 border-foreground/80 pb-5">
+          <div>
+            <div className="mb-1.5 flex items-center gap-3">
+              <Link
+                to="/backtest"
+                className="inline-flex items-center gap-1 text-xs uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Backtests
+              </Link>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${statusStyle}`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                {backtestEntry.status}
+              </span>
+              {isPolling && (
+                <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Polling…
+                </span>
+              )}
             </div>
-          )}
-          {isPolling && !isProcessing && (
-            <div className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">Polling…</div>
-          )}
-
-          <div className="ml-auto">
-            <DropdownMenu>
-              <DropdownMenuTrigger>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-background border border-border text-muted-foreground hover:text-primary dark:hover:text-cyan-400 hover:border-primary dark:hover:border-cyan-700"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-popover border border-border text-popover-foreground">
-                <DropdownMenuItem
-                  onClick={handleCopyBacktest}
-                  className="focus:bg-accent focus:text-accent-foreground"
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleCreateStrategy}
-                  className="focus:bg-accent focus:text-accent-foreground"
-                >
-                  <Bot className="h-4 w-4 mr-2" />
-                  Create Strategy
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              Backtest report{' '}
+              <span className="font-mono text-xl font-normal text-muted-foreground md:text-2xl">
+                {backtestEntry.id.slice(0, 8)}
+              </span>
+            </h1>
+            <p className="mt-1 text-[13px] text-muted-foreground tabular-nums">
+              {formatDateNoTimezone(backtestEntry.start)} – {formatDateNoTimezone(backtestEntry.end)}
+              {tradingDays > 0 && (
+                <>
+                  {' '}· <b className="font-semibold text-foreground">{tradingDays} trading days</b>
+                </>
+              )}
+              {totalTrades > 0 && <> · {totalTrades.toLocaleString()} trades</>}
+              {backtestEntry.creditsUsed != null && (
+                <> · {Math.round(backtestEntry.creditsUsed).toLocaleString()} credits</>
+              )}
+            </p>
           </div>
-        </div>
+          <div className="ml-auto flex gap-2 pb-1">
+            <Button variant="outline" size="sm" onClick={handleCopyBacktest}>
+              <Copy className="mr-1.5 h-4 w-4" />
+              Copy setup
+            </Button>
+            <Button size="sm" onClick={handleCreateStrategy}>
+              <Bot className="mr-1.5 h-4 w-4" />
+              Create strategy
+            </Button>
+          </div>
+        </header>
 
+        {/* ---------- Processing banner ---------- */}
         {isProcessing && (
-          <Card className="bg-yellow-500/10 border border-yellow-500/30 p-4">
-            <div className="flex flex-wrap items-center gap-4 justify-between">
+          <Card className="mb-6 border-yellow-500/30 bg-yellow-500/10 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="animate-spin mt-1">
-                  <RefreshCw className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-mono uppercase tracking-wide text-yellow-600 dark:text-yellow-400">
-                    Backtest Processing
+                <RefreshCw className="mt-1 h-5 w-5 animate-spin text-yellow-600 dark:text-yellow-400" />
+                <div>
+                  <h3 className="text-sm font-semibold text-yellow-700 dark:text-yellow-300">
+                    Backtest processing
                   </h3>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    Your backtest is running. This typically takes 2-5 minutes. Results will appear automatically when
-                    complete.
+                  <p className="text-sm text-yellow-700/90 dark:text-yellow-300/90">
+                    This typically takes 2–5 minutes. Results appear automatically when complete.
                   </p>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefreshResults}
-                className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 hover:border-yellow-500/50"
-              >
-                <RefreshCw className="w-4 h-4 mr-1" />
-                Check Now
+              <Button variant="outline" size="sm" onClick={handleRefreshResults}>
+                <RefreshCw className="mr-1 h-4 w-4" />
+                Check now
               </Button>
             </div>
           </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-          <div className="space-y-6">
-            {tradingData ? (
-              <div className="space-y-6">
-                <div className={`grid grid-cols-1 md:grid-cols-2 ${showOther ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-6`}>
-                  <BacktestStrategyCard title="Hold Strategy" strategy={tradingData.hold.stats} />
-                  <BacktestStrategyCard title="High Strategy" strategy={tradingData.high.stats} />
-                  {showOther && tradingData.other && (
-                    <BacktestStrategyCard title="Other Strategy" strategy={tradingData.other.stats} />
+        {analytics && stats ? (
+          <>
+            {/* ---------- Verdict ---------- */}
+            <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(300px,1.1fr)_2fr]">
+              <Card className="flex flex-col justify-center p-6">
+                <div className="text-[11.5px] uppercase tracking-widest text-muted-foreground">
+                  Net return
+                </div>
+                <div
+                  className="my-1 text-5xl font-semibold leading-none tracking-tight tabular-nums md:text-6xl"
+                  style={{
+                    color:
+                      analytics.netProfit > 0
+                        ? 'var(--chart-gain)'
+                        : analytics.netProfit < 0
+                          ? 'var(--chart-loss)'
+                          : undefined,
+                  }}
+                >
+                  {formatSignedPercent(analytics.netPct)}
+                </div>
+                <div className="text-sm text-muted-foreground tabular-nums">
+                  <b className="font-semibold text-foreground">{formatSignedCurrency(analytics.netProfit)}</b>{' '}
+                  on {formatAxisCurrency(startingBalance)} starting balance
+                </div>
+                <div className="mt-3.5 flex flex-wrap gap-2 text-xs tabular-nums">
+                  {spySeries && (
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                      vs SPY{' '}
+                      <b
+                        className="font-semibold"
+                        style={{
+                          color:
+                            analytics.netPct >= spySeries.pct
+                              ? 'var(--chart-gain)'
+                              : 'var(--chart-loss)',
+                        }}
+                      >
+                        {formatSignedPercent(analytics.netPct - spySeries.pct, 1).replace('%', '')}pts
+                      </b>
+                    </span>
+                  )}
+                  {analytics.ceilingPct > 0 && (
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                      Max potential ceiling{' '}
+                      <b className="font-semibold text-foreground">
+                        {formatSignedPercent(analytics.ceilingPct, 0)}
+                      </b>
+                    </span>
+                  )}
+                  {analytics.exitEfficiency != null && (
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                      Exit efficiency{' '}
+                      <b className="font-semibold text-foreground">
+                        {analytics.exitEfficiency.toFixed(1)}%
+                      </b>
+                    </span>
                   )}
                 </div>
+              </Card>
 
-                <Card className="bg-card border border-border p-4 md:p-6">
-                  <div className="mb-4 border-b border-border pb-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-xs font-mono uppercase tracking-wider text-primary dark:text-cyan-400">
-                        # Balance Over Time
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-4 flex-wrap">
-                      {backtestEntry && (
-                        <p className="text-[10px] font-mono text-muted-foreground">
-                          {'>> '}INIT BAL:{' '}
-                          {formatPrice(getRequestData(backtestEntry).positionInfo.startingBalance || 10000)}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-0.5 bg-[#8b5cf6]"></div>
-                          <span className="text-[10px] font-mono text-muted-foreground">Hold Strategy</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-0.5 bg-[#16a34a]"></div>
-                          <span className="text-[10px] font-mono text-muted-foreground">High Strategy</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-0.5 bg-[#f59e0b] border-dashed border-t-2"></div>
-                          <span className="text-[10px] font-mono text-muted-foreground">SPY Buy & Hold</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div ref={chartContainerRef} className="w-full h-[600px] bg-white dark:bg-[#0a0e17] border border-border" />
-                </Card>
-
-                <Card className="bg-card border border-border p-4 md:p-6">
-                  <div className="mb-4 border-b border-border pb-3 flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                      <h3 className="text-xs font-mono uppercase tracking-wider text-primary dark:text-cyan-400">
-                        # Taken Trades
-                      </h3>
-                      <p className="text-[10px] font-mono text-muted-foreground mt-1">
-                        {filteredTakenTrades.length} of {takenTrades.length} trades
-                      </p>
-                    </div>
-                    <div className="w-full sm:w-56">
-                      <label className="block text-[9px] font-mono uppercase text-muted-foreground mb-1">
-                        Search Ticker
-                      </label>
-                      <input
-                        type="text"
-                        value={tickerSearch}
-                        onChange={(e) => setTickerSearch(e.target.value)}
-                        placeholder="e.g. AAPL"
-                        className="w-full px-2 py-1.5 bg-card border border-border text-foreground placeholder:text-muted-foreground text-xs font-mono rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary h-8"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="py-2 pr-3 text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                            Strategy
-                          </th>
-                          <th className="py-2 pr-3 text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                            Ticker
-                          </th>
-                          <th className="py-2 pr-3 text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                            Bought
-                          </th>
-                          <th className="py-2 pr-3 text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                            Sold
-                          </th>
-                          <th className="py-2 pr-3 text-[9px] font-mono uppercase tracking-wider text-muted-foreground text-right">
-                            Shares
-                          </th>
-                          <th className="py-2 pr-3 text-[9px] font-mono uppercase tracking-wider text-muted-foreground text-right">
-                            Profit
-                          </th>
-                          <th className="py-2 text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                            Stopped Out
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredTakenTrades.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="py-8 text-center text-xs font-mono text-muted-foreground">
-                              No taken trades match this filter.
-                            </td>
-                          </tr>
-                        ) : (
-                          filteredTakenTrades.map((trade, index) => {
-                            const profitColor =
-                              trade.profit > 0
-                                ? 'text-green-600 dark:text-green-400'
-                                : trade.profit < 0
-                                  ? 'text-red-600 dark:text-red-400'
-                                  : 'text-muted-foreground';
-
-                            return (
-                              <tr
-                                key={`${trade.strategy}-${trade.ticker}-${trade.boughtAt}-${index}`}
-                                className="border-b border-border/60 hover:bg-muted/30"
-                              >
-                                <td className="py-2 pr-3 text-xs font-mono uppercase text-primary dark:text-cyan-400">
-                                  {trade.strategy}
-                                </td>
-                                <td className="py-2 pr-3 text-xs font-mono font-bold text-foreground">
-                                  {trade.ticker}
-                                </td>
-                                <td className="py-2 pr-3 text-[10px] font-mono text-muted-foreground whitespace-nowrap">
-                                  {trade.boughtAt ? new Date(trade.boughtAt).toLocaleString() : '—'}
-                                </td>
-                                <td className="py-2 pr-3 text-[10px] font-mono text-muted-foreground whitespace-nowrap">
-                                  {trade.soldAt ? new Date(trade.soldAt).toLocaleString() : '—'}
-                                </td>
-                                <td className="py-2 pr-3 text-xs font-mono text-foreground text-right">
-                                  {trade.shares}
-                                </td>
-                                <td className={`py-2 pr-3 text-xs font-mono font-bold text-right ${profitColor}`}>
-                                  ${trade.profit.toFixed(2)}
-                                </td>
-                                <td className="py-2 text-xs font-mono text-muted-foreground">
-                                  {trade.stoppedOut ? 'Yes' : 'No'}
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <p className="mt-4 text-[10px] font-mono text-muted-foreground">
-                    Trade-universe exploration is coming later.
-                  </p>
-                </Card>
+              <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+                <KpiTile
+                  label="Win rate"
+                  value={`${(stats.winRatio * 100).toFixed(1)}%`}
+                  sub={derived ? `${derived.wins.toLocaleString()} W · ${derived.losses.toLocaleString()} L` : undefined}
+                />
+                <KpiTile
+                  label="Profit factor"
+                  value={stats.profitFactor != null && Number.isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : '—'}
+                  sub={`avg win ${formatCurrency(stats.avgWin)} · loss ${formatCurrency(stats.avgLoss)}`}
+                />
+                <KpiTile
+                  label="Sharpe"
+                  value={stats.sharpeRatio != null ? stats.sharpeRatio.toFixed(2) : '—'}
+                  sub={stats.dailyReturnStdDev != null ? `daily σ ${(stats.dailyReturnStdDev * 100).toFixed(2)}%` : undefined}
+                />
+                <KpiTile
+                  label="Max drawdown"
+                  value={stats.maxDrawdown != null ? `−${(stats.maxDrawdown * 100).toFixed(2)}%` : '—'}
+                  sub="peak to trough"
+                  valueColor={stats.maxDrawdown ? 'var(--chart-loss)' : undefined}
+                />
+                <KpiTile
+                  label="Expectancy"
+                  value={derived ? formatCurrency(derived.expectancy) : '—'}
+                  sub="per trade"
+                />
+                <KpiTile
+                  label="Median hold"
+                  value={derived ? `${Math.round(derived.medianHoldMinutes)}m` : '—'}
+                  sub={derived ? `${Math.round(derived.fullHoldPct * 100)}% held full window` : undefined}
+                />
+                <KpiTile
+                  label="Universe"
+                  value={derived ? derived.uniqueTickers.toLocaleString() : '—'}
+                  sub="tickers traded"
+                />
+                <KpiTile
+                  label="Streaks"
+                  value={derived ? `${derived.winStreak} / ${derived.lossStreak}` : '—'}
+                  sub="longest win / loss run"
+                />
               </div>
-            ) : isProcessing ? (
-              <Card className="bg-card border border-border p-12 text-center space-y-4">
-                <div className="animate-spin mx-auto w-8 h-8">
-                  <RefreshCw className="w-8 h-8 text-primary dark:text-cyan-400" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-sm font-mono uppercase tracking-wide text-primary dark:text-cyan-400">
-                    Processing Backtest Results
-                  </h3>
-                  <p className="text-xs text-muted-foreground max-w-xl mx-auto">
-                    Your backtest is executing. Charts and performance metrics will appear here automatically once
-                    processing completes.
-                  </p>
-                </div>
-                <div className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">
-                  Estimated completion · 2-5 minutes
-                </div>
-              </Card>
-            ) : (
-              <Card className="bg-card border border-border p-12 text-center space-y-2">
-                <h3 className="text-sm font-mono uppercase tracking-wide text-foreground">No Results Available</h3>
-                <p className="text-xs text-muted-foreground">
-                  Results for this backtest are not currently available.
-                </p>
-              </Card>
-            )}
-          </div>
+            </section>
 
-          {backtestEntry && (
-            <div className="space-y-4 sticky top-4">
-              <Card className="bg-card border border-border p-3">
-                <h2 className="text-xs font-mono uppercase tracking-wider text-primary dark:text-cyan-400 mb-3">
-                  # Configuration
-                </h2>
+            {/* ---------- Equity + config ---------- */}
+            <div className="mb-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <EquityCurveCard
+                dates={analytics.primary.equity.map((pt) => pt.date.slice(0, 10))}
+                series={equitySeries}
+                startingBalance={startingBalance}
+                equity={analytics.primary.equity}
+                drawdown={analytics.drawdown}
+                footnote="Max potential assumes every position is sold at its in-trade high — an upper bound on what better exits could capture, not a peer strategy."
+              />
 
-                <div className="mb-4 pb-3 border-b border-border">
-                  <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
-                    # Backtest Info
-                  </h3>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">STATUS</span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono uppercase tracking-wide ${
-                          backtestEntry.status === 'Completed'
-                            ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30'
-                            : backtestEntry.status === 'InProgress'
-                              ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30'
-                              : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30'
-                        }`}
-                      >
-                        {backtestEntry.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">CREDITS</span>
-                      <span className="text-xs font-mono font-bold text-primary dark:text-cyan-400">
-                        {backtestEntry.creditsUsed?.toFixed(2) || 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">DURATION</span>
-                      <span className="text-xs font-mono font-bold text-primary dark:text-cyan-400">
-                        {formatDuration((backtestEntry as any).durationSeconds)}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-0.5 pt-1">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">CREATED</span>
-                      <span className="text-[10px] font-mono text-primary dark:text-cyan-400 leading-tight">
-                        {new Date(backtestEntry.createdAt).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">START</span>
-                      <span className="text-[10px] font-mono font-bold text-primary dark:text-cyan-400">
-                        {formatDateNoTimezone(backtestEntry.start)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">END</span>
-                      <span className="text-[10px] font-mono font-bold text-primary dark:text-cyan-400">
-                        {formatDateNoTimezone(backtestEntry.end)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {(() => {
-                  const requestData = getRequestData(backtestEntry);
-                  const hasEntryConditions =
-                    (requestData.filters && requestData.filters.length > 0) || requestData.argument;
-
-                  if (!hasEntryConditions) return null;
-
-                  return (
-                    <div className="mb-4 pb-3 border-b border-border">
-                      <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
-                        # Entry Conditions
+              {requestData && (
+                <aside className="flex flex-col gap-4 self-start lg:sticky lg:top-4">
+                  {(requestData.filters.length > 0 || requestData.argument) && (
+                    <Card className="p-4">
+                      <h3 className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+                        Entry filters
                       </h3>
-                      {requestData.filters && requestData.filters.length > 0 ? (
-                        <div className="space-y-1.5">
+                      {requestData.filters.length > 0 ? (
+                        <div className="flex flex-col gap-1.5">
                           {requestData.filters.map((filter: string, index: number) => (
-                            <div
+                            <code
                               key={index}
-                              className="font-mono text-[10px] text-primary dark:text-cyan-400 px-2 py-1 bg-muted/30 dark:bg-gray-950/50 border border-border hover:border-primary dark:hover:border-cyan-700 transition-colors"
+                              className="rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5 font-mono text-xs"
                             >
-                              {'>> '}
                               {filter}
-                            </div>
+                            </code>
                           ))}
                         </div>
                       ) : requestData.argument ? (
-                        <div>
-                          <FilterDisplay argument={requestData.argument} />
-                        </div>
+                        <FilterDisplay argument={requestData.argument} />
                       ) : null}
-                    </div>
-                  );
-                })()}
+                    </Card>
+                  )}
 
-                {(() => {
-                  const requestData = getRequestData(backtestEntry);
-                  const positionInfo = requestData.positionInfo;
-                  return (
-                    <div className="mb-4 pb-3 border-b border-border">
-                      <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
-                        # Position Settings
+                  <Card className="p-4">
+                    <h3 className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+                      Position
+                    </h3>
+                    <RailRow
+                      label="Starting balance"
+                      value={`$${(requestData.positionInfo.startingBalance ?? 0).toLocaleString()}`}
+                    />
+                    <RailRow
+                      label="Position size"
+                      value={`$${(requestData.positionInfo.positionSize ?? 0).toLocaleString()} ${(requestData.positionInfo.modelType ?? 'Fixed').toLowerCase()}`}
+                    />
+                    <RailRow
+                      label="Max concurrent"
+                      value={String(requestData.positionInfo.maxConcurrentPositions ?? '—')}
+                    />
+                    {requestData.positionInfo.allowSimultaneous !== undefined && (
+                      <RailRow
+                        label="Simultaneous entries"
+                        value={requestData.positionInfo.allowSimultaneous ? 'Allowed' : 'Not allowed'}
+                      />
+                    )}
+                  </Card>
+
+                  {(requestData.exitInfo.stopLoss ||
+                    requestData.exitInfo.profitTarget ||
+                    requestData.exitInfo.timeframe ||
+                    requestData.exitInfo.avoidOvernight !== undefined) && (
+                    <Card className="p-4">
+                      <h3 className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+                        Exits
                       </h3>
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                            INIT BALANCE
-                          </span>
-                          <span className="text-xs font-mono font-bold text-primary dark:text-cyan-400">
-                            ${positionInfo.startingBalance?.toLocaleString() || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                            POS SIZE
-                          </span>
-                          <span className="text-xs font-mono font-bold text-primary dark:text-cyan-400">
-                            ${positionInfo.positionSize?.toLocaleString() || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                            MAX POS
-                          </span>
-                          <span className="text-xs font-mono font-bold text-primary dark:text-cyan-400">
-                            {positionInfo.maxConcurrentPositions || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                            MODEL TYPE
-                          </span>
-                          <span className="text-[10px] font-mono font-bold text-primary dark:text-cyan-400">
-                            {(positionInfo as any).modelType || 'Fixed'}
-                          </span>
-                        </div>
-                        {(positionInfo as any).allowSimultaneous !== undefined && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                              SIMULTANEOUS
-                            </span>
-                            <span className="text-[10px] font-mono font-bold text-primary dark:text-cyan-400">
-                              {(positionInfo as any).allowSimultaneous ? 'ENABLED' : 'DISABLED'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
+                      {requestData.exitInfo.stopLoss && (
+                        <RailRow
+                          label="Stop loss"
+                          value={formatStopConfig(requestData.exitInfo.stopLoss)}
+                          valueColor="var(--chart-loss)"
+                        />
+                      )}
+                      {requestData.exitInfo.profitTarget && (
+                        <RailRow
+                          label="Take profit"
+                          value={formatStopConfig(requestData.exitInfo.profitTarget)}
+                          valueColor="var(--chart-gain)"
+                        />
+                      )}
+                      {requestData.exitInfo.timeframe && (
+                        <RailRow label="Timed exit" value={formatTimeframe(requestData.exitInfo.timeframe)} />
+                      )}
+                      {requestData.exitInfo.avoidOvernight !== undefined && (
+                        <RailRow
+                          label="Overnight"
+                          value={requestData.exitInfo.avoidOvernight ? 'Avoided' : 'Allowed'}
+                        />
+                      )}
+                    </Card>
+                  )}
 
-                {(() => {
-                  const requestData = getRequestData(backtestEntry);
-                  const exitInfo = requestData.exitInfo;
-                  if (
-                    !exitInfo.stopLoss &&
-                    !exitInfo.profitTarget &&
-                    !exitInfo.timeframe &&
-                    !(exitInfo as any).avoidOvernight
-                  ) {
-                    return null;
-                  }
+                  <Card className="p-4">
+                    <h3 className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+                      Run
+                    </h3>
+                    <RailRow
+                      label="Credits used"
+                      value={backtestEntry.creditsUsed != null ? backtestEntry.creditsUsed.toFixed(2) : 'N/A'}
+                    />
+                    <RailRow label="Duration" value={formatDuration(backtestEntry.durationSeconds)} />
+                    <RailRow label="Created" value={new Date(backtestEntry.createdAt).toLocaleString()} />
+                  </Card>
+                </aside>
+              )}
+            </div>
 
-                  return (
-                    <div>
-                      <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
-                        # Exit Strategy
-                      </h3>
-                      <div className="space-y-1.5">
-                        {exitInfo.stopLoss && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                              STOP LOSS
-                            </span>
-                            <span className="text-[10px] font-mono font-bold text-primary dark:text-cyan-400">
-                              {formatStopConfig(exitInfo.stopLoss)}
-                            </span>
-                          </div>
-                        )}
-                        {exitInfo.profitTarget && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                              TAKE PROFIT
-                            </span>
-                            <span className="text-[10px] font-mono font-bold text-primary dark:text-cyan-400">
-                              {formatStopConfig(exitInfo.profitTarget)}
-                            </span>
-                          </div>
-                        )}
-                        {exitInfo.timeframe && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                              TIMED EXIT
-                            </span>
-                            <span className="text-[10px] font-mono font-bold text-primary dark:text-cyan-400">
-                              {formatTimeframe(exitInfo.timeframe)}
-                            </span>
-                          </div>
-                        )}
-                        {(exitInfo as any).avoidOvernight !== undefined && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
-                              AVOID OVERNIGHT
-                            </span>
-                            <span className="text-[10px] font-mono font-bold text-primary dark:text-cyan-400">
-                              {(exitInfo as any).avoidOvernight ? 'ENABLED' : 'DISABLED'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
+            {/* ---------- Insights ---------- */}
+            <div className="mb-3.5 mt-8 flex flex-wrap items-baseline gap-3">
+              <h2 className="text-lg font-semibold tracking-tight">Where the edge lives</h2>
+              <span className="text-[13px] text-muted-foreground">
+                computed from the {totalTrades.toLocaleString()} strategy trades
+              </span>
+            </div>
+
+            <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <Card className="p-4 md:p-5">
+                <h2 className="mb-2 text-sm font-semibold">P&L by entry time</h2>
+                <EntryTimingPanel buckets={analytics.entryBuckets} />
+              </Card>
+              <Card className="p-4 md:p-5">
+                <h2 className="mb-2 text-sm font-semibold">Daily P&L</h2>
+                <DailyPnlChart equity={analytics.primary.equity} />
               </Card>
             </div>
-          )}
-        </div>
+
+            <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <Card className="p-4 md:p-5">
+                <h2 className="mb-2 text-sm font-semibold">Trade P&L distribution</h2>
+                <HistogramChart
+                  histogram={analytics.profitHist}
+                  colorFor={(x0) => (x0 >= 0 ? 'var(--chart-gain)' : 'var(--chart-loss)')}
+                  formatX={formatAxisCurrency}
+                  ariaLabel="Histogram of per-trade profit"
+                />
+                {derived && (
+                  <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+                    Best trade {formatSignedCurrency(derived.bestTrade)} · worst{' '}
+                    {formatSignedCurrency(derived.worstTrade)} — the exit walls shape this book.
+                  </p>
+                )}
+              </Card>
+              <Card className="p-4 md:p-5">
+                <h2 className="mb-2 text-sm font-semibold">Time in trade</h2>
+                <HistogramChart
+                  histogram={analytics.durationHist}
+                  colorFor={() => 'var(--chart-strategy)'}
+                  formatX={(x) => `${x}m`}
+                  ariaLabel="Histogram of trade duration in minutes"
+                />
+                {derived && (
+                  <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+                    {Math.round(derived.fullHoldPct * 100)}% of trades ride untouched to the{' '}
+                    {Math.round(derived.maxHoldMinutes)}-minute exit window.
+                  </p>
+                )}
+              </Card>
+              <Card className="p-4 md:p-5">
+                <h2 className="-mb-6 text-sm font-semibold">Tickers</h2>
+                <TickerLeadersPanel best={analytics.tickers.best} worst={analytics.tickers.worst} />
+              </Card>
+            </div>
+
+            {/* ---------- Trades ---------- */}
+            <div className="mb-3.5 flex flex-wrap items-baseline gap-3">
+              <h2 className="text-lg font-semibold tracking-tight">Trades</h2>
+              <span className="text-[13px] text-muted-foreground">
+                strategy exits · most recent first
+              </span>
+            </div>
+            <Card className="p-4 md:p-5">
+              <BacktestTradesTable trades={analytics.primary.trades} />
+            </Card>
+          </>
+        ) : isProcessing ? (
+          <Card className="space-y-4 p-12 text-center">
+            <RefreshCw className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Processing backtest results</h3>
+              <p className="mx-auto max-w-xl text-sm text-muted-foreground">
+                Charts and performance metrics will appear here automatically once processing
+                completes. Estimated completion: 2–5 minutes.
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <Card className="space-y-2 p-12 text-center">
+            <h3 className="text-sm font-semibold">No results available</h3>
+            <p className="text-sm text-muted-foreground">
+              Results for this backtest are not currently available.
+            </p>
+          </Card>
+        )}
       </div>
     </div>
   );

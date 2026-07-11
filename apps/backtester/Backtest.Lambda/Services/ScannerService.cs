@@ -6,6 +6,9 @@ using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Requests.Market.Backtest;
 using MarketViewer.Filters;
+using MarketViewer.Filters.Expressions;
+using MarketViewer.Filters.Interfaces;
+using MarketViewer.Filters.Parsing;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Net;
@@ -95,6 +98,7 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
 
         var expression = engine.ParseExpression(filter);
         var timeframe = engine.ExtractTimeframe(expression) ?? new Timeframe(1, Timespan.minute);
+        var isScalarFilter = IsScalarOnlyFilter(expression);
 
         var tickers = dataCache.GetTickers();
 
@@ -108,6 +112,34 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
 
                 if (stocksResponse is null)
                 {
+                    return;
+                }
+
+                // Float (and other ticker-level scalars) don't change intraday — evaluate once.
+                if (isScalarFilter)
+                {
+                    if (!session.Evaluate(stocksResponse, timeframe))
+                    {
+                        return;
+                    }
+
+                    for (int i = 0; i < (marketClose - marketOpen).TotalMinutes - 1; i++)
+                    {
+                        if (!dataCache.HasNextCandle(ticker, i, out _))
+                        {
+                            continue;
+                        }
+
+                        lock (strategyResults)
+                        {
+                            strategyResults.Add(new StrategyEntry
+                            {
+                                Ticker = ticker,
+                                Start = marketOpen.AddMinutes(i),
+                            });
+                        }
+                    }
+
                     return;
                 }
 
@@ -165,6 +197,21 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
 
     #region Private Methods
 
+    private static bool IsScalarOnlyFilter(IExpression expression)
+    {
+        while (expression is TimeframeRangeExpression timeframeRange)
+        {
+            expression = timeframeRange.GetInnerExpression();
+        }
+
+        return expression switch
+        {
+            DataAccessExpression dataAccess => dataAccess.IsScalar,
+            BinaryExpression binary => IsScalarOnlyFilter(binary.Left) || IsScalarOnlyFilter(binary.Right),
+            UnaryExpression unary => IsScalarOnlyFilter(unary.Operand),
+            _ => false
+        };
+    }
     private async Task<List<List<StrategyEntry>>> ScanForEntries(WorkerRequest request)
     {
         List<List<StrategyEntry>> strategyEntryLists = [];
@@ -196,6 +243,12 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
                 .OrderBy(q => q.Multiplier)
                 .OrderBy(q => q.Timespan)
                 .ToList();
+
+        // Float-only (and other scalar) filters have no timeframe; still need minute bars to scan.
+        if (timeframes.Count == 0)
+        {
+            timeframes.Add(new Timeframe(1, Timespan.minute));
+        }
 
         await dataCache.Setup(request.Date, timeframes);
 
