@@ -33,6 +33,7 @@ const DEFAULT_PALETTE: FilterPaletteGroup[] = [
       { label: 'high', token: { type: 'literal', value: 'high' } },
       { label: 'low', token: { type: 'literal', value: 'low' } },
       { label: 'vwap', token: { type: 'literal', value: 'vwap' } },
+      { label: 'time', token: { type: 'literal', value: 'time' } },
     ],
   },
   {

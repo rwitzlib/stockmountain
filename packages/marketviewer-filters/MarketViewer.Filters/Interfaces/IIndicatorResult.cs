@@ -62,6 +62,31 @@ public class SimpleIndicatorResult : BaseIndicatorResult
 }
 
 /// <summary>
+/// Time-of-day result where the value is minutes since midnight (Eastern Time)
+/// </summary>
+[ExcludeFromCodeCoverage]
+public class TimeIndicatorResult : BaseIndicatorResult
+{
+    public double Value { get; set; }
+
+    public override double GetFieldValue(string fieldName = "value")
+    {
+        return fieldName.ToLowerInvariant() switch
+        {
+            "value" => Value,
+            "hour" => Math.Floor(Value / 60),
+            "minute" => Value % 60,
+            _ => throw new ArgumentException($"Field '{fieldName}' not available. Available fields: {string.Join(", ", GetAvailableFields())}")
+        };
+    }
+
+    public override IEnumerable<string> GetAvailableFields()
+    {
+        return ["value", "hour", "minute"];
+    }
+}
+
+/// <summary>
 /// MACD indicator result with multiple fields
 /// </summary>
 [ExcludeFromCodeCoverage]

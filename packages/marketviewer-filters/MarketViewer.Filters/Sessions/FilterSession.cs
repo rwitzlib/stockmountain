@@ -161,19 +161,7 @@ public class FilterSession
 
         for (int i = prevCount; i < data.Count; i++)
         {
-            var bar = data[i];
-            double value = expr.GetFieldName() switch
-            {
-                "close" => bar.Close,
-                "open" => bar.Open,
-                "high" => bar.High,
-                "low" => bar.Low,
-                "vwap" => bar.Vwap,
-                "volume" => bar.Volume,
-                _ => throw new ArgumentException($"Unknown data field: {expr.GetFieldName()}")
-            };
-
-            prevSeries.Add(new SimpleIndicatorResult { Timestamp = bar.Timestamp, Value = value });
+            prevSeries.Add(expr.CreateBarResult(data[i]));
         }
 
         entry.DataCount = data.Count;

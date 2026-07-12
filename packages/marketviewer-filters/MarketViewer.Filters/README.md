@@ -69,6 +69,8 @@ expression [timeframe, range]
 | `low` | Series | Low prices from stock data |
 | `vwap` | Series | VWAP values from stock data |
 | `volume` | Series | Volume values from stock data |
+| `float` | Scalar | Ticker share float (fails comparisons when unavailable) |
+| `time` | Series | Candle time of day in Eastern (market) time, as minutes since midnight. Compare against `HH:MM` literals (e.g. `time < 10:30`), or use `time.hour` / `time.minute` |
 
 ### Simple Indicators (Single Field)
 | Function | Parameters | Field | Description |
@@ -162,6 +164,18 @@ high > 150 AND close > 148 [, 1]
 
 // Price within range
 low > 100 AND high < 200 [, 1]
+```
+
+### Time-of-day Conditions
+```javascript
+// Only match during the first hour of the session (Eastern time)
+close > vwap AND time < 10:30
+
+// Entry window
+time >= 9:45 AND time < 11:00
+
+// Morning session only, using hour access
+time.hour < 12
 ```
 
 ### Complex Trading Conditions

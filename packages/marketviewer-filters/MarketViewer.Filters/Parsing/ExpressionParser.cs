@@ -390,13 +390,32 @@ public class ExpressionParser : IExpressionParser
             return (new LiteralExpression(number), index + 1);
         }
 
-        // Check for data access literals (close, open, high, low, vwap, volume, float)
+        // Check for time-of-day literals (e.g. 9:30, 10:45) -> minutes since midnight
+        if (TryParseTimeLiteral(token, out var minutesSinceMidnight))
+        {
+            return (new LiteralExpression(minutesSinceMidnight), index + 1);
+        }
+
+        // Check for data access literals (close, open, high, low, vwap, volume, float, time)
         if (!string.IsNullOrEmpty(token) && char.IsLetter(token[0]))
         {
             var lowerToken = token.ToLowerInvariant();
             if (IsDataAccessKeyword(lowerToken))
             {
-                return (new DataAccessExpression(lowerToken), index + 1);
+                IExpression expression = new DataAccessExpression(lowerToken);
+                var nextIndex = index + 1;
+
+                // Check for field access (e.g., time.hour, time.minute)
+                if (nextIndex < tokens.Count && tokens[nextIndex] == ".")
+                {
+                    if (nextIndex + 1 >= tokens.Count)
+                        throw new InvalidOperationException("Expected field name after '.'");
+
+                    expression = new FieldAccessExpression(expression, tokens[nextIndex + 1]);
+                    nextIndex += 2;
+                }
+
+                return (expression, nextIndex);
             }
             else
             {
@@ -433,9 +452,31 @@ public class ExpressionParser : IExpressionParser
     {
         return token switch
         {
-            "close" or "open" or "high" or "low" or "vwap" or "volume" or "float" => true,
+            "close" or "open" or "high" or "low" or "vwap" or "volume" or "float" or "time" => true,
             _ => false
         };
+    }
+
+    private static bool TryParseTimeLiteral(string token, out double minutesSinceMidnight)
+    {
+        minutesSinceMidnight = 0;
+
+        var match = Regex.Match(token, @"^(?<hour>\d{1,2}):(?<minute>\d{2})$");
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        var hour = int.Parse(match.Groups["hour"].Value);
+        var minute = int.Parse(match.Groups["minute"].Value);
+
+        if (hour > 23 || minute > 59)
+        {
+            throw new InvalidOperationException($"Invalid time literal: {token}");
+        }
+
+        minutesSinceMidnight = hour * 60 + minute;
+        return true;
     }
 
     private static bool IsPotentialDecimalSeparator(string script, int index, string currentToken)
