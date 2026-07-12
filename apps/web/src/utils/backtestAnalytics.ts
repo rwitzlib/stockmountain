@@ -1,4 +1,4 @@
-import { EquityPoint, ExecutedTrade } from '../types/types';
+import { EquityPoint, ExecutedTrade, ExitReason } from '../types/types';
 
 export interface HistogramBin {
   x0: number;
@@ -37,6 +37,31 @@ export interface DerivedTradeStats {
   uniqueTickers: number;
   bestTrade: number;
   worstTrade: number;
+}
+
+export interface ExitReasonAggregate {
+  reason: ExitReason;
+  count: number;
+  pnl: number;
+}
+
+/**
+ * Count + net P&L per exit reason, most frequent first. Empty when no trade
+ * carries an exitReason (results persisted before the backend recorded it).
+ */
+export function computeExitReasonBreakdown(trades: ExecutedTrade[]): ExitReasonAggregate[] {
+  const byReason = new Map<ExitReason, ExitReasonAggregate>();
+  for (const t of trades) {
+    if (!t.exitReason) continue;
+    let agg = byReason.get(t.exitReason);
+    if (!agg) {
+      agg = { reason: t.exitReason, count: 0, pnl: 0 };
+      byReason.set(t.exitReason, agg);
+    }
+    agg.count++;
+    agg.pnl += t.profit ?? 0;
+  }
+  return [...byReason.values()].sort((a, b) => b.count - a.count);
 }
 
 export function tradeDurationMinutes(trade: ExecutedTrade): number {

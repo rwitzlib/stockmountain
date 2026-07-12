@@ -1,5 +1,7 @@
+using Backtest.Lambda.Models;
 using FluentAssertions;
 using MarketViewer.Contracts.Enums;
+using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Requests.Market.Backtest;
@@ -220,13 +222,175 @@ public class WorkerExitLogicUnitTests
 
     #endregion
 
+    #region BuildEntryResult / ExitReason
+
+    private static readonly DateTimeOffset EntryStart = DateTimeOffset.Parse("2025-05-27T10:00:00-04:00");
+
+    [Fact]
+    public void BuildEntryResult_NoExitHit_HoldIsTimedExit_HighIsSoldAtHigh()
+    {
+        var request = CreateRequest();
+        var entryEnd = EntryStart.AddHours(1);
+
+        // Last candle lands exactly on the window boundary — a true timed exit.
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBarAt(EntryStart.AddMinutes(30), 101f),
+            CreateBarAt(entryEnd, 100.5f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.timedExit);
+        result.Hold.StoppedOut.Should().BeFalse();
+        result.High.ExitReason.Should().Be(BacktestExitReason.soldAtHigh);
+        result.High.StoppedOut.Should().BeFalse();
+    }
+
+    [Fact]
+    public void BuildEntryResult_TakeProfitHit_BothOutcomesTakeProfit()
+    {
+        var request = CreateRequest(takeProfit: new Exit
+        {
+            PriceActionType = PriceActionType.high,
+            Type = ExitValueType.percent,
+            Value = 5f
+        });
+        var entryEnd = EntryStart.AddHours(1);
+
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 110f, low: 104f, close: 106f),
+            CreateBarAt(entryEnd, 100.5f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.takeProfit);
+        result.Hold.StoppedOut.Should().BeTrue();
+        result.High.ExitReason.Should().Be(BacktestExitReason.takeProfit);
+        result.High.StoppedOut.Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildEntryResult_StopLossHitBeforeTakeProfit_BothOutcomesStopLoss()
+    {
+        var request = CreateRequest(
+            takeProfit: new Exit
+            {
+                PriceActionType = PriceActionType.high,
+                Type = ExitValueType.percent,
+                Value = 5f
+            },
+            stopLoss: new Exit
+            {
+                PriceActionType = PriceActionType.low,
+                Type = ExitValueType.percent,
+                Value = 5f
+            });
+        var entryEnd = EntryStart.AddHours(1);
+
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 100f, low: 90f, close: 92f),  // stop first
+            CreateBar(EntryStart.AddMinutes(20).ToUnixTimeMilliseconds(), high: 120f, low: 95f, close: 115f), // target later
+            CreateBarAt(entryEnd, 100.5f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+        result.High.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+    }
+
+    [Fact]
+    public void BuildEntryResult_SameBarTakeProfitAndStopLoss_TieGoesToStopLoss()
+    {
+        var request = CreateRequest(
+            takeProfit: new Exit
+            {
+                PriceActionType = PriceActionType.high,
+                Type = ExitValueType.percent,
+                Value = 5f
+            },
+            stopLoss: new Exit
+            {
+                PriceActionType = PriceActionType.low,
+                Type = ExitValueType.percent,
+                Value = 5f
+            });
+        var entryEnd = EntryStart.AddHours(1);
+
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 112f, low: 90f, close: 100f), // both fire
+            CreateBarAt(entryEnd, 100.5f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+        result.High.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+    }
+
+    [Fact]
+    public void BuildEntryResult_CandlesEndBeforeWindow_HoldIsEndOfData()
+    {
+        var request = CreateRequest();
+        var entryEnd = EntryStart.AddDays(1);
+
+        // Series stops 30 minutes in, far short of the one-day window.
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBarAt(EntryStart.AddMinutes(15), 101f),
+            CreateBarAt(EntryStart.AddMinutes(30), 100.5f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.endOfData);
+        result.High.ExitReason.Should().Be(BacktestExitReason.soldAtHigh);
+    }
+
+    #endregion
+
     #region Helpers
+
+    private static StrategyEntry CreateEntry()
+    {
+        return new StrategyEntry
+        {
+            Ticker = "TEST",
+            Start = EntryStart
+        };
+    }
+
+    private static Bar CreateBarAt(DateTimeOffset time, float price)
+    {
+        return CreateBar(time.ToUnixTimeMilliseconds(), high: price, low: price, close: price);
+    }
 
     private static WorkerRequest CreateRequest(Exit stopLoss = null, Exit takeProfit = null)
     {
         return new WorkerRequest
         {
             Date = DateTimeOffset.Parse("2025-05-27"),
+            PositionSettings = new StrategyPositionSettings
+            {
+                StartingBalance = 10000,
+                MaxConcurrentPositions = 10,
+                Model = new PositionModel
+                {
+                    Type = PositionType.Fixed,
+                    Size = 1000
+                },
+                Cooldown = new Timeframe(15, Timespan.minute)
+            },
             ExitSettings = new StrategyExitSettings
             {
                 StopLoss = stopLoss ?? new Exit

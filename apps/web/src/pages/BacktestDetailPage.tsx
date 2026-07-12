@@ -32,6 +32,7 @@ import {
   computeDrawdown,
   computeDurationHistogram,
   computeEntryTimeBuckets,
+  computeExitReasonBreakdown,
   computeProfitHistogram,
   computeTickerAggregates,
 } from '../utils/backtestAnalytics';
@@ -70,6 +71,14 @@ interface RequestDataView {
   argument?: ScanArgument;
   filters: string[];
 }
+
+const EXIT_REASON_LABELS: Record<string, string> = {
+  takeProfit: 'Target',
+  stopLoss: 'Stop',
+  timedExit: 'Timed',
+  endOfData: 'Ended',
+  soldAtHigh: 'High',
+};
 
 function normalizeStats(raw: unknown): TradeStrategy {
   const source = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -129,6 +138,7 @@ function normalizeTrades(raw: unknown): ExecutedTrade[] {
       endPosition: Number(t.endPosition ?? 0),
       profit: Number(t.profit ?? 0),
       stoppedOut: Boolean(t.stoppedOut),
+      exitReason: typeof t.exitReason === 'string' ? (t.exitReason as ExecutedTrade['exitReason']) : undefined,
     };
   });
 }
@@ -568,6 +578,7 @@ export function BacktestDetailPage() {
       durationHist: computeDurationHistogram(primary.trades),
       entryBuckets: computeEntryTimeBuckets(primary.trades),
       tickers: computeTickerAggregates(primary.trades),
+      exitReasons: computeExitReasonBreakdown(primary.trades),
     };
   }, [data?.tradingData, startingBalance]);
 
@@ -1030,6 +1041,16 @@ export function BacktestDetailPage() {
                   <p className="mt-2 text-xs text-muted-foreground tabular-nums">
                     {Math.round(derived.fullHoldPct * 100)}% of trades ride untouched to the{' '}
                     {Math.round(derived.maxHoldMinutes)}-minute exit window.
+                  </p>
+                )}
+                {analytics.exitReasons.length > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+                    {analytics.exitReasons
+                      .map(
+                        (r) =>
+                          `${EXIT_REASON_LABELS[r.reason] ?? r.reason} ${r.count.toLocaleString()} (${formatSignedCurrency(r.pnl)})`
+                      )
+                      .join(' · ')}
                   </p>
                 )}
               </Card>

@@ -167,7 +167,8 @@ public static class BacktestPortfolioSimulator
                 StartPosition = position.StartPosition,
                 EndPosition = outcome.EndPosition,
                 Profit = outcome.Profit,
-                StoppedOut = outcome.StoppedOut
+                StoppedOut = outcome.StoppedOut,
+                ExitReason = outcome.ExitReason
             });
 
             positionsToRemove.Add(position);

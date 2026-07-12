@@ -11,7 +11,12 @@ interface BacktestTradesTableProps {
 const PAGE_SIZE = 50;
 
 function exitChip(trade: ExecutedTrade) {
-  if (trade.stoppedOut && trade.profit > 0) {
+  // Old results have no exitReason; fall back to inferring it from stoppedOut + profit sign
+  const reason =
+    trade.exitReason ??
+    (trade.stoppedOut && trade.profit > 0 ? 'takeProfit' : trade.stoppedOut ? 'stopLoss' : 'timedExit');
+
+  if (reason === 'takeProfit') {
     return (
       <span className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide"
         style={{ color: 'var(--chart-gain)', background: 'color-mix(in srgb, var(--chart-gain) 12%, transparent)' }}>
@@ -19,11 +24,26 @@ function exitChip(trade: ExecutedTrade) {
       </span>
     );
   }
-  if (trade.stoppedOut) {
+  if (reason === 'stopLoss') {
     return (
       <span className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide"
         style={{ color: 'var(--chart-loss)', background: 'color-mix(in srgb, var(--chart-loss) 12%, transparent)' }}>
         Stop
+      </span>
+    );
+  }
+  if (reason === 'endOfData') {
+    return (
+      <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+        Ended
+      </span>
+    );
+  }
+  if (reason === 'soldAtHigh') {
+    return (
+      <span className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide"
+        style={{ color: 'var(--chart-ceiling)', background: 'color-mix(in srgb, var(--chart-ceiling) 12%, transparent)' }}>
+        High
       </span>
     );
   }

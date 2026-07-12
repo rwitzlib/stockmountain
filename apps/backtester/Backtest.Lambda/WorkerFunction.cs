@@ -4,6 +4,7 @@ using Backtest.Lambda.Services;
 using Backtest.Lambda.Utilities;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Enums;
+using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Backtest;
 using MarketViewer.Contracts.Requests.Market.Backtest;
@@ -31,7 +32,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
     private readonly ILogger<WorkerFunction> _logger = serviceProvider.GetService<ILogger<WorkerFunction>>();
 
-    private readonly TimeZoneInfo TimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+    private static readonly TimeZoneInfo TimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
 
 
     private readonly float MEMORY_FACTOR = LambdaEnvironment.GetMemoryFactor();
@@ -187,136 +188,151 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 candlesWithinMarketHours.AddRange(candles.Where(candle => candle.Timestamp > entry.Start.ToUnixTimeMilliseconds() && candle.Timestamp <= entryEnd.ToUnixTimeMilliseconds()));
             }
 
-            if (!candlesWithinMarketHours.Any() || request.PositionSettings.Model.Size < candlesWithinMarketHours.First().Vwap)
-            {
-                return null;
-            }
-
-            int shares = (int)(request.PositionSettings.Model.Size / candlesWithinMarketHours.First().Vwap);
-
-            var entryPrice = candlesWithinMarketHours.First().Vwap;
-            var entryPosition = entryPrice * shares;
-
-            var hold = candlesWithinMarketHours.Last();
-            var high = candlesWithinMarketHours.MaxBy(candle => candle.Vwap);
-
-            var result = new BacktestEntryResultCollection
-            {
-                Ticker = entry.Ticker,
-                StartPrice = entryPrice,
-                Shares = shares,
-                StartPosition = entryPosition,
-                BoughtAt = entry.Start,
-                Hold = new BacktestEntryResult
-                {
-                    StoppedOut = false,
-                    EndPrice = hold.Vwap,
-                    EndPosition = hold.Vwap * shares,
-                    Profit = hold.Vwap * shares - entryPosition,
-                    SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(hold.Timestamp).ToTimezone(TimeZone),
-
-                },
-                High = new BacktestEntryResult
-                {
-                    StoppedOut = false,
-                    EndPrice = high.Vwap,
-                    EndPosition = high.Vwap * shares,
-                    Profit = high.Vwap * shares - entryPosition,
-                    SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(high.Timestamp).ToTimezone(TimeZone)
-                }
-            };
-
-            //if (request.ExitInfo.Other is not null)
-            //{
-            //    result.Other = passesExitFiltersTimestamp is null ? result.Hold : new BacktestEntryResult
-            //    {
-            //        StoppedOut = true,
-            //        EndPrice = passesExitFiltersCandle.Vwap,
-            //        EndPosition = passesExitFiltersCandle.Vwap * shares,
-            //        Profit = passesExitFiltersCandle.Vwap * shares - entryPosition,
-            //        SoldAt = passesExitFiltersTimestamp.Value
-            //    };
-            //}
-
-            if (CheckTakeProfit(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var profitTarget))
-            {
-                var profitTargetValue = request.ExitSettings.TakeProfit.Type switch
-                {
-                    ExitValueType.percent => Math.Abs(request.ExitSettings.TakeProfit.Value) / 100 * entryPosition,
-                    ExitValueType.flat => Math.Abs(request.ExitSettings.TakeProfit.Value),
-                    _ => throw new NotImplementedException()
-                };
-
-                result.Hold.StoppedOut = true;
-                result.Hold.Profit = profitTargetValue;
-                result.Hold.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(profitTarget.Timestamp).ToTimezone(TimeZone);
-                result.Hold.EndPosition = result.StartPosition + profitTargetValue;
-                result.Hold.EndPrice = profitTarget.Vwap;
-
-                result.High.StoppedOut = true;
-                result.High.Profit = profitTargetValue;
-                result.High.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(profitTarget.Timestamp).ToTimezone(TimeZone);
-                result.High.EndPosition = result.StartPosition + profitTargetValue;
-                result.High.EndPrice = profitTarget.Vwap;
-
-                //if (passesExitFiltersTimestamp is null || profitTarget.Timestamp < passesExitFiltersTimestamp.Value.ToUnixTimeMilliseconds())
-                //{
-                //    if (request.ExitInfo.Other is not null)
-                //    {
-                //        result.Other.StoppedOut = true;
-                //        result.Other.Profit = profitTargetValue;
-                //        result.Other.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(profitTarget.Timestamp).ToTimezone(TimeZone);
-                //        result.Other.EndPosition = result.StartPosition + profitTargetValue;
-                //        result.Other.EndPrice = profitTarget.Vwap;
-                //    }
-                //}
-            }
-
-            if (CheckStopLoss(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var stopLoss))
-            {
-                var stopLossValue = request.ExitSettings.StopLoss.Type switch
-                {
-                    ExitValueType.percent => -Math.Abs(request.ExitSettings.StopLoss.Value) / 100 * entryPosition,
-                    ExitValueType.flat => -Math.Abs(request.ExitSettings.StopLoss.Value),
-                    _ => throw new NotImplementedException()
-                };
-
-                // On a same-bar tie, assume the worst case: the stop fills before the target.
-                if (profitTarget is null || stopLoss.Timestamp <= profitTarget.Timestamp)
-                {
-                    result.Hold.StoppedOut = true;
-                    result.Hold.Profit = stopLossValue;
-                    result.Hold.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(stopLoss.Timestamp).ToTimezone(TimeZone);
-                    result.Hold.EndPosition = result.StartPosition + stopLossValue;
-                    result.Hold.EndPrice = stopLoss.Vwap;
-
-                    result.High.StoppedOut = true;
-                    result.High.Profit = stopLossValue;
-                    result.High.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(stopLoss.Timestamp).ToTimezone(TimeZone);
-                    result.High.EndPosition = result.StartPosition + stopLossValue;
-                    result.High.EndPrice = stopLoss.Vwap;
-                }
-
-                //if (passesExitFiltersTimestamp is null || stopLoss.Timestamp < passesExitFiltersTimestamp.Value.ToUnixTimeMilliseconds())
-                //{
-                //    if (request.ExitInfo.Other is not null)
-                //    {
-                //        result.Other.StoppedOut = true;
-                //        result.Other.Profit = stopLossValue;
-                //        result.Other.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(stopLoss.Timestamp).ToTimezone(TimeZone);
-                //        result.Other.EndPosition = result.StartPosition + stopLossValue;
-                //        result.Other.EndPrice = stopLoss.Vwap;
-                //    }
-                //}
-            }
-
-            return result;
+            return BuildEntryResult(request, entry, candlesWithinMarketHours, entryEnd);
         }
         catch (Exception ex)
         {
             _logger.LogError("Error processing {ticker} at {start}: {message}", entry.Ticker, entry.Start, ex.Message);
             return null;
         }
+    }
+
+    internal static BacktestEntryResultCollection BuildEntryResult(WorkerRequest request, StrategyEntry entry, List<Bar> candlesWithinMarketHours, DateTimeOffset entryEnd)
+    {
+        if (!candlesWithinMarketHours.Any() || request.PositionSettings.Model.Size < candlesWithinMarketHours.First().Vwap)
+        {
+            return null;
+        }
+
+        int shares = (int)(request.PositionSettings.Model.Size / candlesWithinMarketHours.First().Vwap);
+
+        var entryPrice = candlesWithinMarketHours.First().Vwap;
+        var entryPosition = entryPrice * shares;
+
+        var hold = candlesWithinMarketHours.Last();
+        var high = candlesWithinMarketHours.MaxBy(candle => candle.Vwap);
+
+        var result = new BacktestEntryResultCollection
+        {
+            Ticker = entry.Ticker,
+            StartPrice = entryPrice,
+            Shares = shares,
+            StartPosition = entryPosition,
+            BoughtAt = entry.Start,
+            Hold = new BacktestEntryResult
+            {
+                StoppedOut = false,
+                // A final candle at the window boundary is a true timed exit; anything
+                // earlier means the candle series ran out (halt/delisting/no data).
+                ExitReason = hold.Timestamp < entryEnd.AddMinutes(-1).ToUnixTimeMilliseconds()
+                    ? BacktestExitReason.endOfData
+                    : BacktestExitReason.timedExit,
+                EndPrice = hold.Vwap,
+                EndPosition = hold.Vwap * shares,
+                Profit = hold.Vwap * shares - entryPosition,
+                SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(hold.Timestamp).ToTimezone(TimeZone),
+
+            },
+            High = new BacktestEntryResult
+            {
+                StoppedOut = false,
+                ExitReason = BacktestExitReason.soldAtHigh,
+                EndPrice = high.Vwap,
+                EndPosition = high.Vwap * shares,
+                Profit = high.Vwap * shares - entryPosition,
+                SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(high.Timestamp).ToTimezone(TimeZone)
+            }
+        };
+
+        //if (request.ExitInfo.Other is not null)
+        //{
+        //    result.Other = passesExitFiltersTimestamp is null ? result.Hold : new BacktestEntryResult
+        //    {
+        //        StoppedOut = true,
+        //        EndPrice = passesExitFiltersCandle.Vwap,
+        //        EndPosition = passesExitFiltersCandle.Vwap * shares,
+        //        Profit = passesExitFiltersCandle.Vwap * shares - entryPosition,
+        //        SoldAt = passesExitFiltersTimestamp.Value
+        //    };
+        //}
+
+        if (CheckTakeProfit(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var profitTarget))
+        {
+            var profitTargetValue = request.ExitSettings.TakeProfit.Type switch
+            {
+                ExitValueType.percent => Math.Abs(request.ExitSettings.TakeProfit.Value) / 100 * entryPosition,
+                ExitValueType.flat => Math.Abs(request.ExitSettings.TakeProfit.Value),
+                _ => throw new NotImplementedException()
+            };
+
+            result.Hold.StoppedOut = true;
+            result.Hold.ExitReason = BacktestExitReason.takeProfit;
+            result.Hold.Profit = profitTargetValue;
+            result.Hold.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(profitTarget.Timestamp).ToTimezone(TimeZone);
+            result.Hold.EndPosition = result.StartPosition + profitTargetValue;
+            result.Hold.EndPrice = profitTarget.Vwap;
+
+            result.High.StoppedOut = true;
+            result.High.ExitReason = BacktestExitReason.takeProfit;
+            result.High.Profit = profitTargetValue;
+            result.High.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(profitTarget.Timestamp).ToTimezone(TimeZone);
+            result.High.EndPosition = result.StartPosition + profitTargetValue;
+            result.High.EndPrice = profitTarget.Vwap;
+
+            //if (passesExitFiltersTimestamp is null || profitTarget.Timestamp < passesExitFiltersTimestamp.Value.ToUnixTimeMilliseconds())
+            //{
+            //    if (request.ExitInfo.Other is not null)
+            //    {
+            //        result.Other.StoppedOut = true;
+            //        result.Other.Profit = profitTargetValue;
+            //        result.Other.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(profitTarget.Timestamp).ToTimezone(TimeZone);
+            //        result.Other.EndPosition = result.StartPosition + profitTargetValue;
+            //        result.Other.EndPrice = profitTarget.Vwap;
+            //    }
+            //}
+        }
+
+        if (CheckStopLoss(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var stopLoss))
+        {
+            var stopLossValue = request.ExitSettings.StopLoss.Type switch
+            {
+                ExitValueType.percent => -Math.Abs(request.ExitSettings.StopLoss.Value) / 100 * entryPosition,
+                ExitValueType.flat => -Math.Abs(request.ExitSettings.StopLoss.Value),
+                _ => throw new NotImplementedException()
+            };
+
+            // On a same-bar tie, assume the worst case: the stop fills before the target.
+            if (profitTarget is null || stopLoss.Timestamp <= profitTarget.Timestamp)
+            {
+                result.Hold.StoppedOut = true;
+                result.Hold.ExitReason = BacktestExitReason.stopLoss;
+                result.Hold.Profit = stopLossValue;
+                result.Hold.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(stopLoss.Timestamp).ToTimezone(TimeZone);
+                result.Hold.EndPosition = result.StartPosition + stopLossValue;
+                result.Hold.EndPrice = stopLoss.Vwap;
+
+                result.High.StoppedOut = true;
+                result.High.ExitReason = BacktestExitReason.stopLoss;
+                result.High.Profit = stopLossValue;
+                result.High.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(stopLoss.Timestamp).ToTimezone(TimeZone);
+                result.High.EndPosition = result.StartPosition + stopLossValue;
+                result.High.EndPrice = stopLoss.Vwap;
+            }
+
+            //if (passesExitFiltersTimestamp is null || stopLoss.Timestamp < passesExitFiltersTimestamp.Value.ToUnixTimeMilliseconds())
+            //{
+            //    if (request.ExitInfo.Other is not null)
+            //    {
+            //        result.Other.StoppedOut = true;
+            //        result.Other.Profit = stopLossValue;
+            //        result.Other.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(stopLoss.Timestamp).ToTimezone(TimeZone);
+            //        result.Other.EndPosition = result.StartPosition + stopLossValue;
+            //        result.Other.EndPrice = stopLoss.Vwap;
+            //    }
+            //}
+        }
+
+        return result;
     }
 
     internal static bool CheckStopLoss(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar stopLossCandle)
