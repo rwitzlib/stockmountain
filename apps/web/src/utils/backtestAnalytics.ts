@@ -45,23 +45,44 @@ export interface ExitReasonAggregate {
   pnl: number;
 }
 
+export interface ExitReasonBreakdown {
+  /** Aggregates per reason, most frequent first */
+  reasons: ExitReasonAggregate[];
+  /** Trades whose reason was inferred from stoppedOut + profit sign (results older than the exitReason field) */
+  inferredCount: number;
+  total: number;
+}
+
 /**
- * Count + net P&L per exit reason, most frequent first. Empty when no trade
- * carries an exitReason (results persisted before the backend recorded it).
+ * The trade's explicit exitReason, or the legacy inference from stoppedOut +
+ * profit sign for results persisted before the backend recorded reasons.
  */
-export function computeExitReasonBreakdown(trades: ExecutedTrade[]): ExitReasonAggregate[] {
+export function resolveExitReason(trade: ExecutedTrade): ExitReason {
+  if (trade.exitReason) return trade.exitReason;
+  if (trade.stoppedOut) return trade.profit > 0 ? 'takeProfit' : 'stopLoss';
+  return 'timedExit';
+}
+
+/** Count + net P&L per exit reason, most frequent first. */
+export function computeExitReasonBreakdown(trades: ExecutedTrade[]): ExitReasonBreakdown {
   const byReason = new Map<ExitReason, ExitReasonAggregate>();
+  let inferredCount = 0;
   for (const t of trades) {
-    if (!t.exitReason) continue;
-    let agg = byReason.get(t.exitReason);
+    if (!t.exitReason) inferredCount++;
+    const reason = resolveExitReason(t);
+    let agg = byReason.get(reason);
     if (!agg) {
-      agg = { reason: t.exitReason, count: 0, pnl: 0 };
-      byReason.set(t.exitReason, agg);
+      agg = { reason, count: 0, pnl: 0 };
+      byReason.set(reason, agg);
     }
     agg.count++;
     agg.pnl += t.profit ?? 0;
   }
-  return [...byReason.values()].sort((a, b) => b.count - a.count);
+  return {
+    reasons: [...byReason.values()].sort((a, b) => b.count - a.count),
+    inferredCount,
+    total: trades.length,
+  };
 }
 
 export function tradeDurationMinutes(trade: ExecutedTrade): number {

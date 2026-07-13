@@ -9,9 +9,10 @@ interface HistogramChartProps {
   ariaLabel: string;
 }
 
-const W = 360;
-const H = 210;
-const PAD = { l: 36, r: 8, t: 10, b: 26 };
+// Designed for a half-width (2-up) card, matching DailyPnlChart
+const W = 560;
+const H = 240;
+const PAD = { l: 48, r: 10, t: 12, b: 26 };
 
 export function HistogramChart({ histogram, colorFor, formatX, ariaLabel }: HistogramChartProps) {
   const { bins, binSize } = histogram;

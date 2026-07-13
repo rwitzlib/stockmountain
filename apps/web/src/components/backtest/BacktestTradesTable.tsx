@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ExecutedTrade } from '../../types/types';
-import { tradeDurationMinutes, tradeReturnPct } from '../../utils/backtestAnalytics';
+import { resolveExitReason, tradeDurationMinutes, tradeReturnPct } from '../../utils/backtestAnalytics';
 import { formatSignedCurrency, formatSignedPercent } from '../../utils/formatters';
 import { Button } from '../ui/button';
 
@@ -11,10 +11,8 @@ interface BacktestTradesTableProps {
 const PAGE_SIZE = 50;
 
 function exitChip(trade: ExecutedTrade) {
-  // Old results have no exitReason; fall back to inferring it from stoppedOut + profit sign
-  const reason =
-    trade.exitReason ??
-    (trade.stoppedOut && trade.profit > 0 ? 'takeProfit' : trade.stoppedOut ? 'stopLoss' : 'timedExit');
+  // Old results have no exitReason; resolveExitReason falls back to the legacy inference
+  const reason = resolveExitReason(trade);
 
   if (reason === 'takeProfit') {
     return (

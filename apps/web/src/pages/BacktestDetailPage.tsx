@@ -5,6 +5,7 @@ import { EquityCurveCard, EquitySeriesDef } from '../components/backtest/charts/
 import { DailyPnlChart } from '../components/backtest/charts/DailyPnlChart';
 import { HistogramChart } from '../components/backtest/charts/HistogramChart';
 import { EntryTimingPanel } from '../components/backtest/EntryTimingPanel';
+import { ExitReasonPanel } from '../components/backtest/ExitReasonPanel';
 import { TickerLeadersPanel } from '../components/backtest/TickerLeadersPanel';
 import { BacktestTradesTable } from '../components/backtest/BacktestTradesTable';
 import { backtestApi } from '../api/backtestApi';
@@ -71,14 +72,6 @@ interface RequestDataView {
   argument?: ScanArgument;
   filters: string[];
 }
-
-const EXIT_REASON_LABELS: Record<string, string> = {
-  takeProfit: 'Target',
-  stopLoss: 'Stop',
-  timedExit: 'Timed',
-  endOfData: 'Ended',
-  soldAtHigh: 'High',
-};
 
 function normalizeStats(raw: unknown): TradeStrategy {
   const source = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -1013,7 +1006,7 @@ export function BacktestDetailPage() {
               </Card>
             </div>
 
-            <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card className="p-4 md:p-5">
                 <h2 className="mb-2 text-sm font-semibold">Trade P&L distribution</h2>
                 <HistogramChart
@@ -1043,16 +1036,13 @@ export function BacktestDetailPage() {
                     {Math.round(derived.maxHoldMinutes)}-minute exit window.
                   </p>
                 )}
-                {analytics.exitReasons.length > 0 && (
-                  <p className="mt-1 text-xs text-muted-foreground tabular-nums">
-                    {analytics.exitReasons
-                      .map(
-                        (r) =>
-                          `${EXIT_REASON_LABELS[r.reason] ?? r.reason} ${r.count.toLocaleString()} (${formatSignedCurrency(r.pnl)})`
-                      )
-                      .join(' · ')}
-                  </p>
-                )}
+              </Card>
+            </div>
+
+            <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <Card className="p-4 md:p-5">
+                <h2 className="mb-2 text-sm font-semibold">P&L by exit reason</h2>
+                <ExitReasonPanel breakdown={analytics.exitReasons} />
               </Card>
               <Card className="p-4 md:p-5">
                 <h2 className="-mb-6 text-sm font-semibold">Tickers</h2>
