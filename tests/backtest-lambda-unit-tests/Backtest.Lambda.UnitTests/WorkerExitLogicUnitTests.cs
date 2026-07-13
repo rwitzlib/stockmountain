@@ -249,6 +249,28 @@ public class WorkerExitLogicUnitTests
     }
 
     [Fact]
+    public void BuildEntryResult_NoExitHit_ComputesExcursionsThroughEachOutcomeExit()
+    {
+        var request = CreateRequest();
+        var entryEnd = EntryStart.AddHours(1);
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 110f, low: 90f, close: 109f),
+            CreateBar(EntryStart.AddMinutes(20).ToUnixTimeMilliseconds(), high: 120f, low: 80f, close: 100f),
+            CreateBarAt(entryEnd, 100f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.High.SoldAt.Should().Be(DateTimeOffset.FromUnixTimeMilliseconds(bars[1].Timestamp).ToOffset(EntryStart.Offset));
+        result.High.MaxRunup.Should().Be(100f);
+        result.High.MaxDrawdown.Should().Be(-100f);
+        result.Hold.MaxRunup.Should().Be(200f);
+        result.Hold.MaxDrawdown.Should().Be(-200f);
+    }
+
+    [Fact]
     public void BuildEntryResult_TakeProfitHit_BothOutcomesTakeProfit()
     {
         var request = CreateRequest(takeProfit: new Exit
@@ -272,6 +294,32 @@ public class WorkerExitLogicUnitTests
         result.Hold.StoppedOut.Should().BeTrue();
         result.High.ExitReason.Should().Be(BacktestExitReason.takeProfit);
         result.High.StoppedOut.Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildEntryResult_TakeProfitHit_TruncatesExcursionsAtExitCandle()
+    {
+        var request = CreateRequest(takeProfit: new Exit
+        {
+            PriceActionType = PriceActionType.high,
+            Type = ExitValueType.percent,
+            Value = 5f
+        });
+        var entryEnd = EntryStart.AddHours(1);
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 110f, low: 96f, close: 106f),
+            CreateBar(EntryStart.AddMinutes(20).ToUnixTimeMilliseconds(), high: 150f, low: 50f, close: 100f),
+            CreateBarAt(entryEnd, 100f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.MaxRunup.Should().Be(100f);
+        result.Hold.MaxDrawdown.Should().Be(-40f);
+        result.High.MaxRunup.Should().Be(100f);
+        result.High.MaxDrawdown.Should().Be(-40f);
     }
 
     [Fact]
@@ -304,6 +352,57 @@ public class WorkerExitLogicUnitTests
 
         result.Hold.ExitReason.Should().Be(BacktestExitReason.stopLoss);
         result.High.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+    }
+
+    [Fact]
+    public void BuildEntryResult_StopLossHit_TruncatesExcursionsAtExitCandle()
+    {
+        var request = CreateRequest(stopLoss: new Exit
+        {
+            PriceActionType = PriceActionType.low,
+            Type = ExitValueType.percent,
+            Value = 5f
+        });
+        var entryEnd = EntryStart.AddHours(1);
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 104f, low: 90f, close: 95f),
+            CreateBar(EntryStart.AddMinutes(20).ToUnixTimeMilliseconds(), high: 150f, low: 50f, close: 100f),
+            CreateBarAt(entryEnd, 100f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.MaxRunup.Should().Be(40f);
+        result.Hold.MaxDrawdown.Should().Be(-100f);
+        result.High.MaxRunup.Should().Be(40f);
+        result.High.MaxDrawdown.Should().Be(-100f);
+    }
+
+    [Fact]
+    public void BuildEntryResult_ConfiguredFillProfit_ClampsRunupToRealizedProfit()
+    {
+        var request = CreateRequest(takeProfit: new Exit
+        {
+            PriceActionType = PriceActionType.close,
+            Type = ExitValueType.flat,
+            Value = 50f
+        });
+        var entryEnd = EntryStart.AddHours(1);
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            // Deliberately inconsistent synthetic OHLC isolates the configured-fill clamp.
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 104f, low: 100f, close: 106f),
+            CreateBarAt(entryEnd, 100f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.Profit.Should().Be(50f);
+        result.Hold.MaxRunup.Should().Be(50f);
+        result.High.MaxRunup.Should().Be(50f);
     }
 
     [Fact]

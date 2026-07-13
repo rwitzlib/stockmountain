@@ -29,6 +29,7 @@ import {
   formatSignedPercent,
 } from '../utils/formatters';
 import {
+  computeAverageExitEfficiency,
   computeDerivedTradeStats,
   computeDrawdown,
   computeDurationHistogram,
@@ -130,6 +131,12 @@ function normalizeTrades(raw: unknown): ExecutedTrade[] {
       startPosition: Number(t.startPosition ?? 0),
       endPosition: Number(t.endPosition ?? 0),
       profit: Number(t.profit ?? 0),
+      maxRunup: t.maxRunup != null && Number.isFinite(Number(t.maxRunup))
+        ? Number(t.maxRunup)
+        : undefined,
+      maxDrawdown: t.maxDrawdown != null && Number.isFinite(Number(t.maxDrawdown))
+        ? Number(t.maxDrawdown)
+        : undefined,
       stoppedOut: Boolean(t.stoppedOut),
       exitReason: typeof t.exitReason === 'string' ? (t.exitReason as ExecutedTrade['exitReason']) : undefined,
     };
@@ -565,6 +572,7 @@ export function BacktestDetailPage() {
       netPct: (netProfit / startingBalance) * 100,
       ceilingPct: (ceilingProfit / startingBalance) * 100,
       exitEfficiency: ceilingProfit > 0 ? (netProfit / ceilingProfit) * 100 : null,
+      averageTradeExitEfficiency: computeAverageExitEfficiency(primary.trades),
       derived: computeDerivedTradeStats(primary.trades),
       drawdown: computeDrawdown(primary.equity),
       profitHist: computeProfitHistogram(primary.trades),
@@ -1018,7 +1026,14 @@ export function BacktestDetailPage() {
                 {derived && (
                   <p className="mt-2 text-xs text-muted-foreground tabular-nums">
                     Best trade {formatSignedCurrency(derived.bestTrade)} · worst{' '}
-                    {formatSignedCurrency(derived.worstTrade)} — the exit walls shape this book.
+                    {formatSignedCurrency(derived.worstTrade)}
+                    {analytics.averageTradeExitEfficiency != null && (
+                      <>
+                        {' '}· average exit efficiency{' '}
+                        {formatSignedPercent(analytics.averageTradeExitEfficiency * 100, 0)}
+                      </>
+                    )}
+                    {' '}— the exit walls shape this book.
                   </p>
                 )}
               </Card>

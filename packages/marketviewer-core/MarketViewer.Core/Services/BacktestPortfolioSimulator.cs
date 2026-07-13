@@ -167,6 +167,8 @@ public static class BacktestPortfolioSimulator
                 StartPosition = position.StartPosition,
                 EndPosition = outcome.EndPosition,
                 Profit = outcome.Profit,
+                MaxRunup = outcome.MaxRunup,
+                MaxDrawdown = outcome.MaxDrawdown,
                 StoppedOut = outcome.StoppedOut,
                 ExitReason = outcome.ExitReason
             });

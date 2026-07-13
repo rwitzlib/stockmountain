@@ -96,15 +96,15 @@ export function BacktestTradesTable({ trades }: BacktestTradesTableProps) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] border-collapse text-[13px] tabular-nums">
+        <table className="w-full min-w-[980px] border-collapse text-[13px] tabular-nums">
           <thead>
             <tr>
-              {['Ticker', 'Entry', 'Held', 'In', 'Out', 'Shares', 'Return', 'P&L', 'Exit'].map(
+              {['Ticker', 'Entry', 'Held', 'In', 'Out', 'Shares', 'Return', 'P&L', 'MFE', 'MAE', 'Exit'].map(
                 (h, i) => (
                   <th
                     key={h}
                     className={`whitespace-nowrap border-b border-border px-2.5 pb-1.5 pt-2 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground ${
-                      i >= 3 && i <= 7 ? 'text-right' : 'text-left'
+                      i >= 3 && i <= 9 ? 'text-right' : 'text-left'
                     }`}
                   >
                     {h}
@@ -116,7 +116,7 @@ export function BacktestTradesTable({ trades }: BacktestTradesTableProps) {
           <tbody>
             {visible.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-xs text-muted-foreground">
+                <td colSpan={11} className="py-8 text-center text-xs text-muted-foreground">
                   No trades match this filter.
                 </td>
               </tr>
@@ -155,6 +155,18 @@ export function BacktestTradesTable({ trades }: BacktestTradesTableProps) {
                       style={{ color: pnlColor }}
                     >
                       {formatSignedCurrency(t.profit)}
+                    </td>
+                    <td
+                      className="whitespace-nowrap px-2.5 py-1.5 text-right"
+                      style={{ color: t.maxRunup != null ? 'var(--chart-gain)' : undefined }}
+                    >
+                      {t.maxRunup != null ? formatSignedCurrency(t.maxRunup) : '—'}
+                    </td>
+                    <td
+                      className="whitespace-nowrap px-2.5 py-1.5 text-right"
+                      style={{ color: t.maxDrawdown != null ? 'var(--chart-loss)' : undefined }}
+                    >
+                      {t.maxDrawdown != null ? formatSignedCurrency(t.maxDrawdown) : '—'}
                     </td>
                     <td className="whitespace-nowrap px-2.5 py-1.5">{exitChip(t)}</td>
                   </tr>

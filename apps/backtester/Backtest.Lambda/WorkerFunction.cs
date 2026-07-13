@@ -332,7 +332,46 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             //}
         }
 
+        var (holdRunup, holdDrawdown) = ComputeExcursions(
+            candlesWithinMarketHours,
+            result.Hold.SoldAt.ToUnixTimeMilliseconds(),
+            shares,
+            entryPosition);
+        result.Hold.MaxRunup = Math.Max(holdRunup, result.Hold.Profit);
+        result.Hold.MaxDrawdown = Math.Min(holdDrawdown, result.Hold.Profit);
+
+        var (highRunup, highDrawdown) = ComputeExcursions(
+            candlesWithinMarketHours,
+            result.High.SoldAt.ToUnixTimeMilliseconds(),
+            shares,
+            entryPosition);
+        result.High.MaxRunup = Math.Max(highRunup, result.High.Profit);
+        result.High.MaxDrawdown = Math.Min(highDrawdown, result.High.Profit);
+
         return result;
+    }
+
+    private static (float runup, float drawdown) ComputeExcursions(
+        List<Bar> candles,
+        long exitTimestampMs,
+        int shares,
+        float entryPosition)
+    {
+        var runup = 0f;
+        var drawdown = 0f;
+
+        foreach (var candle in candles)
+        {
+            if (candle.Timestamp > exitTimestampMs)
+            {
+                continue;
+            }
+
+            runup = Math.Max(runup, candle.High * shares - entryPosition);
+            drawdown = Math.Min(drawdown, candle.Low * shares - entryPosition);
+        }
+
+        return (runup, drawdown);
     }
 
     internal static bool CheckStopLoss(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar stopLossCandle)

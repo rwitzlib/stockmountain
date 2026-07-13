@@ -96,6 +96,20 @@ export function tradeReturnPct(trade: ExecutedTrade): number {
   return trade.startPosition ? (trade.profit / trade.startPosition) * 100 : 0;
 }
 
+/** Mean realized P&L as a fraction of MFE, excluding trades without positive MFE. */
+export function computeAverageExitEfficiency(trades: ExecutedTrade[]): number | null {
+  let total = 0;
+  let count = 0;
+
+  for (const trade of trades) {
+    if (trade.maxRunup == null || trade.maxRunup <= 0) continue;
+    total += trade.profit / trade.maxRunup;
+    count++;
+  }
+
+  return count > 0 ? total / count : null;
+}
+
 /** A step size from the 1/2/2.5/5 family so axis ticks and bin edges land on friendly values. */
 export function niceStep(rough: number): number {
   if (!Number.isFinite(rough) || rough <= 0) return 1;

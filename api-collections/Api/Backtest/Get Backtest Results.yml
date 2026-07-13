@@ -1,3 +1,16 @@
+docs: |
+  Returns the persisted backtest portfolios. Each new trade includes dollar-denominated
+  maximum favorable and adverse excursion; older results may omit these fields.
+
+  Sample trade:
+  ```json
+  {
+    "ticker": "AAPL",
+    "profit": 42.10,
+    "maxRunup": 61.20,
+    "maxDrawdown": -18.75
+  }
+  ```
 info:
   name: Get Backtest Results
   type: http

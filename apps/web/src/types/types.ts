@@ -37,6 +37,10 @@ export interface ExecutedTrade {
   startPosition: number;
   endPosition: number;
   profit: number;
+  /** Best unrealized P&L reached while the trade was open; absent on older results */
+  maxRunup?: number;
+  /** Worst unrealized P&L reached while the trade was open; absent on older results */
+  maxDrawdown?: number;
   stoppedOut: boolean;
   /** Absent on results persisted before the backend recorded exit reasons */
   exitReason?: ExitReason;

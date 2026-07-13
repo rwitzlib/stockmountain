@@ -2,6 +2,18 @@ docs: |
   Returns the capital-constrained portfolio outcome for a completed backtest:
   hold/high/other strategy portfolios with stats, equity curve, and taken trades.
   Does not include the unconstrained trade universe (see universe endpoint stub).
+  New trades include dollar-denominated maximum favorable and adverse excursion;
+  older persisted results may omit these fields.
+
+  Sample trade:
+  ```json
+  {
+    "ticker": "AAPL",
+    "profit": 42.10,
+    "maxRunup": 61.20,
+    "maxDrawdown": -18.75
+  }
+  ```
 info:
   name: Get Backtest Results (latest)
   type: http

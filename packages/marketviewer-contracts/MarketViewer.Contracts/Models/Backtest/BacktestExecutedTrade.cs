@@ -19,6 +19,12 @@ public class BacktestExecutedTrade
     public float EndPosition { get; set; }
     public float Profit { get; set; }
 
+    /// <summary>Best unrealized P&amp;L (in dollars) reached between entry and exit. Null when unavailable.</summary>
+    public float? MaxRunup { get; set; }
+
+    /// <summary>Worst unrealized P&amp;L (in dollars, less than or equal to zero) reached between entry and exit. This is distinct from portfolio equity-curve drawdown. Null when unavailable.</summary>
+    public float? MaxDrawdown { get; set; }
+
     /// <summary>Deprecated in favor of <see cref="ExitReason"/>; kept for old persisted results and existing consumers.</summary>
     public bool StoppedOut { get; set; }
 

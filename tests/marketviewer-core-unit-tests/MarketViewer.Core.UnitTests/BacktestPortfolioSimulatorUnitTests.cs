@@ -37,6 +37,8 @@ public class BacktestPortfolioSimulatorUnitTests
                         EndPrice = 105f,
                         EndPosition = 1050f,
                         Profit = 50f,
+                        MaxRunup = 80f,
+                        MaxDrawdown = -20f,
                         StoppedOut = true,
                         ExitReason = BacktestExitReason.takeProfit
                     },
@@ -46,6 +48,8 @@ public class BacktestPortfolioSimulatorUnitTests
                         EndPrice = 106f,
                         EndPosition = 1060f,
                         Profit = 60f,
+                        MaxRunup = 90f,
+                        MaxDrawdown = -10f,
                         StoppedOut = false,
                         ExitReason = BacktestExitReason.soldAtHigh
                     }
@@ -72,10 +76,14 @@ public class BacktestPortfolioSimulatorUnitTests
         var holdTrade = response.Hold.Trades.Should().ContainSingle().Subject;
         holdTrade.ExitReason.Should().Be(BacktestExitReason.takeProfit);
         holdTrade.StoppedOut.Should().BeTrue();
+        holdTrade.MaxRunup.Should().Be(80f);
+        holdTrade.MaxDrawdown.Should().Be(-20f);
 
         var highTrade = response.High.Trades.Should().ContainSingle().Subject;
         highTrade.ExitReason.Should().Be(BacktestExitReason.soldAtHigh);
         highTrade.StoppedOut.Should().BeFalse();
+        highTrade.MaxRunup.Should().Be(90f);
+        highTrade.MaxDrawdown.Should().Be(-10f);
     }
 
     [Fact]
@@ -132,5 +140,9 @@ public class BacktestPortfolioSimulatorUnitTests
         // Assert
         response.Hold.Trades.Should().ContainSingle().Which.ExitReason.Should().BeNull();
         response.High.Trades.Should().ContainSingle().Which.ExitReason.Should().BeNull();
+        response.Hold.Trades.Single().MaxRunup.Should().BeNull();
+        response.Hold.Trades.Single().MaxDrawdown.Should().BeNull();
+        response.High.Trades.Single().MaxRunup.Should().BeNull();
+        response.High.Trades.Single().MaxDrawdown.Should().BeNull();
     }
 }
