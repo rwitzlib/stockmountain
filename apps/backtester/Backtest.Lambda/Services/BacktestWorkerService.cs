@@ -58,36 +58,89 @@ public class BacktestWorkerService(
 
     private async Task<WorkerResponse> BacktestDay(WorkerRequest request)
     {
-        try
+        const int MaxAttempts = 3;
+        string lastError = null;
+
+        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
-            var json = JsonSerializer.Serialize(request);
-
-            var invokeRequest = new InvokeRequest
+            try
             {
-                FunctionName = config.LambdaName,
-                InvocationType = InvocationType.RequestResponse,
-                Payload = json,
-            };
+                var json = JsonSerializer.Serialize(request);
 
-            var response = await lambda.InvokeAsync(invokeRequest);
+                var invokeRequest = new InvokeRequest
+                {
+                    FunctionName = config.LambdaName,
+                    InvocationType = InvocationType.RequestResponse,
+                    Payload = json,
+                };
 
-            if (response.Payload is null)
+                var response = await lambda.InvokeAsync(invokeRequest);
+
+                // FunctionError is set when the worker itself crashed (timeout, OOM) —
+                // the payload is then an error document, not a WorkerResponse.
+                if (!string.IsNullOrEmpty(response.FunctionError))
+                {
+                    lastError = $"worker crashed ({response.FunctionError}): {ReadPayload(response)}";
+                }
+                else if (response.Payload is null)
+                {
+                    lastError = "empty response from worker";
+                }
+                else
+                {
+                    var backtestEntry = JsonSerializer.Deserialize<WorkerResponse>(ReadPayload(response));
+
+                    if (backtestEntry is not null)
+                    {
+                        return backtestEntry;
+                    }
+
+                    lastError = "unreadable response from worker";
+                }
+            }
+            catch (Exception e)
             {
-                return null;
+                lastError = e.Message;
+                logger.LogError(e, "Error backtesting day {date} (attempt {attempt}/{maxAttempts})", request.Date, attempt, MaxAttempts);
             }
 
-            var streamReader = new StreamReader(response.Payload);
-            var result = streamReader.ReadToEnd();
-
-            var backtestEntry = JsonSerializer.Deserialize<WorkerResponse>(result);
-
-            return backtestEntry;
+            if (attempt < MaxAttempts)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(attempt) + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 500)));
+            }
         }
-        catch (Exception e)
+
+        logger.LogError("Day {date} failed after {maxAttempts} attempts: {error}", request.Date, MaxAttempts, lastError);
+
+        // Return a placeholder instead of null so the failure is surfaced on the
+        // backtest record rather than the day silently vanishing from the results.
+        return new WorkerResponse
         {
-            logger.LogError(e, "Error backtesting day {date}", request.Date);
-            return null;
+            Date = request.Date.Date,
+            Results = [],
+            Errors = [$"Day could not be backtested after {MaxAttempts} attempts: {Truncate(lastError, 300)}"]
+        };
+    }
+
+    private static string ReadPayload(InvokeResponse response)
+    {
+        if (response.Payload is null)
+        {
+            return string.Empty;
         }
+
+        using var streamReader = new StreamReader(response.Payload);
+        return streamReader.ReadToEnd();
+    }
+
+    private static string Truncate(string value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
+        {
+            return value;
+        }
+
+        return value[..maxLength] + "...";
     }
 
     #endregion

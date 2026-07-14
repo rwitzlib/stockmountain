@@ -16,8 +16,10 @@ using Microsoft.Extensions.Logging;
 using Polygon.Client.Interfaces;
 using Polygon.Client.Models;
 using Polygon.Client.Requests;
+using Polygon.Client.Responses;
 using System.Data;
 using System.Diagnostics;
+using System.Net;
 
 namespace Backtest.Lambda;
 
@@ -62,7 +64,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 };
             }
 
-            var backtestResults = await GetBacktestResults(strategyEntries, request);
+            var (backtestResults, entryErrors) = await GetBacktestResults(strategyEntries, request);
 
             _logger.LogInformation("Finished computing backtest results in {ElapsedSeconds} seconds.", sp.Elapsed.TotalSeconds);
 
@@ -74,7 +76,8 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 {
                     Date = request.Date.Date,
                     CreditsUsed = MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds,
-                    Results = []
+                    Results = [],
+                    Errors = SummarizeErrors(entryErrors)
                 };
             }
 
@@ -102,7 +105,8 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                     AvgWin = highProfits.Any() ? highProfits.Average() : 0,
                     BalanceChange = backtestResults.Sum(result => result.High.Profit)
                 },
-                Results = backtestResults
+                Results = backtestResults,
+                Errors = SummarizeErrors(entryErrors)
             };
         }
         catch (Exception ex)
@@ -113,7 +117,8 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             {
                 Date = request.Date.Date,
                 CreditsUsed = MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds,
-                Results = []
+                Results = [],
+                Errors = [$"Day failed: {ex.Message}"]
             };
         }
         finally
@@ -128,23 +133,26 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
     #region Private Methods
 
-    private async Task<List<BacktestEntryResultCollection>> GetBacktestResults(List<StrategyEntry> scannerEntries, WorkerRequest request)
+    private async Task<(List<BacktestEntryResultCollection> Results, List<string> Errors)> GetBacktestResults(List<StrategyEntry> scannerEntries, WorkerRequest request)
     {
         int batchSize = int.TryParse(Environment.GetEnvironmentVariable("POLYGON_BATCH_SIZE"), out var polygonBatchSize) ? polygonBatchSize : 750;
         var results = new List<BacktestEntryResultCollection>();
+        var errors = new List<string>();
 
         for (int i = 0; i < scannerEntries.Count; i += batchSize)
         {
             var batch = scannerEntries.Skip(i).Take(batchSize);
             var tasks = batch.Select(entry => Task.Run(() => GetBacktestResult(request, entry))).ToList();
-            var batchResults = (await Task.WhenAll(tasks)).Where(q => q is not null).ToList();
-            results.AddRange(batchResults);
+            var batchResults = await Task.WhenAll(tasks);
+
+            results.AddRange(batchResults.Where(q => q.Result is not null).Select(q => q.Result));
+            errors.AddRange(batchResults.Where(q => q.Error is not null).Select(q => q.Error));
         }
 
-        return results;
+        return (results, errors);
     }
 
-    private async Task<BacktestEntryResultCollection> GetBacktestResult(WorkerRequest request, StrategyEntry entry)
+    private async Task<(BacktestEntryResultCollection? Result, string? Error)> GetBacktestResult(WorkerRequest request, StrategyEntry entry)
     {
         try
         {
@@ -161,11 +169,19 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 Limit = 50000
             };
 
-            var polygonResponse = await _polygonClient.GetAggregates(polygonRequest);
+            var polygonResponse = await GetAggregatesWithRetry(polygonRequest);
 
-            if (polygonResponse?.Results is null || !polygonResponse.Results.Any())
+            // The Polygon client never throws: failures come back with Status set to an
+            // HttpStatusCode name and empty Results. Report those as dropped signals
+            // instead of silently treating them like tickers with no data.
+            if (!IsPolygonSuccess(polygonResponse))
             {
-                return null;
+                return (null, $"{entry.Ticker} at {entry.Start:HH:mm}: candle data unavailable ({polygonResponse?.Status ?? "no response"})");
+            }
+
+            if (!polygonResponse.Results.Any())
+            {
+                return (null, null);
             }
 
             //var passesExitFiltersTimestamp = await WhenPassesExitFilters(entry, request);
@@ -188,13 +204,79 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 candlesWithinMarketHours.AddRange(candles.Where(candle => candle.Timestamp > entry.Start.ToUnixTimeMilliseconds() && candle.Timestamp <= entryEnd.ToUnixTimeMilliseconds()));
             }
 
-            return BuildEntryResult(request, entry, candlesWithinMarketHours, entryEnd);
+            return (BuildEntryResult(request, entry, candlesWithinMarketHours, entryEnd), null);
         }
         catch (Exception ex)
         {
             _logger.LogError("Error processing {ticker} at {start}: {message}", entry.Ticker, entry.Start, ex.Message);
+            return (null, $"{entry.Ticker} at {entry.Start:HH:mm}: {ex.Message}");
+        }
+    }
+
+    private async Task<PolygonAggregateResponse> GetAggregatesWithRetry(PolygonAggregateRequest request)
+    {
+        const int MaxAttempts = 3;
+
+        PolygonAggregateResponse response = null;
+        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
+        {
+            response = await _polygonClient.GetAggregates(request);
+
+            if (IsPolygonSuccess(response) || !IsRetryable(response))
+            {
+                return response;
+            }
+
+            if (attempt < MaxAttempts)
+            {
+                // Exponential backoff with jitter: batches of hundreds of concurrent
+                // requests can trip rate limits, and synchronized retries would too.
+                var delay = TimeSpan.FromMilliseconds(500 * Math.Pow(2, attempt - 1) + Random.Shared.Next(0, 250));
+                await Task.Delay(delay);
+            }
+        }
+
+        return response;
+    }
+
+    private static bool IsPolygonSuccess(PolygonAggregateResponse response)
+    {
+        return response?.Results is not null
+            && (string.IsNullOrEmpty(response.Status)
+                || response.Status.Equals("OK", StringComparison.OrdinalIgnoreCase)
+                || response.Status.Equals("DELAYED", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsRetryable(PolygonAggregateResponse response)
+    {
+        return response?.Status switch
+        {
+            nameof(HttpStatusCode.BadRequest) => false,
+            nameof(HttpStatusCode.Unauthorized) => false,
+            nameof(HttpStatusCode.Forbidden) => false,
+            nameof(HttpStatusCode.NotFound) => false,
+            _ => true
+        };
+    }
+
+    private static List<string> SummarizeErrors(List<string> errors)
+    {
+        const int MaxDetailedErrors = 5;
+
+        if (errors is null || errors.Count == 0)
+        {
             return null;
         }
+
+        if (errors.Count <= MaxDetailedErrors)
+        {
+            return errors;
+        }
+
+        return errors
+            .Take(MaxDetailedErrors)
+            .Append($"... and {errors.Count - MaxDetailedErrors} more dropped signals")
+            .ToList();
     }
 
     internal static BacktestEntryResultCollection BuildEntryResult(WorkerRequest request, StrategyEntry entry, List<Bar> candlesWithinMarketHours, DateTimeOffset entryEnd)

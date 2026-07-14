@@ -20,4 +20,10 @@ public class WorkerResponse
     public BacktestEntryStats Other { get; set; }
     public List<BacktestEntryResultCollection> Results { get; set; }
     public SnapshotResponse Snapshot { get; set; }
+
+    /// <summary>
+    /// Non-fatal problems encountered while backtesting this day (e.g. signals dropped
+    /// because market data could not be fetched). Null when the day ran clean.
+    /// </summary>
+    public List<string> Errors { get; set; }
 }

@@ -90,6 +90,20 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
             _logger.LogInformation("Found {EntryCount} relevant entries for the backtest request.", relevantEntries.Count);
 
+            var workerErrors = CollectWorkerErrors(relevantEntries);
+
+            // Failed days come back as placeholders with empty results; if nothing at all
+            // produced a trade and there were errors, the run failed rather than "no signals".
+            if (workerErrors is not null && relevantEntries.All(q => q.Results is null || q.Results.Count == 0))
+            {
+                _logger.LogError("Backtest {RequestId} produced no results and reported errors.", request.Id);
+                record.Status = BacktestStatus.Failed;
+                record.CreditsUsed = 0;
+                record.Errors = workerErrors;
+                await _backtestRepository.Put(record, entries);
+                return;
+            }
+
             var creditsUsed = relevantEntries.Sum(result => result.CreditsUsed);
             var includeOther = request.ExitSettings?.ConditionalExit is not null;
 
@@ -103,6 +117,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
             record.Status = BacktestStatus.Completed;
             record.CreditsUsed = creditsUsed;
+            record.Errors = workerErrors;
             record.HoldProfit = portfolio.Hold.Stats.BalanceChange;
             record.HighProfit = portfolio.High.Stats.BalanceChange;
             record.ConditionalProfit = portfolio.Other?.Stats.BalanceChange ?? 0;
@@ -152,6 +167,40 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
                 await _backtestRepository.Put(record);
             }
         }
+    }
+
+    /// <summary>
+    /// Rolls per-day worker errors (dropped signals, failed days) up onto the record so
+    /// partial data is visible to the user instead of silently missing. Returns null when
+    /// every day ran clean; entries are distinct and capped for the DynamoDB string set.
+    /// </summary>
+    private static List<string> CollectWorkerErrors(IEnumerable<WorkerResponse> entries)
+    {
+        const int MaxErrors = 25;
+
+        var errors = entries
+            .Where(entry => entry.Errors is { Count: > 0 })
+            .OrderBy(entry => entry.Date)
+            .SelectMany(entry => entry.Errors
+                .Where(error => !string.IsNullOrWhiteSpace(error))
+                .Select(error => $"{entry.Date:yyyy-MM-dd}: {error}"))
+            .Distinct()
+            .ToList();
+
+        if (errors.Count == 0)
+        {
+            return null;
+        }
+
+        if (errors.Count > MaxErrors)
+        {
+            errors = errors
+                .Take(MaxErrors)
+                .Append($"... and {errors.Count - MaxErrors} more")
+                .ToList();
+        }
+
+        return errors;
     }
 
     private static BacktestEntryStatsSummary ToSummary(BacktestEntryStats stats) => new()
