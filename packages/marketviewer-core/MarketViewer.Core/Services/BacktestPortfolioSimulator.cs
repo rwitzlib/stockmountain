@@ -196,7 +196,13 @@ public static class BacktestPortfolioSimulator
             return;
         }
 
-        foreach (var result in entry.Results.Where(r => r.BoughtAt == timestamp))
+        // Tie-break same-minute signals by ticker so which trade wins a contested
+        // funds/concurrency slot does not depend on upstream list order.
+        var candidates = entry.Results
+            .Where(r => r.BoughtAt == timestamp)
+            .OrderBy(r => r.Ticker, StringComparer.Ordinal);
+
+        foreach (var result in candidates)
         {
             if (GetOutcome(type, result) is null)
             {

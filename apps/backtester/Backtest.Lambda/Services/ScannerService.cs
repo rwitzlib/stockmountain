@@ -66,7 +66,12 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
 
             var tickersLists = entryLists.Skip(1).Select(q => q.Select(e => e.Ticker).ToHashSet()).ToList();
 
-            var validEntries = entryLists[0].Where(entry => tickersLists.All(q => q.Contains(entry.Ticker))).ToList();
+            // Sort within the minute so entry order is stable regardless of which
+            // filter list is first or how a cached (possibly unsorted) list was written.
+            var validEntries = entryLists[0]
+                .Where(entry => tickersLists.All(q => q.Contains(entry.Ticker)))
+                .OrderBy(entry => entry.Ticker, StringComparer.Ordinal)
+                .ToList();
 
             if (!validEntries.Any())
             {
@@ -176,6 +181,13 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
             }
         });
         sp.Stop();
+
+        // Parallel.ForEach appends in thread-scheduling order; sort so the cached
+        // and returned lists are identical across runs.
+        strategyResults = strategyResults
+            .OrderBy(q => q.Start)
+            .ThenBy(q => q.Ticker, StringComparer.Ordinal)
+            .ToList();
 
         try
         {

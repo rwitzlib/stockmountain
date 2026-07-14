@@ -26,7 +26,8 @@ http:
         },
         "EntrySettings": {
           "Filters": [
-            "rsi(30,70,14,ema) > 70 [1m]"
+            "rsi(30,70,14,ema) > 70 [1m]",
+            "time < 10:00"
           ]
         },
         "ExitSettings": {
