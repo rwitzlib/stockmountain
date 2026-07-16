@@ -12,6 +12,8 @@ using MarketViewer.Filters.Parsing;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -194,14 +196,14 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
             var putRequest = new PutObjectRequest
             {
                 BucketName = "lad-dev-marketviewer",
-                Key = $"strategyEntries/{date:yyyy/MM/dd}/{filter}",
+                Key = BuildCacheKey(date, filter),
                 ContentBody = CompressionUtilities.CompressString(JsonSerializer.Serialize(strategyResults, _jsonOptions))
             };
             await s3.PutObjectAsync(putRequest);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            logger.LogError("Failed to cache strategy results to S3 for filter: {Filter}", filter);
+            logger.LogError(ex, "Failed to cache strategy results to S3 for filter: {Filter}", filter);
         }
 
         return strategyResults;
@@ -262,7 +264,13 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
             timeframes.Add(new Timeframe(1, Timespan.minute));
         }
 
-        await dataCache.Setup(request.Date, timeframes);
+        // A failed setup on a warm container leaves the previous invocation's date in the
+        // cache — scanning against that produces entries for tickers that never traded
+        // on this date. Fail the day loudly instead.
+        if (!await dataCache.Setup(request.Date, timeframes))
+        {
+            throw new InvalidOperationException($"Market data setup failed for {request.Date:yyyy-MM-dd}; aborting scan to avoid using stale data.");
+        }
 
         var sp = Stopwatch.StartNew();
         var missingStrategyEntryListTasks = new List<Task>();
@@ -285,7 +293,7 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
 
     private async Task<(string Filter, List<StrategyEntry> Entries)> GetResultsFromCache(string filter, WorkerRequest request)
     {
-        var cacheKey = $"strategyEntries/{request.Date:yyyy/MM/dd}/{filter}";
+        var cacheKey = BuildCacheKey(request.Date, filter);
 
         try
         {
@@ -306,11 +314,21 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
         {
             // Cache miss - continue to generate results
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            logger.LogError("Failed to retrieve cached strategy results from S3 for filter: {Filter}", filter);
+            logger.LogError(ex, "Failed to retrieve cached strategy results from S3 for filter: {Filter}", filter);
         }
         return (filter, []);
+    }
+
+    /// <summary>
+    /// Filter strings contain characters that break S3 requests (&lt;, &gt;, spaces), which
+    /// made every cache read/write fail. Key on a stable hash of the filter instead.
+    /// </summary>
+    private static string BuildCacheKey(DateTimeOffset date, string filter)
+    {
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(filter)));
+        return $"strategyEntries/{date:yyyy/MM/dd}/{hash[..16]}";
     }
 
     #endregion

@@ -26,6 +26,13 @@ public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache
     {
         try
         {
+            // This cache is a singleton and its collections are keyed without a date;
+            // clear them so a warm Lambda container can never scan against data left
+            // over from a previous invocation's date.
+            Tickers = [];
+            StocksResponses = [];
+            NextCandlesCache = [];
+
             var offset = TimeZoneInfo.FindSystemTimeZoneById("America/New_York").GetUtcOffset(date);
             var marketOpen = new DateTimeOffset(date.Year, date.Month, date.Day, 9, 30, 0, offset);
             var marketClose = new DateTimeOffset(date.Year, date.Month, date.Day, 16, 0, 0, offset);

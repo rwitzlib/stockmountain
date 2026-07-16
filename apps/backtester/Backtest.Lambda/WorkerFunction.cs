@@ -125,7 +125,12 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         {
             if (_memoryCache is MemoryCache memoryCache)
             {
+                // Market data is date-keyed with a sliding expiration, so a warm container
+                // accumulates every date it touches (~185MB of JSON each) until setup
+                // starts failing under memory pressure. Evict everything; the next
+                // invocation reloads what it needs.
                 _logger.LogInformation("Clearing memory cache");
+                memoryCache.Compact(1.0);
                 GC.Collect();
             }
         }
@@ -179,7 +184,9 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 return (null, $"{entry.Ticker} at {entry.Start:HH:mm}: candle data unavailable ({polygonResponse?.Status ?? "no response"})");
             }
 
-            if (!polygonResponse.Results.Any())
+            // A successful response can omit results entirely when the ticker has no
+            // bars in the window — that's legitimate no-data, not an error.
+            if (polygonResponse.Results is null || !polygonResponse.Results.Any())
             {
                 return (null, null);
             }
@@ -241,7 +248,9 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
     private static bool IsPolygonSuccess(PolygonAggregateResponse response)
     {
-        return response?.Results is not null
+        // Success is determined by status alone: Polygon omits the results field when a
+        // ticker has no data, while the client's error path always sets a non-OK status.
+        return response is not null
             && (string.IsNullOrEmpty(response.Status)
                 || response.Status.Equals("OK", StringComparison.OrdinalIgnoreCase)
                 || response.Status.Equals("DELAYED", StringComparison.OrdinalIgnoreCase));
