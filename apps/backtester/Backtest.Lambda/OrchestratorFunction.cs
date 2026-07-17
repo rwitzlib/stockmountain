@@ -27,6 +27,15 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
     public async Task FunctionHandler(OrchestratorRequest request, ILambdaContext context)
     {
+        using var logScope = _logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["BacktestId"] = request.Id,
+            ["BacktestStartDate"] = request.Start.ToString("yyyy-MM-dd"),
+            ["BacktestEndDate"] = request.End.ToString("yyyy-MM-dd"),
+            ["AwsRequestId"] = context.AwsRequestId,
+            ["LambdaFunction"] = context.FunctionName
+        });
+
         try
         {
             var sp = Stopwatch.StartNew();

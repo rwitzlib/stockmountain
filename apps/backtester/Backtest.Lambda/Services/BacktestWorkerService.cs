@@ -38,6 +38,7 @@ public class BacktestWorkerService(
             {
                 var backtesterLambdaRequest = new WorkerRequest
                 {
+                    BacktestId = request.Id,
                     Date = day.Date,
                     PositionSettings = request.PositionSettings,
                     EntrySettings = request.EntrySettings,

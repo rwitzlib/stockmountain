@@ -43,6 +43,14 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
     public async Task<WorkerResponse> FunctionHandler(WorkerRequest request, ILambdaContext context)
     {
+        using var logScope = _logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["BacktestId"] = request.BacktestId,
+            ["BacktestDate"] = request.Date.ToString("yyyy-MM-dd"),
+            ["AwsRequestId"] = context.AwsRequestId,
+            ["LambdaFunction"] = context.FunctionName
+        });
+
         var sp = new Stopwatch();
         sp.Start();
 
@@ -111,8 +119,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error: {message}", ex.Message);
-            _logger.LogError("Stacktrace: {stackTrace}", ex.StackTrace);
+            _logger.LogError(ex, "Backtest worker failed for {BacktestDate}", request.Date.ToString("yyyy-MM-dd"));
             return new WorkerResponse
             {
                 Date = request.Date.Date,
