@@ -9,6 +9,7 @@ using MarketViewer.Filters;
 using MarketViewer.Filters.Expressions;
 using MarketViewer.Filters.Interfaces;
 using MarketViewer.Filters.Parsing;
+using MarketViewer.Infrastructure.Config;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Net;
@@ -19,7 +20,7 @@ using System.Text.Json.Serialization;
 
 namespace Backtest.Lambda.Services;
 
-public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCache, IAmazonS3 s3, ILogger<ScannerService> logger)
+public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCache, IAmazonS3 s3, BacktestConfig config, ILogger<ScannerService> logger)
 {
     private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
     {
@@ -195,7 +196,7 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
         {
             var putRequest = new PutObjectRequest
             {
-                BucketName = "lad-dev-marketviewer",
+                BucketName = config.S3BucketName,
                 Key = BuildCacheKey(date, filter),
                 ContentBody = CompressionUtilities.CompressString(JsonSerializer.Serialize(strategyResults, _jsonOptions))
             };
@@ -297,7 +298,7 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
 
         try
         {
-            var s3Object = await s3.GetObjectAsync("lad-dev-marketviewer", cacheKey);
+            var s3Object = await s3.GetObjectAsync(config.S3BucketName, cacheKey);
 
             using var reader = new StreamReader(s3Object.ResponseStream);
             var content = await reader.ReadToEndAsync();
