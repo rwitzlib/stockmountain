@@ -46,3 +46,28 @@ variable "enable_web_deploy" {
   default     = false
   description = "When true, triggers a stockmountain-app deploy via the management API."
 }
+
+variable "enable_grafana_cloud_logs" {
+  type        = bool
+  default     = true
+  description = "Forward backtest Lambda CloudWatch logs to Grafana Cloud through lambda-promtail."
+}
+
+variable "grafana_loki_write_address" {
+  type        = string
+  default     = ""
+  description = "Grafana Cloud Loki push URL."
+}
+
+variable "grafana_loki_username" {
+  type        = string
+  default     = ""
+  description = "Grafana Cloud Logs instance ID used as the Loki basic-auth username."
+}
+
+variable "grafana_loki_token" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Grafana Cloud access-policy token with logs:write permission."
+}

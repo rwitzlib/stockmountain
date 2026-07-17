@@ -20,7 +20,7 @@ on:
 
 jobs:
   deploy:
-    uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@v1.9.0
+    uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@add-terraform-variables
     permissions:
       id-token: write
       contents: read
@@ -52,4 +52,9 @@ jobs:
       solution_directory: .
       global_json_file: global.json
       terraform_directory: infra/tf/app
+      terraform_variables: |
+        {
+          "environment": "${{ inputs.environment || 'dev' }}",
+          "image_tag": ${{ github.ref_name }}
+        }
     secrets: inherit
