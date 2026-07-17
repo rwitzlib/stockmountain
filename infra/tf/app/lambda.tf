@@ -3,7 +3,7 @@ resource "aws_lambda_function" "market_data_aggregator" {
   function_name = "${var.team}-${var.environment}-${local.market_data_aggregator_service}"
   role          = aws_iam_role.market_data_aggregator_lambda.arn
 
-  memory_size = 2048
+  memory_size = 4096
   timeout     = 90
 
   architectures = ["x86_64"]
@@ -32,7 +32,7 @@ resource "aws_lambda_function" "market_data_orchestrator" {
   function_name = "${var.team}-${var.environment}-${local.market_data_orchestrator_service}"
   role          = aws_iam_role.market_data_aggregator_lambda.arn
 
-  memory_size = 1024
+  memory_size = 4096
   timeout     = 900
 
   architectures = ["x86_64"]
