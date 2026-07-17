@@ -7,9 +7,8 @@ http:
   method: GET
   url: https://{{base_url}}{{port}}/api/metrics
   auth:
-    type: basic
-    username: "2652867"
-    password: configured
+    type: bearer
+    token: asdf
 
 settings:
   encodeUrl: true
