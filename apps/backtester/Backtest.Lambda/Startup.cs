@@ -2,6 +2,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.Lambda;
 using Amazon.Lambda.Core;
+using Amazon.Lambda.Logging.AspNetCore;
 using Amazon.S3;
 using Amazon.SQS;
 using Backtest.Lambda;
@@ -76,7 +77,15 @@ public static class Startup
         {
             loggingBuilder.ClearProviders();
             loggingBuilder.AddConfiguration(configuration.GetSection("Logging"));
-            loggingBuilder.AddJsonConsole();
+            loggingBuilder.AddLambdaLogger(new LambdaLoggerOptions
+            {
+                IncludeCategory = true,
+                IncludeEventId = true,
+                IncludeException = true,
+                IncludeLogLevel = false,
+                IncludeNewline = false,
+                IncludeScopes = true
+            });
         });
     }
 }

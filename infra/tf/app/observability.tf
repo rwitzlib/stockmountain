@@ -87,7 +87,16 @@ resource "aws_lambda_function" "lambda_promtail" {
       USERNAME      = var.grafana_loki_username
       PASSWORD      = var.grafana_loki_token
       KEEP_STREAM   = "false"
-      EXTRA_LABELS  = "service,backtest,environment,${var.environment}"
+      EXTRA_LABELS  = "environment,${var.environment}"
+      RELABEL_CONFIGS = jsonencode([
+        {
+          source_labels = ["__aws_cloudwatch_log_group"]
+          regex         = "/aws/lambda/(.+)"
+          target_label  = "service_name"
+          replacement   = "$1"
+          action        = "replace"
+        }
+      ])
     }
   }
 

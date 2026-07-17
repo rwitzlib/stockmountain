@@ -83,9 +83,16 @@ resource "aws_lambda_function" "backtest_worker" {
     command = ["Backtest.Lambda::Backtest.Lambda.WorkerFunction::FunctionHandler"]
   }
 
+  logging_config {
+    log_format            = "JSON"
+    application_log_level = "INFO"
+    system_log_level      = "WARN"
+  }
+
   environment {
     variables = {
       POLYGON_TOKEN = data.aws_ssm_parameter.polygon_token.value
+
     }
   }
 
@@ -106,6 +113,12 @@ resource "aws_lambda_function" "backtest_orchestrator" {
 
   image_config {
     command = ["Backtest.Lambda::Backtest.Lambda.OrchestratorFunction::FunctionHandler"]
+  }
+
+  logging_config {
+    log_format            = "JSON"
+    application_log_level = "INFO"
+    system_log_level      = "WARN"
   }
 
   # environment {
