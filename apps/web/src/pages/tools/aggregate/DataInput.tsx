@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { MarketDataForm } from '../../../components/forms/MarketDataForm';
 import { LocalDataForm } from '../../../components/forms/LocalDataForm';
-import { fetchMarketData } from '../../../services/polygon';
+import { fetchMarketData } from '../../../services/massive';
 import { fetchLocalMarketData } from '../../../services/local';
 import type { StockMarketData } from '../../../types/tools';
 
@@ -18,10 +18,10 @@ interface FetchDataParams {
   to: string;
 }
 
-type InputMethod = 'manual' | 'polygon' | 'local';
+type InputMethod = 'manual' | 'massive' | 'local';
 
 export function DataInput({ onDataSubmit }: DataInputProps) {
-  const [inputMethod, setInputMethod] = useState<InputMethod>('polygon');
+  const [inputMethod, setInputMethod] = useState<InputMethod>('massive');
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -67,7 +67,7 @@ export function DataInput({ onDataSubmit }: DataInputProps) {
     }
   };
 
-  const handlePolygonFetch = async (formData: {
+  const handleMassiveFetch = async (formData: {
     ticker: string;
     multiplier: number;
     timespan: string;
@@ -86,7 +86,7 @@ export function DataInput({ onDataSubmit }: DataInputProps) {
       const data = await fetchMarketData(params);
       onDataSubmit(data);
     } catch (e) {
-      setError('Failed to fetch market data from Polygon');
+      setError('Failed to fetch market data from Massive');
     } finally {
       setIsLoading(false);
     }
@@ -113,14 +113,14 @@ export function DataInput({ onDataSubmit }: DataInputProps) {
       <div className="flex justify-center">
         <div className="inline-flex rounded-lg border border-gray-200 p-1">
           <button
-            onClick={() => setInputMethod('polygon')}
+            onClick={() => setInputMethod('massive')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              inputMethod === 'polygon'
+              inputMethod === 'massive'
                 ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Polygon API
+            Massive API
           </button>
           <button
             onClick={() => setInputMethod('local')}
@@ -152,10 +152,10 @@ export function DataInput({ onDataSubmit }: DataInputProps) {
       )}
 
       <div className="bg-white rounded-lg shadow-sm p-6">
-        {inputMethod === 'polygon' && (
+        {inputMethod === 'massive' && (
           <>
-            <h2 className="text-lg font-semibold mb-4">Fetch from Polygon.io</h2>
-            <MarketDataForm onSubmit={handlePolygonFetch} isLoading={isLoading} />
+            <h2 className="text-lg font-semibold mb-4">Fetch from Massive</h2>
+            <MarketDataForm onSubmit={handleMassiveFetch} isLoading={isLoading} />
           </>
         )}
         

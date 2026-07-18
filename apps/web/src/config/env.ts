@@ -1,5 +1,5 @@
 export const config = {
-  polygon: {
-    apiKey: import.meta.env.VITE_POLYGON_API_KEY || 'DEMO'
+  massive: {
+    apiKey: import.meta.env.VITE_MASSIVE_API_KEY || 'DEMO'
   }
 } as const;

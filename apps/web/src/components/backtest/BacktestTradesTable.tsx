@@ -3,12 +3,20 @@ import { ExecutedTrade } from '../../types/types';
 import { resolveExitReason, tradeDurationMinutes, tradeReturnPct } from '../../utils/backtestAnalytics';
 import { formatSignedCurrency, formatSignedPercent } from '../../utils/formatters';
 import { Button } from '../ui/button';
+import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
 
 interface BacktestTradesTableProps {
   trades: ExecutedTrade[];
 }
 
 const PAGE_SIZE = 50;
+type ValueDisplayMode = 'flat' | 'percent';
+
+function formatTradeValue(value: number, startPosition: number, mode: ValueDisplayMode): string {
+  if (mode === 'flat') return formatSignedCurrency(value);
+  if (startPosition <= 0) return '—';
+  return formatSignedPercent((value / startPosition) * 100, 1);
+}
 
 function exitChip(trade: ExecutedTrade) {
   // Old results have no exitReason; resolveExitReason falls back to the legacy inference
@@ -61,6 +69,7 @@ function formatEntryTime(iso: string): string {
 export function BacktestTradesTable({ trades }: BacktestTradesTableProps) {
   const [query, setQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [valueDisplayMode, setValueDisplayMode] = useState<ValueDisplayMode>('flat');
 
   const sorted = useMemo(
     () =>
@@ -82,6 +91,37 @@ export function BacktestTradesTable({ trades }: BacktestTradesTableProps) {
         <p className="text-xs text-muted-foreground tabular-nums">
           {filtered.length.toLocaleString()} of {trades.length.toLocaleString()} trades
         </p>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Values
+          </span>
+          <ToggleGroup
+            type="single"
+            value={valueDisplayMode}
+            onValueChange={(value) => {
+              if (value === 'flat' || value === 'percent') setValueDisplayMode(value);
+            }}
+            variant="outline"
+            size="sm"
+            aria-label="Display profit and excursions as dollars or percentages"
+            className="gap-0"
+          >
+            <ToggleGroupItem
+              value="flat"
+              aria-label="Display profit and excursions in dollars"
+              className="h-7 min-w-8 rounded-r-none px-2 text-xs data-[state=on]:bg-muted"
+            >
+              $
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="percent"
+              aria-label="Display profit and excursions as percentages"
+              className="h-7 min-w-8 rounded-l-none border-l-0 px-2 text-xs data-[state=on]:bg-muted"
+            >
+              %
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         <input
           type="text"
           value={query}
@@ -154,19 +194,23 @@ export function BacktestTradesTable({ trades }: BacktestTradesTableProps) {
                       className="whitespace-nowrap px-2.5 py-1.5 text-right font-semibold"
                       style={{ color: pnlColor }}
                     >
-                      {formatSignedCurrency(t.profit)}
+                      {formatTradeValue(t.profit, t.startPosition, valueDisplayMode)}
                     </td>
                     <td
                       className="whitespace-nowrap px-2.5 py-1.5 text-right"
                       style={{ color: t.maxRunup != null ? 'var(--chart-gain)' : undefined }}
                     >
-                      {t.maxRunup != null ? formatSignedCurrency(t.maxRunup) : '—'}
+                      {t.maxRunup != null
+                        ? formatTradeValue(t.maxRunup, t.startPosition, valueDisplayMode)
+                        : '—'}
                     </td>
                     <td
                       className="whitespace-nowrap px-2.5 py-1.5 text-right"
                       style={{ color: t.maxDrawdown != null ? 'var(--chart-loss)' : undefined }}
                     >
-                      {t.maxDrawdown != null ? formatSignedCurrency(t.maxDrawdown) : '—'}
+                      {t.maxDrawdown != null
+                        ? formatTradeValue(t.maxDrawdown, t.startPosition, valueDisplayMode)
+                        : '—'}
                     </td>
                     <td className="whitespace-nowrap px-2.5 py-1.5">{exitChip(t)}</td>
                   </tr>

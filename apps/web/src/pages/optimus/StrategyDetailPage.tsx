@@ -17,7 +17,7 @@ import { Card } from '../../components/ui/card';
 import { formatPrice } from '../../utils/chartUtils';
 import { createChart, LineSeries, ColorType, LineStyle, type IChartApi, type ISeriesApi } from 'lightweight-charts';
 import type { LogicalRange } from 'lightweight-charts';
-import { fetchMarketData } from '../../services/polygon';
+import { fetchMarketData } from '../../services/massive';
 import { StockMarketData } from '../../types/tools';
 import { StrategyStatePanel } from '../../components/strategy/StrategyStatePanel';
 import { BalanceHistoryChart } from '../../components/strategy/BalanceHistoryChart';

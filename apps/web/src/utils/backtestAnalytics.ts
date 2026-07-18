@@ -130,6 +130,79 @@ export function niceTicks(min: number, max: number, targetCount: number): number
   return ticks;
 }
 
+export interface DateTick {
+  /** Index into the dates array passed to dateTicks */
+  index: number;
+  label: string;
+}
+
+/** Month strides that keep ticks on calendar boundaries (quarters, half-years, years) */
+const MONTH_STRIDES = [1, 2, 3, 6, 12];
+
+function tickDate(dates: string[], i: number): Date {
+  return new Date(`${dates[i].slice(0, 10)}T12:00:00`);
+}
+
+function dayLabel(dates: string[], i: number): string {
+  return tickDate(dates, i).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/**
+ * X-axis ticks for an ordered series of trading-day dates (YYYY-MM-DD, time
+ * suffix ignored) that fit within maxLabels regardless of range length: every
+ * day for short ranges, every Nth day for medium ones, and first-trading-day-
+ * of-month boundaries (strided to 2/3/6/12 months) once the range spans enough
+ * months. The final date is always labeled with its full short date; earlier
+ * ticks that would crowd it are dropped.
+ */
+export function dateTicks(dates: string[], maxLabels: number): DateTick[] {
+  const n = dates.length;
+  if (n === 0 || maxLabels < 1) return [];
+  const lastIdx = n - 1;
+
+  if (n <= maxLabels) {
+    return dates.map((_, i) => ({ index: i, label: dayLabel(dates, i) }));
+  }
+
+  const monthStarts: number[] = [];
+  for (let i = 1; i < n; i++) {
+    if (dates[i].slice(0, 7) !== dates[i - 1].slice(0, 7)) monthStarts.push(i);
+  }
+
+  let candidates: number[];
+  let labelFor: (i: number) => string;
+
+  if (monthStarts.length >= maxLabels / 2) {
+    const stride =
+      MONTH_STRIDES.find((s) => monthStarts.length / s <= maxLabels - 1) ??
+      Math.ceil(monthStarts.length / (maxLabels - 1));
+    candidates = monthStarts.filter((i) => {
+      const d = tickDate(dates, i);
+      return (d.getFullYear() * 12 + d.getMonth()) % stride === 0;
+    });
+    labelFor = (i) => {
+      const d = tickDate(dates, i);
+      const month = d.toLocaleDateString('en-US', { month: 'short' });
+      // Anchor the year on January ticks and on the first tick of the range
+      return d.getMonth() === 0 || i === candidates[0]
+        ? `${month} '${String(d.getFullYear()).slice(2)}`
+        : month;
+    };
+  } else {
+    const step = Math.ceil(n / maxLabels);
+    candidates = [];
+    for (let i = 0; i < n; i += step) candidates.push(i);
+    labelFor = (i) => dayLabel(dates, i);
+  }
+
+  const minGap = Math.max(2, Math.round(n / maxLabels / 2));
+  const ticks = candidates
+    .filter((i) => lastIdx - i >= minGap)
+    .map((i) => ({ index: i, label: labelFor(i) }));
+  ticks.push({ index: lastIdx, label: dayLabel(dates, lastIdx) });
+  return ticks;
+}
+
 export function computeDerivedTradeStats(trades: ExecutedTrade[]): DerivedTradeStats | null {
   if (trades.length === 0) return null;
 

@@ -9,7 +9,7 @@ import { ChartHeader } from '../../../components/charts/stock/ChartHeader';
 import type { BarData, IndicatorSetup, IndicatorConfig } from '../../../types/tools';
 import { Input } from '../../../components/ui/input';
 import { toolsApi, type ChartFilterTimespan } from '../../../api/toolsApi';
-import { fetchMarketData } from '../../../services/polygon';
+import { fetchMarketData } from '../../../services/massive';
 import { toast } from '../../../hooks/use-toast';
 
 const createFilter = (expression: string): FilterItem => ({

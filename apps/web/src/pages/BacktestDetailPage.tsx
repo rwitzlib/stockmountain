@@ -39,7 +39,7 @@ import {
   computeTickerAggregates,
 } from '../utils/backtestAnalytics';
 import { toast } from '../hooks/use-toast';
-import { fetchMarketData } from '../services/polygon';
+import { fetchMarketData } from '../services/massive';
 import { useQuery } from '@tanstack/react-query';
 
 interface BacktestDetailData {

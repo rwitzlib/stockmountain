@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { EquityPoint } from '../../../types/types';
-import { niceTicks } from '../../../utils/backtestAnalytics';
+import { dateTicks, niceTicks } from '../../../utils/backtestAnalytics';
 import {
   formatAxisCurrency,
   formatCurrency,
@@ -19,6 +19,12 @@ const PAD = { l: 48, r: 10, t: 12, b: 26 };
 export function DailyPnlChart({ equity }: DailyPnlChartProps) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+
+  // ~62 viewBox units per label ("Feb 3" at 10.5px plus breathing room)
+  const xTicks = useMemo(
+    () => dateTicks(equity.map((d) => d.date), Math.floor((W - PAD.l - PAD.r) / 62)),
+    [equity]
+  );
 
   if (equity.length === 0) return null;
 
@@ -67,19 +73,17 @@ export function DailyPnlChart({ equity }: DailyPnlChartProps) {
             onPointerLeave={() => setHoverIdx(null)}
           />
         ))}
-        {equity.map((d, i) =>
-          i === equity.length - 1 || (i % 4 === 0 && equity.length - 1 - i >= 3) ? (
-            <text
-              key={`label-${d.date}`}
-              x={cx(i)}
-              y={H - 8}
-              textAnchor="middle"
-              className="fill-muted-foreground text-[10.5px]"
-            >
-              {formatShortDate(d.date)}
-            </text>
-          ) : null
-        )}
+        {xTicks.map((t) => (
+          <text
+            key={t.index}
+            x={cx(t.index)}
+            y={H - 8}
+            textAnchor="middle"
+            className="fill-muted-foreground text-[10.5px]"
+          >
+            {t.label}
+          </text>
+        ))}
       </svg>
 
       {hover && hoverIdx != null && (

@@ -1,4 +1,4 @@
-import { StockMarketData, IndicatorsRequest } from '../types/tools';
+import { StockMarketData } from '../types/tools';
 import { getAuthHeaders } from '../api/authToken';
 
 interface FetchDataParams {
@@ -23,7 +23,7 @@ export async function fetchMarketData({
 
     const headers = await getAuthHeaders();
 
-    const requestBody: any = {
+    const requestBody: Record<string, string | number | string[]> = {
       ticker,
       Multiplier: multiplier,
       Timespan: timespan,
@@ -45,7 +45,7 @@ export async function fetchMarketData({
 
     // Check for API-specific error responses
     if (data.status === 'ERROR') {
-      throw new Error(data.error || 'Polygon API returned an error');
+      throw new Error(data.error || 'Massive API returned an error');
     }
 
     // Check for HTTP errors
@@ -55,7 +55,7 @@ export async function fetchMarketData({
     
     // Validate response structure
     if (!data.results || !Array.isArray(data.results)) {
-      throw new Error('Invalid response format from Polygon API');
+      throw new Error('Invalid response format from Massive API');
     }
 
     // Handle no data case

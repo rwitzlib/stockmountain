@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Card } from '../../ui/card';
 import { EquityPoint } from '../../../types/types';
-import { niceTicks } from '../../../utils/backtestAnalytics';
+import { dateTicks, niceTicks } from '../../../utils/backtestAnalytics';
 import {
   formatAxisCurrency,
   formatCurrency,
@@ -62,6 +62,9 @@ export function EquityCurveCard({
   const plotH = H - PAD.t - PAD.b;
   const lastIdx = dates.length - 1;
   const x = (i: number) => PAD.l + (lastIdx > 0 ? (i / lastIdx) * plotW : plotW / 2);
+
+  // ~62 viewBox units per label ("Feb 3" at 11px plus breathing room)
+  const xTicks = useMemo(() => dateTicks(dates, Math.floor(plotW / 62)), [dates, plotW]);
 
   const toVal = (balance: number) =>
     mode === 'pct' ? (balance / startingBalance - 1) * 100 : balance;
@@ -220,19 +223,17 @@ export function EquityCurveCard({
               strokeDasharray="2 4"
             />
           )}
-          {dates.map((d, i) =>
-            i === lastIdx || (i % 4 === 0 && lastIdx - i >= 3) ? (
-              <text
-                key={d}
-                x={x(i)}
-                y={H - 8}
-                textAnchor="middle"
-                className="fill-muted-foreground text-[11px]"
-              >
-                {formatShortDate(d)}
-              </text>
-            ) : null
-          )}
+          {xTicks.map((t) => (
+            <text
+              key={t.index}
+              x={x(t.index)}
+              y={H - 8}
+              textAnchor="middle"
+              className="fill-muted-foreground text-[11px]"
+            >
+              {t.label}
+            </text>
+          ))}
 
           {visible.map((s) => {
             const pts = s.balances

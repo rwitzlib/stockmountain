@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { ChartHeader } from './ChartHeader';
 import { StockChart } from './StockChart';
-import { fetchMarketData } from '../../../services/polygon';
+import { fetchMarketData } from '../../../services/massive';
 import { IndicatorConfig, IndicatorSetup } from '../../../types/tools';
 
 interface StockChartContainerProps {
