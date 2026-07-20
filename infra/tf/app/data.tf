@@ -19,3 +19,7 @@ data "aws_ecr_image" "backtester" {
 data "aws_secretsmanager_secret" "massive_token" {
   name = "${var.team}-${var.environment}-massive-token"
 }
+
+data "aws_secretsmanager_secret_version" "massive_token" {
+  secret_id = data.aws_secretsmanager_secret.massive_token.id
+}

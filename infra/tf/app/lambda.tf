@@ -17,7 +17,7 @@ resource "aws_lambda_function" "market_data_aggregator" {
 
   environment {
     variables = {
-      MASSIVE_TOKEN                  = data.aws_secretsmanager_secret.massive_token.secret_string
+      MASSIVE_TOKEN                  = data.aws_secretsmanager_secret_version.massive_token.secret_string
       ASPNETCORE_ENVIRONMENT         = var.environment
       BATCH_SIZE                     = 250
       MARKET_DATA_BUCKET_NAME        = aws_s3_bucket.market_data.bucket
@@ -91,7 +91,7 @@ resource "aws_lambda_function" "backtest_worker" {
 
   environment {
     variables = {
-      MASSIVE_TOKEN = data.aws_secretsmanager_secret.massive_token.secret_string
+      MASSIVE_TOKEN = data.aws_secretsmanager_secret_version.massive_token.secret_string
     }
   }
 

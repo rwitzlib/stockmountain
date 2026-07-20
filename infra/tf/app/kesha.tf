@@ -43,7 +43,7 @@
 
 #   environment {
 #     variables = {
-#       MASSIVE_TOKEN = data.aws_secretsmanager_secret.massive_token.secret_string
+#       MASSIVE_TOKEN = data.aws_secretsmanager_secret_version.massive_token.secret_string
 #     }
 #   }
 # }
