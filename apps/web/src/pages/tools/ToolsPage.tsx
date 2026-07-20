@@ -1,5 +1,44 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { BarChart3, Calculator, Database, Camera, Scan } from 'lucide-react';
+import { BarChart3, Calculator, Database, Camera, Scan, LucideIcon } from 'lucide-react';
+
+const tools: {
+  to?: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  comingSoon?: boolean;
+}[] = [
+  {
+    to: '/tools/aggregate',
+    icon: Database,
+    title: 'Data Aggregator',
+    description: 'Upload, visualize, and analyze market data',
+  },
+  {
+    to: '/tools/snapshot',
+    icon: Camera,
+    title: 'Snapshot Tool',
+    description: 'Input JSON data and view in formatted tables',
+  },
+  {
+    to: '/tools/chart-filters',
+    icon: Scan,
+    title: 'Chart Filters',
+    description: 'Configure filters and highlight matches on chart',
+  },
+  {
+    icon: Calculator,
+    title: 'Position Sizer',
+    description: 'Calculate optimal position sizes',
+    comingSoon: true,
+  },
+  {
+    icon: BarChart3,
+    title: 'Performance Analyzer',
+    description: 'Analyze trading performance',
+    comingSoon: true,
+  },
+];
 
 export function ToolsPage() {
   const location = useLocation();
@@ -11,86 +50,57 @@ export function ToolsPage() {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 pt-20 md:pt-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6">
         <div className="border-b border-border pb-4">
-          <h1 className="text-xl font-mono font-bold uppercase tracking-wider text-foreground"># Trading Tools</h1>
-          <p className="text-xs font-mono text-muted-foreground mt-1">{'>> '}Specialized market analysis utilities</p>
+          <div className="mb-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+            Tools
+          </div>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
+            Trading tools
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">Specialized market analysis utilities.</p>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Link 
-            to="/tools/aggregate"
-            className="relative block p-6 bg-card border border-border hover:border-blue-500 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-500/20 dark:hover:shadow-blue-900/20 transition-all duration-200 hover:-translate-y-[2px] group"
-          >
-            <div className="absolute inset-y-0 left-0 w-1 bg-blue-500 dark:bg-blue-700 group-hover:bg-blue-400 dark:group-hover:bg-blue-500 transition-colors" />
-            <div className="flex items-center gap-4 mb-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-950/50 border border-blue-300 dark:border-blue-800 group-hover:border-blue-400 dark:group-hover:border-blue-600 transition-colors">
-                <Database className="w-5 h-5 text-blue-600 dark:text-blue-400 group-hover:animate-pulse" />
-              </div>
-              <h2 className="text-base font-mono font-bold uppercase tracking-wider text-foreground">Data Aggregator</h2>
-            </div>
-            <p className="text-xs font-mono text-muted-foreground pl-11">
-              {'>> '}Upload, visualize, and analyze market data
-            </p>
-          </Link>
 
-          <Link 
-            to="/tools/snapshot"
-            className="relative block p-6 bg-card border border-border hover:border-amber-500 dark:hover:border-amber-700 hover:shadow-lg hover:shadow-amber-500/20 dark:hover:shadow-amber-900/20 transition-all duration-200 hover:-translate-y-[2px] group"
-          >
-            <div className="absolute inset-y-0 left-0 w-1 bg-amber-500 dark:bg-amber-700 group-hover:bg-amber-400 dark:group-hover:bg-amber-500 transition-colors" />
-            <div className="flex items-center gap-4 mb-3">
-              <div className="p-2 bg-amber-100 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 group-hover:border-amber-400 dark:group-hover:border-amber-600 transition-colors">
-                <Camera className="w-5 h-5 text-amber-600 dark:text-amber-400 group-hover:animate-pulse" />
-              </div>
-              <h2 className="text-base font-mono font-bold uppercase tracking-wider text-foreground">Snapshot Tool</h2>
-            </div>
-            <p className="text-xs font-mono text-muted-foreground pl-11">
-              {'>> '}Input JSON data and view in formatted tables
-            </p>
-          </Link>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {tools.map(({ to, icon: Icon, title, description, comingSoon }) => {
+            const inner = (
+              <>
+                <div className="mb-3 flex items-center gap-4">
+                  <div className="rounded-lg border border-border bg-muted/60 p-2 text-muted-foreground transition-colors group-hover:text-foreground">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
+                  {comingSoon && (
+                    <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Coming soon
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">{description}</p>
+              </>
+            );
 
-          <Link
-            to="/tools/chart-filters"
-            className="relative block p-6 bg-card border border-border hover:border-purple-500 dark:hover:border-purple-700 hover:shadow-lg hover:shadow-purple-500/20 dark:hover:shadow-purple-900/20 transition-all duration-200 hover:-translate-y-[2px] group"
-          >
-            <div className="absolute inset-y-0 left-0 w-1 bg-purple-500 dark:bg-purple-700 group-hover:bg-purple-400 dark:group-hover:bg-purple-500 transition-colors" />
-            <div className="flex items-center gap-4 mb-3">
-              <div className="p-2 bg-purple-100 dark:bg-purple-950/50 border border-purple-300 dark:border-purple-800 group-hover:border-purple-400 dark:group-hover:border-purple-600 transition-colors">
-                <Scan className="w-5 h-5 text-purple-600 dark:text-purple-400 group-hover:animate-pulse" />
-              </div>
-              <h2 className="text-base font-mono font-bold uppercase tracking-wider text-foreground">Chart Filters</h2>
-            </div>
-            <p className="text-xs font-mono text-muted-foreground pl-11">
-              {'>> '}Configure filters and highlight matches on chart
-            </p>
-          </Link>
+            if (to) {
+              return (
+                <Link
+                  key={title}
+                  to={to}
+                  className="group block rounded-xl border border-border/80 bg-card p-6 transition-colors hover:border-muted-foreground/40 hover:bg-accent/40"
+                >
+                  {inner}
+                </Link>
+              );
+            }
 
-          <div className="relative block p-6 bg-muted/30 dark:bg-muted/50 border border-border opacity-60">
-            <div className="absolute inset-y-0 left-0 w-1 bg-purple-500 dark:bg-purple-700" />
-            <div className="flex items-center gap-4 mb-3">
-              <div className="p-2 bg-purple-100/50 dark:bg-purple-950/30 border border-purple-300/50 dark:border-purple-800">
-                <Calculator className="w-5 h-5 text-purple-500 dark:text-purple-500" />
+            return (
+              <div
+                key={title}
+                className="block rounded-xl border border-border/60 bg-card/60 p-6 opacity-70"
+              >
+                {inner}
               </div>
-              <h2 className="text-base font-mono font-bold uppercase tracking-wider text-muted-foreground">Position Sizer</h2>
-            </div>
-            <p className="text-xs font-mono text-muted-foreground/60 pl-11">
-              {'>> '}Calculate optimal position sizes [COMING SOON]
-            </p>
-          </div>
-
-          <div className="relative block p-6 bg-muted/30 dark:bg-muted/50 border border-border opacity-60">
-            <div className="absolute inset-y-0 left-0 w-1 bg-green-500 dark:bg-green-700" />
-            <div className="flex items-center gap-4 mb-3">
-              <div className="p-2 bg-green-100/50 dark:bg-green-950/30 border border-green-300/50 dark:border-green-800">
-                <BarChart3 className="w-5 h-5 text-green-500 dark:text-green-500" />
-              </div>
-              <h2 className="text-base font-mono font-bold uppercase tracking-wider text-muted-foreground">Performance Analyzer</h2>
-            </div>
-            <p className="text-xs font-mono text-muted-foreground/60 pl-11">
-              {'>> '}Analyze trading performance [COMING SOON]
-            </p>
-          </div>
+            );
+          })}
         </div>
       </div>
     </div>

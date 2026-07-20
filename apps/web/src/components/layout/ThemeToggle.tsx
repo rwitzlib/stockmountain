@@ -40,7 +40,7 @@ export function ThemeToggle({ isCollapsed = false }: ThemeToggleProps) {
   return (
     <button
       onClick={toggleTheme}
-      className="w-full flex items-center gap-3 px-3 py-2.5 border-l-2 border-transparent text-muted-foreground hover:text-primary hover:bg-muted/50 hover:border-primary font-mono text-xs uppercase tracking-wider transition-all"
+      className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
       aria-label="Toggle theme"
     >
       {isDark ? (

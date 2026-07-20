@@ -7,43 +7,46 @@
 /* Design tokens */
 
 :root {
-  /* Light mode (default) */
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  /* Light mode (default) — quiet slate */
+  --background: 220 20% 98%;
+  --foreground: 222 24% 9%;
 
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 222 24% 9%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
+  --popover-foreground: 222 24% 9%;
 
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
+  /* Monochrome primary: near-black in light mode, white in dark mode */
+  --primary: 222 24% 11%;
+  --primary-foreground: 210 20% 98%;
 
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 220 16% 94%;
+  --secondary-foreground: 222 24% 11%;
 
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted: 220 16% 94%;
+  --muted-foreground: 220 10% 42%;
 
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --accent: 220 16% 94%;
+  --accent-foreground: 222 24% 11%;
 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 210 20% 98%;
 
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 217.2 91.2% 59.8%;
+  --border: 220 14% 89%;
+  --input: 220 14% 89%;
+  --ring: 222 24% 11%;
 
-  --sidebar-background: 0 0% 100%;
-  --sidebar-foreground: 222.2 84% 4.9%;
-  --sidebar-primary: 217.2 91.2% 59.8%;
-  --sidebar-primary-foreground: 222.2 47.4% 11.2%;
-  --sidebar-accent: 210 40% 96.1%;
-  --sidebar-accent-foreground: 222.2 47.4% 11.2%;
-  --sidebar-border: 214.3 31.8% 91.4%;
-  --sidebar-ring: 217.2 91.2% 59.8%;
+  --radius: 0.75rem;
+
+  --sidebar-background: 220 20% 98%;
+  --sidebar-foreground: 222 24% 9%;
+  --sidebar-primary: 222 24% 11%;
+  --sidebar-primary-foreground: 210 20% 98%;
+  --sidebar-accent: 220 16% 93%;
+  --sidebar-accent-foreground: 222 24% 11%;
+  --sidebar-border: 220 14% 90%;
+  --sidebar-ring: 222 24% 11%;
 
   /* Backtest chart series (validated for contrast/CVD on light surfaces) */
   --chart-strategy: #0891b2;
@@ -54,42 +57,44 @@
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
+  /* Dark slate-graphite, matched to the report redesign (#14171C page, #1C2026 surfaces) */
+  --background: 218 17% 9%;
+  --foreground: 216 20% 95%;
 
-  --card: 222.2 84% 5.5%;
-  --card-foreground: 210 40% 98%;
+  --card: 216 15% 13%;
+  --card-foreground: 216 20% 95%;
 
-  --popover: 222.2 84% 5.5%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 216 15% 12%;
+  --popover-foreground: 216 20% 95%;
 
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
+  /* Monochrome primary: white button on dark slate */
+  --primary: 216 20% 92%;
+  --primary-foreground: 218 17% 10%;
 
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 216 14% 18%;
+  --secondary-foreground: 216 20% 95%;
 
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted: 216 14% 18%;
+  --muted-foreground: 217 11% 62%;
 
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 216 14% 20%;
+  --accent-foreground: 216 20% 95%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 62% 42%;
+  --destructive-foreground: 210 20% 98%;
 
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
+  --border: 216 13% 19%;
+  --input: 216 13% 22%;
+  --ring: 216 20% 70%;
 
-  --sidebar-background: 222.2 84% 6%;
-  --sidebar-foreground: 210 40% 96%;
-  --sidebar-primary: 217.2 91.2% 59.8%;
-  --sidebar-primary-foreground: 222.2 47.4% 11.2%;
-  --sidebar-accent: 217.2 32.6% 17.5%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-border: 217.2 32.6% 17.5%;
-  --sidebar-ring: 224.3 76.3% 48%;
+  --sidebar-background: 218 17% 8%;
+  --sidebar-foreground: 216 16% 88%;
+  --sidebar-primary: 216 20% 92%;
+  --sidebar-primary-foreground: 218 17% 10%;
+  --sidebar-accent: 216 14% 15%;
+  --sidebar-accent-foreground: 216 20% 95%;
+  --sidebar-border: 216 13% 15%;
+  --sidebar-ring: 216 20% 70%;
 
   /* Backtest chart series (validated for contrast/CVD on dark surfaces) */
   --chart-strategy: #14a3bd;
@@ -108,13 +113,10 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background-image: radial-gradient(ellipse 50% 35% at 50% -10%, hsl(var(--primary)/0.08), transparent),
-      radial-gradient(ellipse 50% 35% at 100% 10%, hsl(var(--accent)/0.2), transparent);
-    background-attachment: fixed;
   }
   ::selection {
-    background-color: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
+    background-color: hsl(var(--foreground) / 0.85);
+    color: hsl(var(--background));
   }
 }
 

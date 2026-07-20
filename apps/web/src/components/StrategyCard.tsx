@@ -39,10 +39,10 @@ export function StrategyCard({ strategy, onUpdate, onDelete, readOnly = false, f
   const strategyIsActive = isActive(strategy.state);
 
   return (
-    <Card className="overflow-hidden cursor-pointer bg-card border border-border hover:border-primary dark:hover:border-cyan-700 hover:shadow-lg hover:shadow-primary/20 dark:hover:shadow-cyan-900/20 transition-all duration-200 hover:-translate-y-[2px]" onClick={handleCardClick}>
+    <Card className="overflow-hidden cursor-pointer hover:bg-accent/40 hover:border-muted-foreground/40 transition-colors" onClick={handleCardClick}>
       <CardHeader className="space-y-2 border-b border-border pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-mono font-bold uppercase tracking-wider text-foreground">{strategy.name || 'UNNAMED STRATEGY'}</CardTitle>
+          <CardTitle className="text-base font-semibold tracking-tight text-foreground">{strategy.name || 'Unnamed strategy'}</CardTitle>
           {!readOnly && (
             <div onClick={handleSwitchClick}>
               <Switch
@@ -52,26 +52,26 @@ export function StrategyCard({ strategy, onUpdate, onDelete, readOnly = false, f
             </div>
           )}
           {readOnly && (
-            <Badge variant="outline" className="text-[9px] font-mono uppercase bg-muted text-muted-foreground border-border">
+            <Badge variant="outline" className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               View Only
             </Badge>
           )}
         </div>
         <div className="flex items-center space-x-2 flex-wrap gap-1">
-          <Badge className={`text-[9px] font-mono uppercase border ${
+          <Badge className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border-transparent ${
             strategy.type === 'Paper' 
-              ? 'bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800' 
-              : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
+              ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' 
+              : 'bg-green-500/10 text-green-600 dark:text-green-400'
           }`}>
             {strategy.type || 'Paper'}
           </Badge>
-          <Badge variant="outline" className="text-[9px] font-mono uppercase bg-primary/10 dark:bg-cyan-950 text-primary dark:text-cyan-400 border-primary/30 dark:border-cyan-800">
+          <Badge variant="outline" className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             {strategy.integration || 'Default'}
           </Badge>
           {strategyIsActive && (
-            <Badge className="text-[9px] font-mono uppercase bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700">
-              <div className="w-1.5 h-1.5 rounded-full mr-1.5 bg-green-600 dark:bg-green-400 animate-pulse" />
-              ACTIVE
+            <Badge className="rounded-full bg-green-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-green-600 dark:text-green-400 border-transparent">
+              <div className="w-1.5 h-1.5 rounded-full mr-1.5 bg-green-500" />
+              Active
             </Badge>
           )}
         </div>

@@ -39,8 +39,8 @@ function ClerkAuthControls({ isCollapsed = false, onAction }: ClerkAuthControlsP
 
   if (!isLoaded) {
     return (
-      <div className="text-primary font-mono text-xs animate-pulse">
-        {!isCollapsed ? '» Clerk...' : '»'}
+      <div className="text-xs text-muted-foreground animate-pulse">
+        {!isCollapsed ? 'Loading…' : '…'}
       </div>
     );
   }
@@ -51,7 +51,7 @@ function ClerkAuthControls({ isCollapsed = false, onAction }: ClerkAuthControlsP
         <div className="flex items-center gap-2">
           <UserButton afterSignOutUrl="/" />
           {!isCollapsed && (
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               Account
             </span>
           )}
@@ -60,7 +60,7 @@ function ClerkAuthControls({ isCollapsed = false, onAction }: ClerkAuthControlsP
         <>
           <NavLink
             to="/sign-in"
-            className="inline-flex items-center gap-2 border border-border px-3 py-2 text-xs font-mono uppercase tracking-wider text-muted-foreground transition-all hover:border-primary hover:bg-muted/50 hover:text-primary dark:hover:border-cyan-700 dark:hover:bg-cyan-950/30 dark:hover:text-cyan-400"
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             onClick={onAction}
           >
             {isCollapsed ? <User className="w-4 h-4" /> : 'Sign in'}
@@ -68,7 +68,7 @@ function ClerkAuthControls({ isCollapsed = false, onAction }: ClerkAuthControlsP
           {!isCollapsed && (
             <NavLink
               to="/sign-up"
-              className="inline-flex items-center gap-2 border border-primary bg-primary px-3 py-2 text-xs font-mono uppercase tracking-wider text-primary-foreground transition-all hover:bg-primary/90"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               onClick={onAction}
             >
               Sign up
@@ -102,14 +102,14 @@ export function Sidebar() {
         {/* Mobile Header with Hamburger */}
         <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
           <div className="flex justify-between items-center px-4 py-3">
-            <div className="text-sm font-mono font-bold uppercase tracking-wider text-primary">
+            <div className="text-sm font-semibold tracking-tight text-foreground">
               StockMountain
             </div>
             <div className="flex items-center gap-2">
               <ClerkAuthControls onAction={closeMobileMenu} />
               <button
                 onClick={toggleMobileMenu}
-                className="p-2 text-muted-foreground hover:text-primary dark:hover:text-cyan-400 hover:bg-muted dark:hover:bg-cyan-950/30 transition-colors border border-border hover:border-primary dark:hover:border-cyan-700"
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 aria-label="Toggle navigation menu"
               >
                 {isMobileMenuOpen ? (
@@ -130,10 +130,10 @@ export function Sidebar() {
                   to={path}
                   onClick={closeMobileMenu}
                   className={({ isActive }) => `
-                    flex items-center gap-3 py-3 px-4 border-l-2 transition-all font-mono text-xs uppercase tracking-wider
+                    flex items-center gap-3 py-3 px-4 text-sm transition-colors
                     ${isActive
-                      ? 'border-primary text-primary dark:text-cyan-400 bg-primary/10 dark:bg-primary/20'
-                      : 'border-transparent text-muted-foreground hover:text-primary dark:hover:text-cyan-400 hover:bg-muted/50 dark:hover:bg-cyan-950/30 hover:border-primary dark:hover:border-cyan-700'
+                      ? 'bg-accent font-medium text-foreground'
+                      : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
                     }
                   `}
                 >
@@ -145,16 +145,16 @@ export function Sidebar() {
               {/* Mobile User Section */}
               <div className="border-t border-border py-2">
                 {!isLoaded ? (
-                  <div className="px-4 py-3 text-primary font-mono text-xs animate-pulse">» Loading...</div>
+                  <div className="px-4 py-3 text-xs text-muted-foreground animate-pulse">Loading…</div>
                 ) : isSignedIn ? (
                   <NavLink
                     to="/profile"
                     onClick={closeMobileMenu}
                     className={({ isActive }) => `
-                      flex items-center gap-3 py-3 px-4 border-l-2 transition-all font-mono text-xs uppercase tracking-wider
+                      flex items-center gap-3 py-3 px-4 text-sm transition-colors
                       ${isActive
-                        ? 'border-primary text-primary bg-primary/10 dark:bg-primary/20'
-                        : 'border-transparent text-muted-foreground hover:text-primary hover:bg-muted/50 hover:border-primary'
+                        ? 'bg-accent font-medium text-foreground'
+                        : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
                       }
                     `}
                   >
@@ -185,7 +185,7 @@ export function Sidebar() {
         <div className="p-4 flex justify-end gap-2 border-b border-sidebar-border">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 transition-colors text-muted-foreground hover:text-primary dark:hover:text-cyan-400 hover:bg-muted dark:hover:bg-cyan-950/30 border border-border hover:border-primary dark:hover:border-cyan-700"
+            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {isCollapsed ? (
               <ChevronRight className="w-4 h-4" />
@@ -201,10 +201,10 @@ export function Sidebar() {
               key={path}
               to={path}
               className={({ isActive }) => `
-                flex items-center gap-3 px-3 py-2.5 mb-1 transition-all border-l-2 font-mono text-xs uppercase tracking-wider
+                flex items-center gap-3 rounded-lg px-3 py-2.5 mb-1 text-sm transition-colors
                 ${isActive
-                  ? 'border-primary bg-primary/10 dark:bg-primary/20 text-primary dark:text-cyan-400'
-                  : 'border-transparent text-muted-foreground hover:text-primary dark:hover:text-cyan-400 hover:bg-muted/50 dark:hover:bg-cyan-950/30 hover:border-primary dark:hover:border-cyan-700'}
+                  ? 'bg-accent font-medium text-foreground'
+                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}
               `}
             >
               <Icon className="w-4 h-4" />
@@ -217,15 +217,15 @@ export function Sidebar() {
           <ClerkAuthControls isCollapsed={isCollapsed} />
 
           {!isLoaded ? (
-            <div className="text-primary font-mono text-xs animate-pulse">» Loading...</div>
+            <div className="text-xs text-muted-foreground animate-pulse">Loading…</div>
           ) : isSignedIn ? (
             <NavLink
               to="/profile"
               className={({ isActive }) => `
-                flex items-center gap-3 px-3 py-2.5 transition-all border-l-2 font-mono text-xs uppercase tracking-wider
+                flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors
                 ${isActive
-                  ? 'border-primary bg-primary/10 dark:bg-primary/20 text-primary dark:text-cyan-400'
-                  : 'border-transparent text-muted-foreground hover:text-primary dark:hover:text-cyan-400 hover:bg-muted/50 dark:hover:bg-cyan-950/30 hover:border-primary dark:hover:border-cyan-700'}
+                  ? 'bg-accent font-medium text-foreground'
+                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}
               `}
             >
               <User className="w-4 h-4" />
