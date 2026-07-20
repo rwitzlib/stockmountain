@@ -23,7 +23,30 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ClerkProvider
       afterSignOutUrl="/"
-      appearance={{ theme: shadcn }}
+      appearance={{
+        theme: shadcn,
+        // The shadcn theme expects shadcn v4 variables holding complete colors
+        // (e.g. --card: #fff). This app uses the v3 convention with raw HSL
+        // channels (--card: 0 0% 100%), so wrap everything in hsl() here.
+        variables: {
+          colorBackground: 'hsl(var(--card))',
+          colorForeground: 'hsl(var(--card-foreground))',
+          colorPrimary: 'hsl(var(--primary))',
+          colorPrimaryForeground: 'hsl(var(--primary-foreground))',
+          colorDanger: 'hsl(var(--destructive))',
+          colorNeutral: 'hsl(var(--foreground))',
+          colorMuted: 'hsl(var(--muted))',
+          colorMutedForeground: 'hsl(var(--muted-foreground))',
+          colorInput: 'hsl(var(--input))',
+          colorInputForeground: 'hsl(var(--card-foreground))',
+          colorBorder: 'hsl(var(--border))',
+          colorRing: 'hsl(var(--ring) / 0.5)',
+          colorModalBackdrop: 'rgba(0, 0, 0, 0.5)',
+          // The theme points these at Tailwind v4 --font-weight-* variables,
+          // which don't exist in this Tailwind v3 project.
+          fontWeight: { normal: 400, medium: 500, semibold: 600, bold: 600 },
+        },
+      }}
       publishableKey={clerkPublishableKey}
     >
       <App />
