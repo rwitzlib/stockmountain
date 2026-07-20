@@ -13,3 +13,9 @@ variable "region" {
   type    = string
   default = "us-east-2"
 }
+
+variable "massive_token" {
+  type        = string
+  description = "Massive token for the application."
+  sensitive   = true
+}

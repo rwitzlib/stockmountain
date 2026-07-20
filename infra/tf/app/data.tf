@@ -1,7 +1,3 @@
-data "aws_ssm_parameter" "polygon_token" {
-  name = "/tokens/polygon"
-}
-
 data "aws_ssm_parameter" "deploy_token" {
   name = "/tokens/${var.environment}/deploy"
 }
@@ -18,4 +14,8 @@ data "aws_ecr_image" "market_data_aggregator" {
 data "aws_ecr_image" "backtester" {
   repository_name = "${var.team}-${var.environment}-backtester"
   image_tag       = var.image_tag
+}
+
+data "aws_secretsmanager_secret" "massive_token" {
+  name = "${var.team}-${var.environment}-massive-token"
 }

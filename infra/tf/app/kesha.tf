@@ -43,7 +43,7 @@
 
 #   environment {
 #     variables = {
-#       POLYGON_TOKEN = data.aws_ssm_parameter.polygon_token.value
+#       MASSIVE_TOKEN = data.aws_secretsmanager_secret.massive_token.secret_string
 #     }
 #   }
 # }

@@ -17,7 +17,7 @@ resource "aws_lambda_function" "market_data_aggregator" {
 
   environment {
     variables = {
-      POLYGON_TOKEN                  = data.aws_ssm_parameter.polygon_token.value
+      MASSIVE_TOKEN                  = data.aws_secretsmanager_secret.massive_token.secret_string
       ASPNETCORE_ENVIRONMENT         = var.environment
       BATCH_SIZE                     = 250
       MARKET_DATA_BUCKET_NAME        = aws_s3_bucket.market_data.bucket
@@ -91,8 +91,7 @@ resource "aws_lambda_function" "backtest_worker" {
 
   environment {
     variables = {
-      POLYGON_TOKEN = data.aws_ssm_parameter.polygon_token.value
-
+      MASSIVE_TOKEN = data.aws_secretsmanager_secret.massive_token.secret_string
     }
   }
 
