@@ -3,11 +3,13 @@ WORKDIR /src
 
 COPY apps/market-data-aggregator/MarketDataAggregator/MarketDataAggregator.csproj apps/market-data-aggregator/MarketDataAggregator/
 COPY packages/marketviewer-contracts/MarketViewer.Contracts/MarketViewer.Contracts.csproj packages/marketviewer-contracts/MarketViewer.Contracts/
+COPY packages/massive-client/Massive.Client/Massive.Client.csproj packages/massive-client/Massive.Client/
 
 RUN dotnet restore apps/market-data-aggregator/MarketDataAggregator/MarketDataAggregator.csproj
 
 COPY apps/market-data-aggregator/MarketDataAggregator/ apps/market-data-aggregator/MarketDataAggregator/
 COPY packages/marketviewer-contracts/MarketViewer.Contracts/ packages/marketviewer-contracts/MarketViewer.Contracts/
+COPY packages/massive-client/Massive.Client/ packages/massive-client/Massive.Client/
 
 RUN dotnet publish apps/market-data-aggregator/MarketDataAggregator/MarketDataAggregator.csproj \
     -c Release \
