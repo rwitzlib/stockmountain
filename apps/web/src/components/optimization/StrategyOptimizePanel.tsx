@@ -179,7 +179,7 @@ export function StrategyOptimizePanel({ strategyId, onOptimizationResult }: Stra
   };
 
   return (
-    <Card className="p-4 bg-card/50 border border-border">
+    <Card className="p-4">
       <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
         <h3 className="text-sm font-semibold tracking-tight text-foreground">Trade Optimization</h3>
         <div className="flex items-center gap-2">
@@ -285,7 +285,7 @@ export function StrategyOptimizePanel({ strategyId, onOptimizationResult }: Stra
                             size="sm"
                             onClick={() => loadFromHistory(entry)}
                             disabled={isSubmitting}
-                            className="bg-card border-border text-primary dark:text-cyan-400 hover:border-primary dark:hover:border-cyan-700 hover:bg-primary/10 dark:hover:bg-cyan-950/30 font-mono text-xs uppercase px-2 py-1 transition-all disabled:opacity-50"
+                            className="border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground text-xs px-2 py-1 transition-colors disabled:opacity-50"
                           >
                             Load
                           </Button>
@@ -294,7 +294,7 @@ export function StrategyOptimizePanel({ strategyId, onOptimizationResult }: Stra
                             size="sm"
                             onClick={() => deleteHistoryEntry(entry.id)}
                             disabled={isSubmitting}
-                            className="bg-card border-border text-destructive dark:text-red-400 hover:border-destructive dark:hover:border-red-700 hover:bg-destructive/10 dark:hover:bg-red-950/30 font-mono text-xs uppercase px-2 py-1 transition-all disabled:opacity-50"
+                            className="border-border bg-transparent text-red-600 dark:text-red-400 hover:bg-accent hover:text-red-600 dark:hover:text-red-400 text-xs px-2 py-1 transition-colors disabled:opacity-50"
                           >
                             Delete
                           </Button>

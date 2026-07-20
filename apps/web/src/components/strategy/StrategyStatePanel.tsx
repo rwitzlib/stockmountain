@@ -21,7 +21,7 @@ export function StrategyStatePanel({ strategyId, startingBalance, compact = fals
 
   const wrapperClass = compact 
     ? "p-3 h-full" 
-    : "p-4 bg-card/50 border border-border";
+    : "p-4 rounded-xl border border-border/80 bg-card";
 
   if (isLoading) {
     return (
@@ -167,7 +167,7 @@ export function StrategyStatePanel({ strategyId, startingBalance, compact = fals
   }
 
   return (
-    <Card className="p-4 bg-card/50 border border-border">
+    <Card className="p-4">
       <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
         <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground flex items-center gap-2">
           <Activity className="h-3 w-3" />

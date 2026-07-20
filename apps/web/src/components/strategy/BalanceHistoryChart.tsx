@@ -36,7 +36,7 @@ export function BalanceHistoryChart({ strategyId, startingBalance, compact = fal
 
   const wrapperClass = compact 
     ? "p-3" 
-    : "p-4 bg-card/50 border border-border";
+    : "p-4 rounded-xl border border-border/80 bg-card";
   
   const chartHeight = compact ? 140 : 200;
 
