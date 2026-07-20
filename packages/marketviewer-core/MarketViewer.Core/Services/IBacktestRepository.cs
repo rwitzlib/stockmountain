@@ -20,4 +20,11 @@ public interface IBacktestRepository
     /// Legacy alias for <see cref="GetUniverseFromS3"/>. Prefer the universe-named method.
     /// </summary>
     Task<List<WorkerResponse>> GetBacktestResultsFromS3(BacktestContextRecord record);
+
+    Task<bool> PutShare(string shareId, BacktestSharePayload payload);
+
+    /// <summary>
+    /// Raw share payload JSON, or null when the share does not exist (never created or expired).
+    /// </summary>
+    Task<string> GetShareJson(string shareId);
 }

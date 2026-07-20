@@ -39,6 +39,7 @@ public static class ServiceCollectionExtensions
             }))
             .AddScoped<SnapshotHandler>()
             .AddScoped<BacktestHandler>()
+            .AddScoped<BacktestShareHandler>()
             .AddScoped<MarketDataHandler>()
             .AddScoped<StocksHandler>()
             .AddScoped<ScanHandler>()

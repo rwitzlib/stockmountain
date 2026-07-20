@@ -24,3 +24,23 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "market_data" {
 resource "aws_s3_bucket" "backtest_data" {
   bucket = "${var.team}-${var.environment}-backtest-data"
 }
+
+# Public share snapshots (shares/{shareId}.json) expire automatically; the payload's
+# expiresAt is display-only. Expiry runs on S3's daily sweep, so links can outlive
+# the 30-day mark by up to ~48h.
+resource "aws_s3_bucket_lifecycle_configuration" "backtest_data" {
+  bucket = aws_s3_bucket.backtest_data.id
+
+  rule {
+    id     = "expire-shares"
+    status = "Enabled"
+
+    filter {
+      prefix = "shares/"
+    }
+
+    expiration {
+      days = 30
+    }
+  }
+}

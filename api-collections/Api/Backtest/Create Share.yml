@@ -1,0 +1,36 @@
+info:
+  name: Create Share
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: https://{{base_url}}{{port}}/api/backtest/{{backtest_id}}/share
+  body:
+    type: json
+    data: |-
+      {
+        "IncludeConfig": false,
+        "Title": "Gap-up momentum, Q2"
+      }
+  auth: inherit
+
+docs: |-
+  Snapshots a completed backtest you own into a public share payload
+  (S3 shares/{shareId}.json, auto-expired after 30 days) and returns the share id.
+  With IncludeConfig=false the strategy configuration is redacted server-side to
+  counts only. Every call mints a new, independent share id.
+
+  Response: { "shareId": "...", "expiresAt": "..." }
+  Public page: https://stockmountain.io/share/{shareId}
+
+runtime:
+  scripts:
+    - type: after-response
+      code: bru.setVar("share_id", res.body.shareId)
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

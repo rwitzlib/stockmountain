@@ -12,7 +12,11 @@ namespace MarketViewer.Api.Controllers.Market;
 [ApiController]
 [Route("backtest")]
 
-public class BacktestController(AuthContext authContext, BacktestHandler handler, ILogger<BacktestController> logger) : ControllerBase
+public class BacktestController(
+    AuthContext authContext,
+    BacktestHandler handler,
+    BacktestShareHandler shareHandler,
+    ILogger<BacktestController> logger) : ControllerBase
 {
     [HttpPost]
     [RequiresTier(UserRole.Basic)]
@@ -65,6 +69,25 @@ public class BacktestController(AuthContext authContext, BacktestHandler handler
     public async Task<IActionResult> GetBacktestResult(string id)
     {
         var response = await handler.GetResult(id);
+
+        return response.Status switch
+        {
+            HttpStatusCode.OK => Ok(response.Data),
+            HttpStatusCode.BadRequest => BadRequest(response.ErrorMessages),
+            HttpStatusCode.NotFound => NotFound(response.ErrorMessages),
+            _ => StatusCode(StatusCodes.Status500InternalServerError, response.ErrorMessages)
+        };
+    }
+
+    /// <summary>
+    /// Snapshot a completed backtest into a public share payload and return its share id.
+    /// </summary>
+    [HttpPost]
+    [Route("{id}/share")]
+    [RequiresTier(UserRole.Basic)]
+    public async Task<IActionResult> CreateShare(string id, [FromBody] BacktestShareCreateRequest request)
+    {
+        var response = await shareHandler.CreateShare(id, request);
 
         return response.Status switch
         {

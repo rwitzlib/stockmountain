@@ -1,0 +1,20 @@
+info:
+  name: Get Share (anonymous)
+  type: http
+  seq: 9
+
+http:
+  method: GET
+  url: https://{{base_url}}{{port}}/api/share/{{share_id}}
+  auth: none
+
+docs: |-
+  Anonymous read of a share payload — no Authorization header, by design.
+  404 for unknown, malformed, or expired share ids (no distinction).
+  Responses are immutable and served with Cache-Control: public, max-age=3600.
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

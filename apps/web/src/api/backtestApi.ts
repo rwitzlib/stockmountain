@@ -1,6 +1,7 @@
 import { getAuthHeaders } from './authToken';
 import { BacktestEntry, BacktestRequest } from "../types/backtest";
 import { TradingData } from "../types/types";
+import { BacktestSharePayload, BacktestShareCreateResponse } from "../types/share";
 
 const BASE_URL = 'https://stockmountain.io/api';
 
@@ -57,6 +58,44 @@ export const backtestApi = {
 
     if (!response.ok) {
       throw new Error('Failed to fetch backtest result');
+    }
+
+    return await response.json();
+  },
+
+  /** Mint a new public share link for a completed backtest (authed, owner only). */
+  createShare: async (
+    id: string,
+    options: { includeConfig: boolean; title?: string }
+  ): Promise<BacktestShareCreateResponse> => {
+    const response = await fetch(`${BASE_URL}/backtest/${id}/share`, {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify(options)
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create share link');
+    }
+
+    return await response.json();
+  },
+
+  /**
+   * Fetch a public share payload. Deliberately unauthenticated — the share page must
+   * work for viewers with no account. Returns null when the share is expired/unknown.
+   */
+  getShare: async (shareId: string): Promise<BacktestSharePayload | null> => {
+    const response = await fetch(`${BASE_URL}/share/${encodeURIComponent(shareId)}`, {
+      method: 'GET'
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch shared backtest');
     }
 
     return await response.json();

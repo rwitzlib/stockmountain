@@ -10,6 +10,7 @@ using MarketViewer.Contracts.Responses.Market.Backtest;
 using MarketViewer.Core.Services;
 using MarketViewer.Infrastructure.Config;
 using MarketViewer.Contracts.Records.Backtest;
+using MarketViewer.Contracts.Models.Backtest;
 
 namespace MarketViewer.Infrastructure.Services;
 
@@ -169,7 +170,40 @@ public class BacktestRepository(
     public Task<List<WorkerResponse>> GetBacktestResultsFromS3(BacktestContextRecord record) =>
         GetUniverseFromS3(record);
 
+    public async Task<bool> PutShare(string shareId, BacktestSharePayload payload)
+    {
+        try
+        {
+            await PutS3JsonAsync(BuildShareKey(shareId), payload);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error writing share payload {shareId}", shareId);
+            return false;
+        }
+    }
+
+    public async Task<string> GetShareJson(string shareId)
+    {
+        try
+        {
+            return await GetS3JsonAsync(BuildShareKey(shareId));
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error reading share payload {shareId}", shareId);
+            throw;
+        }
+    }
+
     #region Private Methods
+
+    private static string BuildShareKey(string shareId) => $"shares/{shareId}.json";
 
     private static string BuildUniverseKey(BacktestContextRecord record) =>
         $"backtestResults/{record.UserId}/{record.Id}/universe.json";

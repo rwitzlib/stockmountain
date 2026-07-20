@@ -1,43 +1,17 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FilterDisplay } from '../components/backtest/FilterDisplay';
-import { EquityCurveCard, EquitySeriesDef } from '../components/backtest/charts/EquityCurveCard';
-import { DailyPnlChart } from '../components/backtest/charts/DailyPnlChart';
-import { HistogramChart } from '../components/backtest/charts/HistogramChart';
-import { EntryTimingPanel } from '../components/backtest/EntryTimingPanel';
-import { ExitReasonPanel } from '../components/backtest/ExitReasonPanel';
-import { TickerLeadersPanel } from '../components/backtest/TickerLeadersPanel';
-import { BacktestTradesTable } from '../components/backtest/BacktestTradesTable';
+import { BacktestReport, BenchmarkBar, RailRow } from '../components/backtest/BacktestReport';
+import { ShareDialog } from '../components/backtest/ShareDialog';
 import { backtestApi } from '../api/backtestApi';
-import {
-  TradingData,
-  TradeStrategy,
-  StrategyPortfolio,
-  ExecutedTrade,
-  EquityPoint,
-} from '../types/types';
+import { TradingData } from '../types/types';
 import { BacktestEntry, BacktestRequest } from '../types/backtest';
 import { ScanArgument, Strategy } from '../types/strategy';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
-import { ArrowLeft, RefreshCw, Copy, Bot } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Copy, Bot, Share2 } from 'lucide-react';
 import { formatDateNoTimezone } from '../utils/dateFormatter';
-import {
-  formatAxisCurrency,
-  formatCurrency,
-  formatSignedCurrency,
-  formatSignedPercent,
-} from '../utils/formatters';
-import {
-  computeAverageExitEfficiency,
-  computeDerivedTradeStats,
-  computeDrawdown,
-  computeDurationHistogram,
-  computeEntryTimeBuckets,
-  computeExitReasonBreakdown,
-  computeProfitHistogram,
-  computeTickerAggregates,
-} from '../utils/backtestAnalytics';
+import { normalizeTradingData } from '../utils/backtestNormalize';
 import { toast } from '../hooks/use-toast';
 import { fetchMarketData } from '../services/massive';
 import { useQuery } from '@tanstack/react-query';
@@ -74,135 +48,6 @@ interface RequestDataView {
   filters: string[];
 }
 
-function normalizeStats(raw: unknown): TradeStrategy {
-  const source = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  const nested = source.stats && typeof source.stats === 'object'
-    ? (source.stats as Record<string, unknown>)
-    : source;
-
-  const balanceChange = Number(nested.balanceChange ?? nested.sumProfit ?? 0);
-  const sumProfit = Number(nested.sumProfit ?? nested.balanceChange ?? balanceChange);
-
-  return {
-    endBalance: Number(nested.endBalance ?? 0),
-    balanceChange,
-    sumProfit,
-    winRatio: Number(nested.winRatio ?? 0),
-    avgWin: Number(nested.avgWin ?? 0),
-    avgLoss: Number(nested.avgLoss ?? 0),
-    maxConcurrentPositions: Number(nested.maxConcurrentPositions ?? 0),
-    totalTradesTaken: nested.totalTradesTaken != null ? Number(nested.totalTradesTaken) : undefined,
-    averageDailyReturn: nested.averageDailyReturn != null ? Number(nested.averageDailyReturn) : undefined,
-    dailyReturnStdDev: nested.dailyReturnStdDev != null ? Number(nested.dailyReturnStdDev) : undefined,
-    sharpeRatio: nested.sharpeRatio != null ? Number(nested.sharpeRatio) : undefined,
-    maxDrawdown: nested.maxDrawdown != null ? Number(nested.maxDrawdown) : undefined,
-    profitFactor: nested.profitFactor != null ? Number(nested.profitFactor) : undefined,
-  };
-}
-
-function normalizeEquity(raw: unknown): EquityPoint[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((point) => {
-    const p = (point && typeof point === 'object' ? point : {}) as Record<string, unknown>;
-    return {
-      date: String(p.date ?? ''),
-      startCash: Number(p.startCash ?? 0),
-      endCash: Number(p.endCash ?? 0),
-      totalBalance: Number(p.totalBalance ?? 0),
-      openPositions: Number(p.openPositions ?? 0),
-      maxConcurrentPositions: Number(p.maxConcurrentPositions ?? 0),
-      dayProfit: Number(p.dayProfit ?? 0),
-      tradesTaken: Number(p.tradesTaken ?? 0),
-    };
-  });
-}
-
-function normalizeTrades(raw: unknown): ExecutedTrade[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((trade) => {
-    const t = (trade && typeof trade === 'object' ? trade : {}) as Record<string, unknown>;
-    return {
-      ticker: String(t.ticker ?? ''),
-      boughtAt: String(t.boughtAt ?? ''),
-      soldAt: String(t.soldAt ?? ''),
-      startPrice: Number(t.startPrice ?? 0),
-      endPrice: Number(t.endPrice ?? 0),
-      shares: Number(t.shares ?? 0),
-      startPosition: Number(t.startPosition ?? 0),
-      endPosition: Number(t.endPosition ?? 0),
-      profit: Number(t.profit ?? 0),
-      maxRunup: t.maxRunup != null && Number.isFinite(Number(t.maxRunup))
-        ? Number(t.maxRunup)
-        : undefined,
-      maxDrawdown: t.maxDrawdown != null && Number.isFinite(Number(t.maxDrawdown))
-        ? Number(t.maxDrawdown)
-        : undefined,
-      stoppedOut: Boolean(t.stoppedOut),
-      exitReason: typeof t.exitReason === 'string' ? (t.exitReason as ExecutedTrade['exitReason']) : undefined,
-    };
-  });
-}
-
-function normalizePortfolio(raw: unknown): StrategyPortfolio {
-  const source = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-
-  return {
-    stats: normalizeStats(source),
-    equity: normalizeEquity(source.equity),
-    trades: normalizeTrades(source.trades),
-  };
-}
-
-function normalizeTradingData(raw: unknown): TradingData | null {
-  if (!raw || typeof raw !== 'object') return null;
-  if (Array.isArray(raw)) return null;
-
-  const source = raw as Record<string, unknown>;
-  if (!source.hold && !source.high) return null;
-
-  const otherRaw = source.other;
-  const other =
-    otherRaw == null
-      ? null
-      : normalizePortfolio(otherRaw);
-
-  return {
-    id: String(source.id ?? ''),
-    creditsUsed: Number(source.creditsUsed ?? 0),
-    hold: normalizePortfolio(source.hold),
-    high: normalizePortfolio(source.high),
-    other,
-  };
-}
-
-function KpiTile({ label, value, sub, valueColor }: {
-  label: string;
-  value: string;
-  sub?: string;
-  valueColor?: string;
-}) {
-  return (
-    <Card className="p-3.5">
-      <div className="mb-0.5 whitespace-nowrap text-[10.5px] uppercase tracking-widest text-muted-foreground">
-        {label}
-      </div>
-      <div className="text-[22px] font-semibold leading-tight tabular-nums" style={{ color: valueColor }}>
-        {value}
-      </div>
-      {sub && <div className="mt-0.5 text-[11.5px] text-muted-foreground tabular-nums">{sub}</div>}
-    </Card>
-  );
-}
-
-function RailRow({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
-  return (
-    <div className="flex items-baseline justify-between border-b border-border/60 py-1.5 text-[13px] last:border-b-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-semibold tabular-nums" style={{ color: valueColor }}>{value}</span>
-    </div>
-  );
-}
-
 export function BacktestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -210,6 +55,7 @@ export function BacktestDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isPolling, setIsPolling] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -557,55 +403,17 @@ export function BacktestDetailPage() {
   const requestData = data?.backtestEntry ? getRequestData(data.backtestEntry) : null;
   const startingBalance = requestData?.positionInfo.startingBalance || 10000;
 
-  const analytics = useMemo(() => {
-    if (!data?.tradingData) return null;
+  // BacktestReport aligns/scales the benchmark; here we only reshape polygon bars to day+close.
+  const benchmarkBars = useMemo<BenchmarkBar[] | null>(() => {
+    if (!spyDataResponse?.results?.length) return null;
 
-    const primary = data.tradingData.hold;
-    const ceiling = data.tradingData.high;
-    const netProfit = primary.stats.sumProfit ?? primary.stats.balanceChange ?? 0;
-    const ceilingProfit = ceiling.stats.sumProfit ?? ceiling.stats.balanceChange ?? 0;
-
-    return {
-      primary,
-      ceiling,
-      netProfit,
-      netPct: (netProfit / startingBalance) * 100,
-      ceilingPct: (ceilingProfit / startingBalance) * 100,
-      exitEfficiency: ceilingProfit > 0 ? (netProfit / ceilingProfit) * 100 : null,
-      averageTradeExitEfficiency: computeAverageExitEfficiency(primary.trades),
-      derived: computeDerivedTradeStats(primary.trades),
-      drawdown: computeDrawdown(primary.equity),
-      profitHist: computeProfitHistogram(primary.trades),
-      durationHist: computeDurationHistogram(primary.trades),
-      entryBuckets: computeEntryTimeBuckets(primary.trades),
-      tickers: computeTickerAggregates(primary.trades),
-      exitReasons: computeExitReasonBreakdown(primary.trades),
-    };
-  }, [data?.tradingData, startingBalance]);
-
-  const spySeries = useMemo(() => {
-    if (!analytics || !spyDataResponse?.results?.length) return null;
-
-    const bars = [...spyDataResponse.results].sort((a, b) => a.t - b.t);
-    const firstClose = bars[0].c;
-    if (!firstClose) return null;
-
-    const balances = analytics.primary.equity.map((pt) => {
-      const day = pt.date.slice(0, 10);
-      let close: number | null = null;
-      for (const bar of bars) {
-        if (new Date(bar.t).toISOString().slice(0, 10) <= day) {
-          close = bar.c;
-        } else {
-          break;
-        }
-      }
-      return close != null ? startingBalance * (close / firstClose) : null;
-    });
-
-    const lastClose = bars[bars.length - 1].c;
-    return { balances, pct: (lastClose / firstClose - 1) * 100 };
-  }, [analytics, spyDataResponse, startingBalance]);
+    return [...spyDataResponse.results]
+      .sort((a, b) => a.t - b.t)
+      .map((bar) => ({
+        day: new Date(bar.t).toISOString().slice(0, 10),
+        close: bar.c,
+      }));
+  }, [spyDataResponse]);
 
   if (isLoading) {
     return (
@@ -654,45 +462,9 @@ export function BacktestDetailPage() {
   }
 
   const { backtestEntry, isProcessing } = data;
-  const stats = analytics?.primary.stats;
-  const derived = analytics?.derived;
-  const tradingDays = analytics?.primary.equity.length ?? 0;
-  const totalTrades = stats?.totalTradesTaken ?? analytics?.primary.trades.length ?? 0;
-
-  const equitySeries: EquitySeriesDef[] = analytics
-    ? [
-        {
-          key: 'strategy',
-          name: 'Strategy',
-          color: 'var(--chart-strategy)',
-          area: true,
-          balances: analytics.primary.equity.map((pt) => pt.totalBalance),
-        },
-        ...(spySeries
-          ? [
-              {
-                key: 'spy',
-                name: 'SPY',
-                color: 'var(--chart-benchmark)',
-                dashed: true,
-                balances: spySeries.balances,
-              },
-            ]
-          : []),
-        ...(analytics.ceiling.equity.length > 0
-          ? [
-              {
-                key: 'ceiling',
-                name: 'Max potential',
-                color: 'var(--chart-ceiling)',
-                defaultHidden: true,
-                hiddenHint: formatSignedPercent(analytics.ceilingPct, 0),
-                balances: analytics.ceiling.equity.map((pt) => pt.totalBalance),
-              },
-            ]
-          : []),
-      ]
-    : [];
+  const tradingDays = data.tradingData?.hold.equity.length ?? 0;
+  const totalTrades =
+    data.tradingData?.hold.stats.totalTradesTaken ?? data.tradingData?.hold.trades.length ?? 0;
 
   const statusStyle =
     backtestEntry.status === 'Completed'
@@ -747,6 +519,15 @@ export function BacktestDetailPage() {
             </p>
           </div>
           <div className="ml-auto flex gap-2 pb-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShareOpen(true)}
+              disabled={!data.tradingData || backtestEntry.status !== 'Completed'}
+            >
+              <Share2 className="mr-1.5 h-4 w-4" />
+              Share
+            </Button>
             <Button variant="outline" size="sm" onClick={handleCopyBacktest}>
               <Copy className="mr-1.5 h-4 w-4" />
               Copy setup
@@ -757,6 +538,12 @@ export function BacktestDetailPage() {
             </Button>
           </div>
         </header>
+
+        <ShareDialog
+          backtestId={backtestEntry.id}
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+        />
 
         {/* ---------- Processing banner ---------- */}
         {isProcessing && (
@@ -781,124 +568,13 @@ export function BacktestDetailPage() {
           </Card>
         )}
 
-        {analytics && stats ? (
-          <>
-            {/* ---------- Verdict ---------- */}
-            <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(300px,1.1fr)_2fr]">
-              <Card className="flex flex-col justify-center p-6">
-                <div className="text-[11.5px] uppercase tracking-widest text-muted-foreground">
-                  Net return
-                </div>
-                <div
-                  className="my-1 text-5xl font-semibold leading-none tracking-tight tabular-nums md:text-6xl"
-                  style={{
-                    color:
-                      analytics.netProfit > 0
-                        ? 'var(--chart-gain)'
-                        : analytics.netProfit < 0
-                          ? 'var(--chart-loss)'
-                          : undefined,
-                  }}
-                >
-                  {formatSignedPercent(analytics.netPct)}
-                </div>
-                <div className="text-sm text-muted-foreground tabular-nums">
-                  <b className="font-semibold text-foreground">{formatSignedCurrency(analytics.netProfit)}</b>{' '}
-                  on {formatAxisCurrency(startingBalance)} starting balance
-                </div>
-                <div className="mt-3.5 flex flex-wrap gap-2 text-xs tabular-nums">
-                  {spySeries && (
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
-                      vs SPY{' '}
-                      <b
-                        className="font-semibold"
-                        style={{
-                          color:
-                            analytics.netPct >= spySeries.pct
-                              ? 'var(--chart-gain)'
-                              : 'var(--chart-loss)',
-                        }}
-                      >
-                        {formatSignedPercent(analytics.netPct - spySeries.pct, 1).replace('%', '')}pts
-                      </b>
-                    </span>
-                  )}
-                  {analytics.ceilingPct > 0 && (
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
-                      Max potential ceiling{' '}
-                      <b className="font-semibold text-foreground">
-                        {formatSignedPercent(analytics.ceilingPct, 0)}
-                      </b>
-                    </span>
-                  )}
-                  {analytics.exitEfficiency != null && (
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
-                      Exit efficiency{' '}
-                      <b className="font-semibold text-foreground">
-                        {analytics.exitEfficiency.toFixed(1)}%
-                      </b>
-                    </span>
-                  )}
-                </div>
-              </Card>
-
-              <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-                <KpiTile
-                  label="Win rate"
-                  value={`${(stats.winRatio * 100).toFixed(1)}%`}
-                  sub={derived ? `${derived.wins.toLocaleString()} W · ${derived.losses.toLocaleString()} L` : undefined}
-                />
-                <KpiTile
-                  label="Profit factor"
-                  value={stats.profitFactor != null && Number.isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : '—'}
-                  sub={`avg win ${formatCurrency(stats.avgWin)} · loss ${formatCurrency(stats.avgLoss)}`}
-                />
-                <KpiTile
-                  label="Sharpe"
-                  value={stats.sharpeRatio != null ? stats.sharpeRatio.toFixed(2) : '—'}
-                  sub={stats.dailyReturnStdDev != null ? `daily σ ${(stats.dailyReturnStdDev * 100).toFixed(2)}%` : undefined}
-                />
-                <KpiTile
-                  label="Max drawdown"
-                  value={stats.maxDrawdown != null ? `−${(stats.maxDrawdown * 100).toFixed(2)}%` : '—'}
-                  sub="peak to trough"
-                  valueColor={stats.maxDrawdown ? 'var(--chart-loss)' : undefined}
-                />
-                <KpiTile
-                  label="Expectancy"
-                  value={derived ? formatCurrency(derived.expectancy) : '—'}
-                  sub="per trade"
-                />
-                <KpiTile
-                  label="Median hold"
-                  value={derived ? `${Math.round(derived.medianHoldMinutes)}m` : '—'}
-                  sub={derived ? `${Math.round(derived.fullHoldPct * 100)}% held full window` : undefined}
-                />
-                <KpiTile
-                  label="Universe"
-                  value={derived ? derived.uniqueTickers.toLocaleString() : '—'}
-                  sub="tickers traded"
-                />
-                <KpiTile
-                  label="Streaks"
-                  value={derived ? `${derived.winStreak} / ${derived.lossStreak}` : '—'}
-                  sub="longest win / loss run"
-                />
-              </div>
-            </section>
-
-            {/* ---------- Equity + config ---------- */}
-            <div className="mb-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-              <EquityCurveCard
-                dates={analytics.primary.equity.map((pt) => pt.date.slice(0, 10))}
-                series={equitySeries}
-                startingBalance={startingBalance}
-                equity={analytics.primary.equity}
-                drawdown={analytics.drawdown}
-                footnote="Max potential assumes every position is sold at its in-trade high — an upper bound on what better exits could capture, not a peer strategy."
-              />
-
-              {requestData && (
+        {data.tradingData ? (
+          <BacktestReport
+            tradingData={data.tradingData}
+            startingBalance={startingBalance}
+            benchmarkBars={benchmarkBars}
+            configRail={
+              requestData ? (
                 <aside className="flex flex-col gap-4 self-start lg:sticky lg:top-4">
                   {(requestData.filters.length > 0 || requestData.argument) && (
                     <Card className="p-4">
@@ -992,90 +668,9 @@ export function BacktestDetailPage() {
                     <RailRow label="Created" value={new Date(backtestEntry.createdAt).toLocaleString()} />
                   </Card>
                 </aside>
-              )}
-            </div>
-
-            {/* ---------- Insights ---------- */}
-            <div className="mb-3.5 mt-8 flex flex-wrap items-baseline gap-3">
-              <h2 className="text-lg font-semibold tracking-tight">Where the edge lives</h2>
-              <span className="text-[13px] text-muted-foreground">
-                computed from the {totalTrades.toLocaleString()} strategy trades
-              </span>
-            </div>
-
-            <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Card className="p-4 md:p-5">
-                <h2 className="mb-2 text-sm font-semibold">P&L by entry time</h2>
-                <EntryTimingPanel buckets={analytics.entryBuckets} />
-              </Card>
-              <Card className="p-4 md:p-5">
-                <h2 className="mb-2 text-sm font-semibold">Daily P&L</h2>
-                <DailyPnlChart equity={analytics.primary.equity} />
-              </Card>
-            </div>
-
-            <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Card className="p-4 md:p-5">
-                <h2 className="mb-2 text-sm font-semibold">Trade P&L distribution</h2>
-                <HistogramChart
-                  histogram={analytics.profitHist}
-                  colorFor={(x0) => (x0 >= 0 ? 'var(--chart-gain)' : 'var(--chart-loss)')}
-                  formatX={formatAxisCurrency}
-                  ariaLabel="Histogram of per-trade profit"
-                />
-                {derived && (
-                  <p className="mt-2 text-xs text-muted-foreground tabular-nums">
-                    Best trade {formatSignedCurrency(derived.bestTrade)} · worst{' '}
-                    {formatSignedCurrency(derived.worstTrade)}
-                    {analytics.averageTradeExitEfficiency != null && (
-                      <>
-                        {' '}· average exit efficiency{' '}
-                        {formatSignedPercent(analytics.averageTradeExitEfficiency * 100, 0)}
-                      </>
-                    )}
-                    {' '}— the exit walls shape this book.
-                  </p>
-                )}
-              </Card>
-              <Card className="p-4 md:p-5">
-                <h2 className="mb-2 text-sm font-semibold">Time in trade</h2>
-                <HistogramChart
-                  histogram={analytics.durationHist}
-                  colorFor={() => 'var(--chart-strategy)'}
-                  formatX={(x) => `${x}m`}
-                  ariaLabel="Histogram of trade duration in minutes"
-                />
-                {derived && (
-                  <p className="mt-2 text-xs text-muted-foreground tabular-nums">
-                    {Math.round(derived.fullHoldPct * 100)}% of trades ride untouched to the{' '}
-                    {Math.round(derived.maxHoldMinutes)}-minute exit window.
-                  </p>
-                )}
-              </Card>
-            </div>
-
-            <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Card className="p-4 md:p-5">
-                <h2 className="mb-2 text-sm font-semibold">P&L by exit reason</h2>
-                <ExitReasonPanel breakdown={analytics.exitReasons} />
-              </Card>
-              <Card className="p-4 md:p-5">
-                <h2 className="-mb-6 text-sm font-semibold">Tickers</h2>
-                <TickerLeadersPanel best={analytics.tickers.best} worst={analytics.tickers.worst} />
-              </Card>
-            </div>
-
-            {/* ---------- Trades ---------- */}
-            <div className="mb-3.5 flex flex-wrap items-baseline gap-3">
-              <h2 className="text-lg font-semibold tracking-tight">Trades</h2>
-              <span className="text-[13px] text-muted-foreground">
-                strategy exits · most recent first
-              </span>
-            </div>
-            <Card className="p-4 md:p-5">
-              <BacktestTradesTable trades={analytics.primary.trades} />
-            </Card>
-          </>
+              ) : undefined
+            }
+          />
         ) : isProcessing ? (
           <Card className="space-y-4 p-12 text-center">
             <RefreshCw className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />

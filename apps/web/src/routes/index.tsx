@@ -7,6 +7,7 @@ import { BacktestDetailPage } from '../pages/BacktestDetailPage';
 import { StockChartPage } from '../pages/StockChartPage';
 import { ToolsPage } from '../pages/tools/ToolsPage';
 import { ScannerPage } from '../pages/ScannerPage';
+import { SharedBacktestPage } from '../pages/SharedBacktestPage';
 
 // Lazy load tool pages for better performance
 const AggregatePage = lazy(() => import('../pages/tools/aggregate/AggregatePage').then(module => ({ default: module.AggregatePage })));
@@ -36,6 +37,11 @@ export const routes: RouteObject[] = [
   {
     path: '/backtest/:id',
     element: <BacktestDetailPage />,
+  },
+  {
+    // Public share view — must render with no auth (viewers may have no account).
+    path: '/share/:shareId',
+    element: <SharedBacktestPage />,
   },
   {
     path: '/chart',

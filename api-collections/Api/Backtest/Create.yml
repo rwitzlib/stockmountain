@@ -17,7 +17,7 @@ http:
           "MaxConcurrentPositions": 100,
           "Model": {
             "Type": "Fixed",
-            "Size": 1000
+            "Size": 10000
           },
           "Cooldown": {
             "Multiplier": 15,
@@ -27,7 +27,8 @@ http:
         "EntrySettings": {
           "Filters": [
             "rsi(30,70,14,ema) > 70 [1m]",
-            "time < 10:00"
+            "time < 10:00",
+            "float < 10000000"
           ]
         },
         "ExitSettings": {
