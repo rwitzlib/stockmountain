@@ -24,8 +24,12 @@ public class TickerDetails
     [JsonPropertyName("market_cap")]
     public double MarketCap { get; set; }
 
-    [JsonPropertyName("weighted_shares_outstanding")]
-    public long Float { get; set; }
+    /// <summary>
+    /// Free float (shares available for public trading). Not part of the Massive ticker
+    /// details payload; populated separately from the /stocks/vX/float endpoint.
+    /// </summary>
+    [JsonPropertyName("float")]
+    public long? Float { get; set; }
 
     [JsonPropertyName("ticker")]
     public string? Ticker { get; set; }

@@ -176,6 +176,51 @@ public class MassiveClient : IMassiveClient
         }
     }
 
+    public async Task<MassiveFloatResponse> GetFloats(string? ticker = null)
+    {
+        try
+        {
+            var floats = new List<StockFloat>();
+            var url = "/stocks/vX/float?limit=5000";
+
+            if (!string.IsNullOrEmpty(ticker))
+            {
+                url += $"&ticker={ticker}";
+            }
+
+            while (url != null)
+            {
+                var response = await _client.GetAsync(url);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    if (floats.Count > 0)
+                    {
+                        break;
+                    }
+
+                    return GenerateFloatErrorResponse(response.StatusCode);
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                var floatResponse = JsonSerializer.Deserialize<MassiveFloatResponse>(json, _options)!;
+                floats.AddRange(floatResponse.Results);
+                url = floatResponse.NextUrl;
+            }
+
+            return new MassiveFloatResponse
+            {
+                Status = HttpStatusCode.OK.ToString(),
+                Results = floats
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Error getting floats from Massive API: {Message}", ex.Message);
+            return GenerateFloatErrorResponse(HttpStatusCode.InternalServerError);
+        }
+    }
+
     public async Task<MassiveGetTickersResponse> GetTickers(MassiveGetTickersRequest request)
     {
         try
@@ -289,6 +334,15 @@ public class MassiveClient : IMassiveClient
             Status = status.ToString(),
             Count = 0,
             TickerDetails = null
+        };
+    }
+
+    private static MassiveFloatResponse GenerateFloatErrorResponse(HttpStatusCode status)
+    {
+        return new MassiveFloatResponse
+        {
+            Status = status.ToString(),
+            Results = []
         };
     }
 

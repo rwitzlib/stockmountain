@@ -162,6 +162,8 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
             return [];
         }
 
+        await AttachFloats(tickerDetailsList);
+
         var json = JsonSerializer.Serialize(tickerDetailsList);
         var response = await _s3Client.PutObjectAsync(new PutObjectRequest
         {
@@ -176,6 +178,34 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
         _logger.LogInformation("Successfully uploaded ticker details for {date} in {elapsed} ms.", DateTimeOffset.Now.Date.ToString("yyyy-MM-dd"), timer.ElapsedMilliseconds);
 
         return tickerDetailsList;
+    }
+
+    private async Task AttachFloats(List<TickerDetails> tickerDetailsList)
+    {
+        var floatResponse = await _massiveClient.GetFloats();
+
+        if (floatResponse.Status != HttpStatusCode.OK.ToString() || !floatResponse.Results.Any())
+        {
+            _logger.LogWarning("Unable to retrieve floats from Massive API. Status: {status}", floatResponse.Status);
+            return;
+        }
+
+        var floatsByTicker = floatResponse.Results
+            .Where(stockFloat => stockFloat.Ticker is not null)
+            .GroupBy(stockFloat => stockFloat.Ticker!)
+            .ToDictionary(group => group.Key, group => group.First().FreeFloat);
+
+        var matched = 0;
+        foreach (var tickerDetails in tickerDetailsList)
+        {
+            if (tickerDetails.Ticker is not null && floatsByTicker.TryGetValue(tickerDetails.Ticker, out var freeFloat))
+            {
+                tickerDetails.Float = freeFloat;
+                matched++;
+            }
+        }
+
+        _logger.LogInformation("Attached float to {matched} of {total} tickers.", matched, tickerDetailsList.Count);
     }
 
     private async Task<AggregateUploadResult> GetAndUploadAggregates(MarketDataAggregatorRequest request, List<TickerDetails> tickers)
