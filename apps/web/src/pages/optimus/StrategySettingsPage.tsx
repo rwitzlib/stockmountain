@@ -76,24 +76,24 @@ const StrategySettingsPage = () => {
             <Button
               variant="outline"
               size="sm"
-              className="bg-white/50 backdrop-blur-sm hover:bg-white/80 border-purple-200 hover:border-purple-300"
+              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               onClick={() => navigate(`/optimus/strategy/${strategyId}`)}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back to Strategy
             </Button>
             <div>
-              <h1 className="text-2xl font-bold gradient-heading flex items-center gap-2">
-                <Settings className="h-6 w-6" />
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+                <Settings className="h-6 w-6 text-muted-foreground" />
                 {strategy.name || 'Unnamed Strategy'} - Settings
               </h1>
-              <p className="text-gray-600 mt-1">Configure your strategy settings and parameters</p>
+              <p className="text-muted-foreground mt-1">Configure your strategy settings and parameters</p>
             </div>
           </div>
         </div>
 
         {/* Settings Form */}
-        <div className="rounded-lg p-6 shadow-sm border border-border bg-card text-card-foreground">
+        <div className="rounded-xl p-6 border border-border/80 bg-card text-card-foreground">
           <StrategyForm
             initialData={strategy}
             onSubmit={handleUpdateStrategy}

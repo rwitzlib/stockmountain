@@ -130,9 +130,9 @@ const CalendarPage = () => {
     const date = new Date(currentYear, currentMonth, day);
     const profit = getDayProfit(date);
     
-    if (profit > 0) return 'bg-green-100 hover:bg-green-200';
-    if (profit < 0) return 'bg-red-100 hover:bg-red-200';
-    return 'hover:bg-gray-100';
+    if (profit > 0) return 'bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20';
+    if (profit < 0) return 'bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20';
+    return 'hover:bg-accent';
   };
 
   // Check if a day is selected
@@ -172,40 +172,40 @@ const CalendarPage = () => {
             <Button 
               variant="outline" 
               size="sm"
-              className="bg-white/50 backdrop-blur-sm hover:bg-white/80 border-purple-200 hover:border-purple-300"
+              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back
             </Button>
           </Link>
-          <h1 className="text-2xl font-semibold gradient-heading">Trading Calendar</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Trading Calendar</h1>
         </div>
 
         <div className={`grid ${selectedDate ? 'grid-cols-1 md:grid-cols-2 gap-6' : 'place-items-center'}`}>
           <div className="flex justify-center items-start pt-4 w-full">
             {/* Custom Calendar Component */}
-            <div className="bg-white/80 shadow-sm rounded-md border p-4 w-full max-w-md">
+            <div className="rounded-xl border border-border/80 bg-card p-4 w-full max-w-md">
               {/* Calendar Header */}
               <div className="flex justify-between items-center mb-4">
                 <button 
                   onClick={goToPreviousMonth}
-                  className="p-1 rounded-full hover:bg-gray-100"
+                  className="p-1 rounded-full hover:bg-accent transition-colors"
                 >
-                  <ChevronLeft className="h-5 w-5 text-gray-500" />
+                  <ChevronLeft className="h-5 w-5 text-muted-foreground" />
                 </button>
-                <h2 className="text-lg font-semibold">{monthYearDisplay}</h2>
+                <h2 className="text-lg font-semibold tracking-tight">{monthYearDisplay}</h2>
                 <button 
                   onClick={goToNextMonth}
-                  className="p-1 rounded-full hover:bg-gray-100"
+                  className="p-1 rounded-full hover:bg-accent transition-colors"
                 >
-                  <ChevronRight className="h-5 w-5 text-gray-500" />
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
               
               {/* Days of Week Header */}
               <div className="grid grid-cols-7 gap-1 mb-1">
                 {daysOfWeek.map(day => (
-                  <div key={day} className="text-center text-sm font-medium text-gray-500 py-1">
+                  <div key={day} className="text-center text-sm font-medium text-muted-foreground py-1">
                     {day}
                   </div>
                 ))}
@@ -219,10 +219,10 @@ const CalendarPage = () => {
                     onClick={() => handleDayClick(day)}
                     disabled={day === null}
                     className={`
-                      h-10 w-full rounded-md flex items-center justify-center
-                      ${day === null ? 'text-gray-300' : 'text-gray-700'} 
-                      ${isSelected(day) ? 'ring-2 ring-purple-500 font-bold' : ''}
-                      ${isToday(day) ? 'border-2 border-blue-500 font-bold' : ''}
+                      h-10 w-full rounded-md flex items-center justify-center tabular-nums
+                      ${day === null ? 'text-muted-foreground/30' : 'text-foreground'} 
+                      ${isSelected(day) ? 'ring-2 ring-primary font-semibold' : ''}
+                      ${isToday(day) ? 'border border-primary/50 font-semibold' : ''}
                       ${getDayColor(day)}
                       transition-colors duration-200
                     `}
@@ -237,8 +237,8 @@ const CalendarPage = () => {
           {/* Selected Day Detail */}
           {selectedDate && (
             <div className="space-y-4">
-              <Card className="p-6 bg-white/80 backdrop-blur-sm border-purple-200">
-                <h2 className="text-xl font-semibold mb-4 gradient-heading">
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold tracking-tight mb-4">
                   {selectedDate.toLocaleDateString('en-US', {
                     weekday: 'long',
                     year: 'numeric',
@@ -248,16 +248,16 @@ const CalendarPage = () => {
                 </h2>
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-lg font-medium">Daily P/L:</div>
-                  <div className={`text-xl font-bold ${selectedDayProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  <div className={`text-xl font-bold tabular-nums ${selectedDayProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {formatPrice(selectedDayProfit)}
                   </div>
                 </div>
               </Card>
               
-              <Card className="p-6 bg-white/80 backdrop-blur-sm border-purple-200">
+              <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium">Trades</h3>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-muted-foreground">
                     {selectedDayTrades.length} {selectedDayTrades.length === 1 ? 'trade' : 'trades'}
                   </div>
                 </div>
@@ -267,19 +267,19 @@ const CalendarPage = () => {
                     {selectedDayTrades.map((trade) => (
                       <div
                         key={trade.id}
-                        className="p-3 rounded-md border bg-white shadow-sm hover:shadow-md transition-shadow"
+                        className="p-3 rounded-lg border border-border bg-card hover:bg-accent/40 transition-colors"
                       >
                         <div className="flex justify-between items-center mb-2">
-                          <span className="font-bold text-lg">{trade.ticker}</span>
+                          <span className="font-mono font-bold text-lg">{trade.ticker}</span>
                           <span
-                            className={`text-lg font-bold ${
-                              trade.profit >= 0 ? 'text-green-500' : 'text-red-500'
+                            className={`text-lg font-bold tabular-nums ${
+                              trade.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                             }`}
                           >
                             {formatPrice(trade.profit)}
                           </span>
                         </div>
-                        <div className="flex justify-between text-sm text-gray-600">
+                        <div className="flex justify-between text-sm text-muted-foreground">
                           <div>
                             <div>Entry: {new Date(trade.openedAt).toLocaleTimeString()}</div>
                             <div>Exit: {new Date(trade.closedAt).toLocaleTimeString()}</div>

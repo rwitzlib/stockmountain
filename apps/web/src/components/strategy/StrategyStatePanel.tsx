@@ -40,7 +40,7 @@ export function StrategyStatePanel({ strategyId, startingBalance, compact = fals
   if (error) {
     return (
       <div className={wrapperClass}>
-        <div className="text-center text-muted-foreground font-mono text-xs">
+        <div className="text-center text-muted-foreground text-xs">
           <span className="text-yellow-600 dark:text-yellow-400">⚠</span> Unable to load live state
         </div>
       </div>
@@ -72,13 +72,13 @@ export function StrategyStatePanel({ strategyId, startingBalance, compact = fals
     return (
       <div className={wrapperClass}>
         <div className="flex items-center justify-between mb-2 border-b border-border pb-2">
-          <h3 className="text-[10px] font-mono uppercase tracking-wider text-primary dark:text-cyan-400 flex items-center gap-1.5">
+          <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <Activity className="h-3 w-3" />
             Live Status
           </h3>
           <button
             onClick={() => refetch()}
-            className="p-0.5 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-primary dark:hover:text-cyan-400"
+            className="p-0.5 rounded transition-colors text-muted-foreground hover:bg-accent hover:text-foreground"
             title="Refresh"
           >
             <RefreshCw className="h-3 w-3" />
@@ -86,12 +86,12 @@ export function StrategyStatePanel({ strategyId, startingBalance, compact = fals
         </div>
 
         {/* Compact Balance Display */}
-        <div className="text-center py-2 bg-muted/30 border border-border mb-2">
-          <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Account Balance</div>
-          <div className="text-xl font-mono font-bold text-primary dark:text-cyan-400">
+        <div className="text-center py-2 rounded-lg bg-muted/30 border border-border mb-2">
+          <div className="text-[10px] text-muted-foreground">Account Balance</div>
+          <div className="text-xl font-semibold text-foreground tabular-nums">
             {formatPrice(currentBalance)}
           </div>
-          <div className={`text-xs font-mono flex items-center justify-center gap-1 ${pnlColorClass}`}>
+          <div className={`text-xs tabular-nums flex items-center justify-center gap-1 ${pnlColorClass}`}>
             {totalPnl >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
             {formatPrice(totalPnl)} ({totalPnlPercent >= 0 ? '+' : ''}{totalPnlPercent.toFixed(2)}%)
           </div>
@@ -99,47 +99,47 @@ export function StrategyStatePanel({ strategyId, startingBalance, compact = fals
 
         {/* Compact Stats Grid - Cash + Positions = Balance */}
         <div className="grid grid-cols-3 gap-1 mb-2">
-          <div className="p-1.5 bg-muted/20 border border-border">
+          <div className="p-1.5 rounded-lg bg-muted/20 border border-border">
             <div className="flex items-center gap-1 mb-0.5">
               <Wallet className="h-2 w-2 text-muted-foreground" />
-              <span className="text-[8px] font-mono uppercase text-muted-foreground">Cash</span>
+              <span className="text-[10px] text-muted-foreground">Cash</span>
             </div>
-            <div className="text-xs font-mono font-bold text-foreground">
+            <div className="text-xs font-semibold text-foreground tabular-nums">
               {formatPrice(cashBalance)}
             </div>
           </div>
-          <div className="p-1.5 bg-muted/20 border border-border">
+          <div className="p-1.5 rounded-lg bg-muted/20 border border-border">
             <div className="flex items-center gap-1 mb-0.5">
               <Briefcase className="h-2 w-2 text-muted-foreground" />
-              <span className="text-[8px] font-mono uppercase text-muted-foreground">Positions</span>
+              <span className="text-[10px] text-muted-foreground">Positions</span>
             </div>
-            <div className="text-xs font-mono font-bold text-foreground">
+            <div className="text-xs font-semibold text-foreground tabular-nums">
               {formatPrice(positionValue)}
             </div>
           </div>
-          <div className="p-1.5 bg-muted/20 border border-border">
+          <div className="p-1.5 rounded-lg bg-muted/20 border border-border">
             <div className="flex items-center gap-1 mb-0.5">
               {unrealizedPnl >= 0 
                 ? <TrendingUp className="h-2 w-2 text-muted-foreground" />
                 : <TrendingDown className="h-2 w-2 text-muted-foreground" />
               }
-              <span className="text-[8px] font-mono uppercase text-muted-foreground">Unrealized</span>
+              <span className="text-[10px] text-muted-foreground">Unrealized</span>
             </div>
-            <div className={`text-xs font-mono font-bold ${unrealizedColorClass}`}>
+            <div className={`text-xs font-semibold tabular-nums ${unrealizedColorClass}`}>
               {unrealizedPnl >= 0 ? '+' : ''}{formatPrice(unrealizedPnl)}
             </div>
           </div>
         </div>
 
         {/* Compact Open Positions */}
-        <div className="p-2 bg-muted/20 border border-border">
+        <div className="p-2 rounded-lg bg-muted/20 border border-border">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-mono uppercase text-muted-foreground">Open Positions</span>
+            <span className="text-[10px] text-muted-foreground">Open Positions</span>
             <Badge 
               variant="outline" 
-              className={`text-[10px] font-mono px-1.5 py-0 ${
+              className={`rounded-full text-[10px] tabular-nums px-1.5 py-0 ${
                 openPositionsCount > 0 
-                  ? 'bg-primary/10 dark:bg-cyan-950 text-primary dark:text-cyan-400 border-primary/30 dark:border-cyan-700'
+                  ? 'bg-accent text-foreground font-medium border-transparent'
                   : 'bg-muted text-muted-foreground border-border'
               }`}
             >
@@ -152,14 +152,14 @@ export function StrategyStatePanel({ strategyId, startingBalance, compact = fals
                 <Badge 
                   key={ticker}
                   variant="outline"
-                  className="text-[9px] font-mono px-1 py-0 bg-yellow-100/50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700"
+                  className="rounded-md border border-border/60 bg-muted/50 px-1.5 py-0 font-mono text-[9px] text-foreground"
                 >
                   {ticker}
                 </Badge>
               ))}
             </div>
           ) : (
-            <div className="text-[10px] font-mono text-muted-foreground mt-0.5">No open positions</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">No open positions</div>
           )}
         </div>
       </div>

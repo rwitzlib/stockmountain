@@ -28,12 +28,12 @@ export function Clock() {
 
   return (
     <div
-      className="flex items-center gap-2 bg-card border border-border px-3 py-1.5 cursor-pointer hover:border-primary dark:hover:border-cyan-700 transition-colors"
+      className="flex items-center gap-2 rounded-lg bg-card border border-border px-3 py-1.5 cursor-pointer hover:bg-accent transition-colors"
       onClick={handleToggle}
       title={`Click to toggle ${showUTC ? 'local' : 'UTC'} time`}
     >
-      <ClockIcon className="w-3 h-3 text-primary dark:text-cyan-400" />
-      <span className="font-mono text-xs text-primary dark:text-cyan-400 tracking-wider">
+      <ClockIcon className="w-3 h-3 text-muted-foreground" />
+      <span className="font-mono text-xs text-foreground tabular-nums">
         {hours}:{minutes}:{seconds}
       </span>
       <span className="font-mono text-[9px] text-muted-foreground ml-1">

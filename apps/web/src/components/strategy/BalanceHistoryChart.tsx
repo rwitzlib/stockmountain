@@ -54,14 +54,14 @@ export function BalanceHistoryChart({ strategyId, startingBalance, compact = fal
   if (error || !balanceHistory?.history || balanceHistory.history.length === 0) {
     return (
       <div className={wrapperClass}>
-        <h3 className="text-[10px] font-mono uppercase tracking-wider text-primary dark:text-cyan-400 mb-2">
-          # Balance History
+        <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">
+          Balance History
         </h3>
         <div 
-          className="flex items-center justify-center text-muted-foreground font-mono text-xs border border-dashed border-border"
+          className="flex items-center justify-center text-muted-foreground text-xs border border-dashed border-border rounded-lg"
           style={{ height: chartHeight }}
         >
-          {error ? '⚠ Unable to load history' : '[ NO HISTORY DATA YET ]'}
+          {error ? 'Unable to load history' : 'No history data yet'}
         </div>
       </div>
     );
@@ -79,9 +79,9 @@ export function BalanceHistoryChart({ strategyId, startingBalance, compact = fal
   }));
 
   // Theme-aware colors
-  const axisColor = isDarkMode ? '#9ca3af' : '#6b7280';
-  const gridColor = isDarkMode ? '#374151' : '#e5e7eb';
-  const lineColor = isDarkMode ? '#22d3ee' : '#0891b2';
+  const axisColor = '#8b93a1';
+  const gridColor = 'rgba(148,163,184,0.1)';
+  const lineColor = 'var(--chart-strategy)';
   const baselineColor = isDarkMode ? '#6b7280' : '#9ca3af';
 
   // Custom tooltip
@@ -93,35 +93,35 @@ export function BalanceHistoryChart({ strategyId, startingBalance, compact = fal
     const pnlPercent = ((pnl / startingBalance) * 100);
 
     return (
-      <div className="bg-card border border-border p-3 shadow-lg">
-        <div className="text-xs font-mono text-muted-foreground mb-2">{data.rawDate}</div>
+      <div className="rounded-lg border border-border p-3 shadow-sm" style={{ backgroundColor: 'hsl(var(--popover))' }}>
+        <div className="text-xs text-muted-foreground mb-2">{data.rawDate}</div>
         <div className="space-y-1">
           <div className="flex justify-between gap-4">
-            <span className="text-xs font-mono text-muted-foreground">Balance:</span>
-            <span className="text-xs font-mono font-bold text-primary dark:text-cyan-400">
+            <span className="text-xs text-muted-foreground">Balance:</span>
+            <span className="text-xs font-semibold text-foreground tabular-nums">
               {formatPrice(data.balance)}
             </span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-xs font-mono text-muted-foreground">Cash:</span>
-            <span className="text-xs font-mono">{formatPrice(data.cash)}</span>
+            <span className="text-xs text-muted-foreground">Cash:</span>
+            <span className="text-xs tabular-nums">{formatPrice(data.cash)}</span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-xs font-mono text-muted-foreground">Unrealized:</span>
-            <span className={`text-xs font-mono ${data.unrealized >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            <span className="text-xs text-muted-foreground">Unrealized:</span>
+            <span className={`text-xs tabular-nums ${data.unrealized >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
               {data.unrealized >= 0 ? '+' : ''}{formatPrice(data.unrealized)}
             </span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-xs font-mono text-muted-foreground">P/L:</span>
-            <span className={`text-xs font-mono font-bold ${pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            <span className="text-xs text-muted-foreground">P/L:</span>
+            <span className={`text-xs font-semibold tabular-nums ${pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
               {pnl >= 0 ? '+' : ''}{formatPrice(pnl)} ({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)
             </span>
           </div>
           {data.positions > 0 && (
             <div className="flex justify-between gap-4">
-              <span className="text-xs font-mono text-muted-foreground">Positions:</span>
-              <span className="text-xs font-mono text-yellow-600 dark:text-yellow-400">{data.positions}</span>
+              <span className="text-xs text-muted-foreground">Positions:</span>
+              <span className="text-xs text-yellow-600 dark:text-yellow-400 tabular-nums">{data.positions}</span>
             </div>
           )}
         </div>
@@ -131,8 +131,8 @@ export function BalanceHistoryChart({ strategyId, startingBalance, compact = fal
 
   return (
     <div className={wrapperClass}>
-      <h3 className={`font-mono uppercase tracking-wider text-primary dark:text-cyan-400 ${compact ? 'text-[10px] mb-2' : 'text-xs mb-4'}`}>
-        # Balance History {!compact && '(Daily Snapshots)'}
+      <h3 className={`text-[11px] font-medium uppercase tracking-widest text-muted-foreground ${compact ? 'mb-2' : 'mb-4'}`}>
+        Balance History {!compact && '(Daily Snapshots)'}
       </h3>
       <div style={{ height: chartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
@@ -142,15 +142,15 @@ export function BalanceHistoryChart({ strategyId, startingBalance, compact = fal
           >
             <XAxis 
               dataKey="date" 
-              stroke={axisColor}
-              tick={{ fill: axisColor, fontSize: compact ? 8 : 10, fontFamily: 'monospace' }}
+              stroke={gridColor}
+              tick={{ fill: axisColor, fontSize: compact ? 8 : 10 }}
               tickLine={!compact}
             />
             <YAxis 
               tickFormatter={(value) => formatPrice(value)}
               domain={['dataMin - 100', 'dataMax + 100']}
-              stroke={axisColor}
-              tick={{ fill: axisColor, fontSize: compact ? 8 : 10, fontFamily: 'monospace' }}
+              stroke={gridColor}
+              tick={{ fill: axisColor, fontSize: compact ? 8 : 10 }}
               tickLine={!compact}
               width={compact ? 55 : 70}
             />
@@ -163,8 +163,7 @@ export function BalanceHistoryChart({ strategyId, startingBalance, compact = fal
                 value: 'Starting', 
                 position: 'right', 
                 fill: baselineColor, 
-                fontSize: 10, 
-                fontFamily: 'monospace' 
+                fontSize: 10 
               } : undefined} 
             />
             <Line 

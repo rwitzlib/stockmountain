@@ -78,39 +78,39 @@ export function StrategyCard({ strategy, onUpdate, onDelete, readOnly = false, f
       </CardHeader>
       <CardContent className="space-y-3 pt-3">
         <div className="space-y-2">
-          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">::  Position Config</h4>
-          <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-muted-foreground">
-            <div><span className="text-primary dark:text-cyan-400">INIT BAL:</span> ${positionSettings.startingBalance.toLocaleString()}</div>
-            <div><span className="text-primary dark:text-cyan-400">POS SIZE:</span> {positionSettings.model.type === 'Percentage' ? `${positionSettings.model.size}%` : `$${positionSettings.model.size.toLocaleString()}`}</div>
-            <div><span className="text-primary dark:text-cyan-400">MAX POS:</span> {positionSettings.maxConcurrentPositions}</div>
+          <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Position</h4>
+          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground tabular-nums">
+            <div><span className="text-foreground">Balance:</span> ${positionSettings.startingBalance.toLocaleString()}</div>
+            <div><span className="text-foreground">Size:</span> {positionSettings.model.type === 'Percentage' ? `${positionSettings.model.size}%` : `$${positionSettings.model.size.toLocaleString()}`}</div>
+            <div><span className="text-foreground">Max positions:</span> {positionSettings.maxConcurrentPositions}</div>
           </div>
         </div>
         
         <div className="space-y-2 border-t border-border pt-2">
-          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">::  Exit Strategy</h4>
-          <div className="grid grid-cols-1 gap-1 text-[10px] font-mono text-muted-foreground">
+          <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Exit</h4>
+          <div className="grid grid-cols-1 gap-1 text-xs text-muted-foreground tabular-nums">
             {exitSettings.stopLoss ? (
               <div>
-                <span className="text-red-600 dark:text-red-400">STOP LOSS:</span> {exitSettings.stopLoss.value}
+                <span className="text-red-600 dark:text-red-400">Stop loss:</span> {exitSettings.stopLoss.value}
                 {exitSettings.stopLoss.type === 'percent' ? '%' : '$'}
               </div>
             ) : (
-              <div><span className="text-muted-foreground/60">STOP LOSS:</span> None</div>
+              <div><span className="text-muted-foreground/60">Stop loss:</span> None</div>
             )}
             {exitSettings.takeProfit ? (
               <div>
-                <span className="text-green-600 dark:text-green-400">TARGET:</span> {exitSettings.takeProfit.value}
+                <span className="text-green-600 dark:text-green-400">Target:</span> {exitSettings.takeProfit.value}
                 {exitSettings.takeProfit.type === 'percent' ? '%' : '$'}
               </div>
             ) : (
-              <div><span className="text-muted-foreground/60">TARGET:</span> None</div>
+              <div><span className="text-muted-foreground/60">Target:</span> None</div>
             )}
             {exitSettings.timedExit?.timeframe ? (
               <div>
-                <span className="text-yellow-600 dark:text-yellow-400">TIMEFRAME:</span> {exitSettings.timedExit.timeframe.multiplier} {exitSettings.timedExit.timeframe.timespan}
+                <span className="text-yellow-600 dark:text-yellow-400">Timeframe:</span> {exitSettings.timedExit.timeframe.multiplier} {exitSettings.timedExit.timeframe.timespan}
               </div>
             ) : (
-              <div><span className="text-muted-foreground/60">TIMEFRAME:</span> None</div>
+              <div><span className="text-muted-foreground/60">Timeframe:</span> None</div>
             )}
           </div>
         </div>

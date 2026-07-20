@@ -105,20 +105,20 @@ const Dashboard = () => {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="bg-background hover:bg-muted border-border hover:border-primary text-muted-foreground hover:text-primary transition-all"
+                  className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" />
-                  <span className="font-mono text-xs uppercase">Back</span>
+                  <span className="text-xs">Back</span>
                 </Button>
               </Link>
               <div className="flex items-center gap-2">
-                <Lock className="h-6 w-6 text-red-600 dark:text-red-400 animate-pulse" />
-                <h1 className="text-xl font-mono font-bold uppercase tracking-wider text-red-600 dark:text-red-400">⚠️ Authentication Required</h1>
+                <Lock className="h-6 w-6 text-red-600 dark:text-red-400" />
+                <h1 className="text-xl font-semibold tracking-tight text-red-600 dark:text-red-400">Authentication required</h1>
               </div>
             </div>
-            <div className="text-center py-12 bg-red-100/50 dark:bg-red-950/20 border border-red-300 dark:border-red-900">
-              <p className="text-red-700 dark:text-red-400 font-mono text-sm mb-2">[ ACCESS DENIED ]</p>
-              <p className="text-muted-foreground font-mono text-xs">{'>> '}Please log in to access your personal trading dashboard</p>
+            <div className="text-center py-12 rounded-xl border border-red-300 dark:border-red-900 bg-red-100/50 dark:bg-red-950/20">
+              <p className="text-red-700 dark:text-red-400 text-sm font-medium mb-2">Access denied</p>
+              <p className="text-muted-foreground text-xs">Please log in to access your personal trading dashboard</p>
             </div>
           </div>
         </div>
@@ -136,21 +136,21 @@ const Dashboard = () => {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="bg-background hover:bg-muted border-border hover:border-primary text-muted-foreground hover:text-primary transition-all"
+                  className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" />
-                  <span className="font-mono text-xs uppercase">Back</span>
+                  <span className="text-xs">Back</span>
                 </Button>
               </Link>
               <div className="flex items-center gap-2">
-                <Lock className="h-5 w-5 text-green-600 dark:text-green-400 animate-pulse" />
-                <h1 className="text-xl font-mono font-bold uppercase tracking-wider text-foreground"># My Trading Strategies</h1>
+                <Lock className="h-5 w-5 text-muted-foreground" />
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">My Trading Strategies</h1>
               </div>
             </div>
             
             <Button 
               onClick={() => navigate('/optimus/strategy/new')}
-              className="bg-green-100 dark:bg-green-950 hover:bg-green-200 dark:hover:bg-green-900 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700 hover:border-green-400 dark:hover:border-green-500 gap-2 font-mono text-xs uppercase transition-all"
+              className="gap-2"
             >
               <Plus className="w-4 h-4" />
               New Strategy
@@ -159,13 +159,13 @@ const Dashboard = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {isLoadingStrategies ? (
-              <div className="col-span-full text-center py-12 bg-card border border-border">
-                <p className="text-primary font-mono text-sm animate-pulse">» LOADING STRATEGIES...</p>
+              <div className="col-span-full text-center py-12 rounded-xl border border-border/80 bg-card">
+                <p className="text-muted-foreground text-sm animate-pulse">Loading strategies…</p>
               </div>
             ) : myStrategies?.length === 0 ? (
-              <div className="col-span-full text-center py-12 bg-card border border-border">
-                <p className="text-muted-foreground font-mono text-sm mb-2">[ NO STRATEGIES FOUND ]</p>
-                <p className="text-muted-foreground/60 font-mono text-xs">{'>> '}Create your first trading strategy to get started</p>
+              <div className="col-span-full text-center py-12 rounded-xl border border-border/80 bg-card">
+                <p className="text-foreground text-sm font-medium mb-2">No strategies found</p>
+                <p className="text-muted-foreground text-xs">Create your first trading strategy to get started</p>
               </div>
             ) : (
               myStrategies?.map((strategy: Strategy) => (

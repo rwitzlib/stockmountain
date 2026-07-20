@@ -83,27 +83,27 @@ const TradesPage = () => {
               <Button 
                 variant="outline" 
                 size="sm"
-                className="bg-white/50 backdrop-blur-sm hover:bg-white/80 border-purple-200 hover:border-purple-300"
+                className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               >
                 <ArrowLeft className="h-4 w-4 mr-1" />
                 Back
               </Button>
             </Link>
-            <h1 className="text-2xl font-semibold gradient-heading">All Trades</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">All Trades</h1>
           </div>
           <ToggleGroup 
             type="single" 
             value={tradeType} 
             onValueChange={(value) => setTradeType(value || 'all')}
-            className="bg-white/50 backdrop-blur-sm p-1 rounded-lg border border-purple-200"
+            className="bg-card p-1 rounded-lg border border-border"
           >
-            <ToggleGroupItem value="all" aria-label="Show all trades" className="data-[state=on]:bg-purple-100 data-[state=on]:text-purple-700">
+            <ToggleGroupItem value="all" aria-label="Show all trades" className="data-[state=on]:bg-accent data-[state=on]:text-foreground data-[state=on]:font-medium">
               All
             </ToggleGroupItem>
-            <ToggleGroupItem value="paper" aria-label="Show paper trades" className="data-[state=on]:bg-purple-100 data-[state=on]:text-purple-700">
+            <ToggleGroupItem value="paper" aria-label="Show paper trades" className="data-[state=on]:bg-accent data-[state=on]:text-foreground data-[state=on]:font-medium">
               Paper
             </ToggleGroupItem>
-            <ToggleGroupItem value="live" aria-label="Show live trades" className="data-[state=on]:bg-purple-100 data-[state=on]:text-purple-700">
+            <ToggleGroupItem value="live" aria-label="Show live trades" className="data-[state=on]:bg-accent data-[state=on]:text-foreground data-[state=on]:font-medium">
               Live
             </ToggleGroupItem>
           </ToggleGroup>

@@ -48,21 +48,21 @@ export const StockChart = memo(function StockChart({
   );
 
   const DARK_THEME = {
-    background: '#0b1220',
-    textColor: '#e5e7eb',
-    gridColor: '#1f2937',
-    crosshairColor: '#6b7280',
-    up: '#22c55e',
-    down: '#ef4444',
+    background: 'transparent',
+    textColor: '#8b93a1',
+    gridColor: 'rgba(148,163,184,0.08)',
+    crosshairColor: 'rgba(148,163,184,0.35)',
+    up: '#2fae60',
+    down: '#e05252',
   };
 
   const LIGHT_THEME = {
     background: '#ffffff',
-    textColor: '#1f2937',
-    gridColor: '#e5e7eb',
-    crosshairColor: '#9ca3af',
-    up: '#22c55e',
-    down: '#ef4444',
+    textColor: '#64748b',
+    gridColor: 'rgba(15,23,42,0.06)',
+    crosshairColor: 'rgba(15,23,42,0.3)',
+    up: '#2fae60',
+    down: '#e05252',
   };
 
   // Detect theme changes
@@ -115,16 +115,14 @@ export const StockChart = memo(function StockChart({
 
   function getIndicatorColor(index: number): string {
     const colors = [
-      '#3b82f6', // blue
-      '#ef4444', // red
-      '#10b981', // green
-      '#f59e0b', // yellow
-      '#8b5cf6', // purple
-      '#06b6d4', // cyan
-      '#f97316', // orange
-      '#84cc16', // lime
-      '#ec4899', // pink
-      '#6b7280', // gray
+      '#14a3bd', // teal
+      '#8b5cf6', // violet
+      '#d97706', // amber
+      '#e05252', // rose
+      '#2fae60', // emerald
+      '#6366f1', // slate blue
+      '#b45309', // dark amber
+      '#64748b', // slate
     ];
     return colors[index % colors.length];
   }
@@ -205,15 +203,15 @@ export const StockChart = memo(function StockChart({
 
         const macdColors = {
           macd: getConfiguredColor('macd', color),
-          signal: getConfiguredColor('signal', '#ef4444'),
-          histogram: getConfiguredColor('histogram', '#6b7280'),
-          histogramUp: getConfiguredColor('histogramUp', '#10b981'),
-          histogramDown: getConfiguredColor('histogramDown', '#ef4444'),
+          signal: getConfiguredColor('signal', '#e05252'),
+          histogram: getConfiguredColor('histogram', '#64748b'),
+          histogramUp: getConfiguredColor('histogramUp', '#2fae60'),
+          histogramDown: getConfiguredColor('histogramDown', '#e05252'),
         };
         const rsiColors = {
           rsi: getConfiguredColor('rsi', color),
-          upper: getConfiguredColor('upper', '#f59e0b'),
-          lower: getConfiguredColor('lower', '#f97316'),
+          upper: getConfiguredColor('upper', '#d97706'),
+          lower: getConfiguredColor('lower', '#b45309'),
         };
 
         const ensureLine = (key: string, c: string, dashed = false) => {
@@ -554,7 +552,7 @@ export const StockChart = memo(function StockChart({
       if (highlightTimes.has(time)) {
         return 'rgba(160, 167, 76, 0.55)';
       }
-      return isDarkMode ? 'rgb(11, 17, 31)' : 'rgb(255, 255, 255)';
+      return isDarkMode ? 'rgba(0, 0, 0, 0)' : 'rgba(0, 0, 0, 0)';
     };
 
     // Get all series that should have highlighting

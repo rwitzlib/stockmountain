@@ -33,10 +33,10 @@ export function TopNav() {
             key={path}
             to={path}
             className={({ isActive }) => `
-              flex items-center gap-2 py-3 px-3 border-b-2 whitespace-nowrap transition-all font-mono text-xs uppercase tracking-wider
+              flex items-center gap-2 py-3 px-3 whitespace-nowrap transition-colors text-sm
               ${isActive 
-                ? 'border-primary text-primary bg-primary/10 dark:bg-primary/20' 
-                : 'border-transparent text-muted-foreground hover:text-primary hover:bg-muted/50'
+                ? 'bg-accent text-foreground font-medium' 
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               }
             `}
           >
@@ -50,12 +50,12 @@ export function TopNav() {
       <div className="md:hidden">
         {/* Mobile Header with Hamburger */}
         <div className="flex justify-between items-center px-4 py-3 border-b border-border">
-          <div className="text-sm font-mono font-bold uppercase tracking-wider text-primary">
+          <div className="text-sm font-semibold tracking-tight text-foreground">
             StockMountain
           </div>
           <button
             onClick={toggleMobileMenu}
-            className="p-2 text-muted-foreground hover:text-primary hover:bg-muted transition-colors border border-border hover:border-primary"
+            className="p-2 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors border border-border"
             aria-label="Toggle navigation menu"
           >
             {isMobileMenuOpen ? (
@@ -75,10 +75,10 @@ export function TopNav() {
                 to={path}
                 onClick={closeMobileMenu}
                 className={({ isActive }) => `
-                  flex items-center gap-3 py-3 px-4 border-l-2 transition-all font-mono text-xs uppercase tracking-wider
+                  flex items-center gap-3 py-3 px-4 transition-colors text-sm
                   ${isActive 
-                    ? 'border-primary text-primary bg-primary/10 dark:bg-primary/20' 
-                    : 'border-transparent text-muted-foreground hover:text-primary hover:bg-muted/50 hover:border-primary'
+                    ? 'bg-accent text-foreground font-medium' 
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }
                 `}
               >

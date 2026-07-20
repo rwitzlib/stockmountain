@@ -175,14 +175,14 @@ export function BacktestPage() {
               <ApiStatus />
             </div>
             <div>
-              <h1 className="text-xl font-mono font-bold uppercase tracking-wider text-foreground"># Backtest Results</h1>
-              <p className="text-xs font-mono text-muted-foreground mt-1">{'>> '}Historical strategy performance analysis</p>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">Backtest Results</h1>
+              <p className="text-xs text-muted-foreground mt-1">Historical strategy performance analysis</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+            <div className="hidden sm:flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
               {hasInProgress && (
-                <span className="text-yellow-600 dark:text-yellow-400 animate-pulse">
+                <span className="rounded-full bg-yellow-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-yellow-600 dark:text-yellow-400">
                   Live · {POLL_ACTIVE_MS / 1000}s
                 </span>
               )}
@@ -191,7 +191,7 @@ export function BacktestPage() {
                 type="button"
                 onClick={() => fetchBacktestList()}
                 disabled={isRefreshing}
-                className="p-1 hover:bg-muted rounded transition-colors disabled:opacity-50"
+                className="p-1 rounded-md hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
                 title="Refresh now"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -199,16 +199,16 @@ export function BacktestPage() {
             </div>
             <Button
               onClick={() => navigate('/backtest/create')}
-              className="bg-green-100 dark:bg-green-950 border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900 hover:border-green-400 dark:hover:border-green-500 font-mono text-xs uppercase px-4 py-2 transition-all"
+              className="text-xs px-4 py-2"
             >
-              + New Backtest
+              New Backtest
             </Button>
           </div>
         </div>
 
         {error && (
-          <div className="bg-destructive/10 dark:bg-red-950/50 border border-destructive dark:border-red-700 text-destructive dark:text-red-400 px-4 py-3 relative font-mono text-sm">
-            <span className="text-destructive dark:text-red-500">ERROR:</span> {error}
+          <div className="rounded-xl bg-destructive/10 border border-destructive/40 text-destructive dark:text-red-400 px-4 py-3 relative text-sm">
+            <span className="font-medium">Error:</span> {error}
             <button
               onClick={() => setError('')}
               className="absolute top-2 right-2 text-destructive dark:text-red-400 hover:text-destructive/80 dark:hover:text-red-300 font-bold text-lg"
@@ -226,18 +226,18 @@ export function BacktestPage() {
               <BacktestStatistics results={backtestResults} />
 
               {/* Collapsible insights — collapsed by default so the table stays primary */}
-              <div className="bg-card border border-border">
+              <div className="rounded-xl border border-border/80 bg-card">
                 <button
                   type="button"
                   onClick={() => setShowInsights(prev => !prev)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between rounded-xl px-4 py-3 hover:bg-accent hover:text-foreground transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-mono uppercase tracking-wider text-foreground">
+                    <span className="text-sm font-semibold text-foreground">
                       Insights
                     </span>
-                    <span className="text-[10px] font-mono text-muted-foreground">
+                    <span className="text-[11px] text-muted-foreground">
                       charts &amp; performers
                     </span>
                   </div>
@@ -255,13 +255,13 @@ export function BacktestPage() {
               </div>
 
               {/* Filters */}
-              <div className="bg-card border border-border p-4 space-y-4">
+              <div className="rounded-xl border border-border/80 bg-card p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-muted-foreground" />
-                    <h2 className="text-sm font-mono uppercase tracking-wider text-foreground">Filters</h2>
+                    <h2 className="text-sm font-semibold text-foreground">Filters</h2>
                     {!isLoading && (
-                      <span className="text-[10px] font-mono text-muted-foreground">
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
                         {filteredAndSortedData.length} of {backtestResults.length}
                       </span>
                     )}
@@ -271,7 +271,7 @@ export function BacktestPage() {
                       onClick={clearFilters}
                       variant="ghost"
                       size="sm"
-                      className="h-7 text-xs font-mono text-muted-foreground hover:text-foreground"
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
                     >
                       <X className="h-3 w-3 mr-1" />
                       Clear All
@@ -281,7 +281,7 @@ export function BacktestPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                       Search
                     </label>
                     <div className="relative">
@@ -291,19 +291,19 @@ export function BacktestPage() {
                         placeholder="ID, date, filter..."
                         value={searchQuery}
                         onChange={(e) => updateFilter('search', e.target.value)}
-                        className="pl-8 font-mono text-xs h-9"
+                        className="pl-8 text-xs h-9"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                       Status
                     </label>
                     <select
                       value={statusFilter}
                       onChange={(e) => updateFilter('status', e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      className="flex h-9 w-full rounded-lg border border-input bg-card px-3 py-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
                       <option value="All">All</option>
                       <option value="Completed">Completed</option>
@@ -313,7 +313,7 @@ export function BacktestPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                       Min Hold P/L ($)
                     </label>
                     <Input
@@ -326,7 +326,7 @@ export function BacktestPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                       Max Hold P/L ($)
                     </label>
                     <Input
@@ -341,7 +341,7 @@ export function BacktestPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                       Start Date
                     </label>
                     <Input
@@ -353,7 +353,7 @@ export function BacktestPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                       End Date
                     </label>
                     <Input
@@ -387,17 +387,17 @@ function BacktestPageSkeleton() {
     <div className="space-y-4 animate-pulse">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-16 border border-border bg-muted/40" />
+          <div key={i} className="h-16 rounded-xl border border-border/80 bg-muted/40" />
         ))}
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-16 border border-border bg-muted/40" />
+          <div key={i} className="h-16 rounded-xl border border-border/80 bg-muted/40" />
         ))}
       </div>
-      <div className="h-12 border border-border bg-muted/40" />
-      <div className="h-40 border border-border bg-muted/40" />
-      <div className="border border-border">
+      <div className="h-12 rounded-xl border border-border/80 bg-muted/40" />
+      <div className="h-40 rounded-xl border border-border/80 bg-muted/40" />
+      <div className="rounded-xl border border-border/80 overflow-hidden">
         <div className="h-10 border-b border-border bg-muted/30" />
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="h-12 border-b border-border last:border-b-0 bg-muted/20" />
