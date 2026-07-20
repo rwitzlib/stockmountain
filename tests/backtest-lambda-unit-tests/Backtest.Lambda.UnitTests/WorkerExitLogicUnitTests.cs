@@ -5,7 +5,7 @@ using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Requests.Market.Backtest;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 
 namespace Backtest.Lambda.UnitTests;
 

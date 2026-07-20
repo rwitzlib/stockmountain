@@ -1,4 +1,4 @@
-using Polygon.Client.Responses;
+using Massive.Client.Responses;
 using System.Collections.Concurrent;
 
 namespace MarketViewer.Api.HostedServices;
@@ -10,7 +10,7 @@ namespace MarketViewer.Api.HostedServices;
 /// </summary>
 public class CacheWarmupState
 {
-    private readonly ConcurrentQueue<PolygonSnapshotResponse> _snapshotBuffer = new();
+    private readonly ConcurrentQueue<MassiveSnapshotResponse> _snapshotBuffer = new();
     private volatile bool _isWarmupComplete = false;
 
     /// <summary>
@@ -21,7 +21,7 @@ public class CacheWarmupState
     /// <summary>
     /// Buffers a snapshot response to be processed after warmup completes.
     /// </summary>
-    public void BufferSnapshot(PolygonSnapshotResponse snapshot)
+    public void BufferSnapshot(MassiveSnapshotResponse snapshot)
     {
         _snapshotBuffer.Enqueue(snapshot);
     }
@@ -29,9 +29,9 @@ public class CacheWarmupState
     /// <summary>
     /// Drains all buffered snapshots and returns them for processing.
     /// </summary>
-    public IEnumerable<PolygonSnapshotResponse> DrainBuffer()
+    public IEnumerable<MassiveSnapshotResponse> DrainBuffer()
     {
-        var snapshots = new List<PolygonSnapshotResponse>();
+        var snapshots = new List<MassiveSnapshotResponse>();
         
         while (_snapshotBuffer.TryDequeue(out var snapshot))
         {

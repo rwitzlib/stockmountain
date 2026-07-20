@@ -1,6 +1,0 @@
-@Backtester.Api_HostAddress = http://localhost:5130
-
-POST {{Backtester.Api_HostAddress}}/backtest/
-Accept: application/json
-
-###

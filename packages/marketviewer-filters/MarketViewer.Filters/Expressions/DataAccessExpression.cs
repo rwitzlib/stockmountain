@@ -1,5 +1,5 @@
 using MarketViewer.Filters.Interfaces;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 
 namespace MarketViewer.Filters.Expressions;
 

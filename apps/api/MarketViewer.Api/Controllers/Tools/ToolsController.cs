@@ -12,7 +12,7 @@ using MarketViewer.Application.Handlers.Market.Tools;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using System.Text.Json;
 using StatsResponse = MarketViewer.Contracts.Responses.Tools.StatsResponse;
 

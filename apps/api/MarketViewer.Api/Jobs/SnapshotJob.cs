@@ -4,11 +4,11 @@ using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Enums;
 using Quartz;
 using System.Diagnostics;
-using Polygon.Client.Interfaces;
-using Polygon.Client.Models;
-using Polygon.Client.Requests;
+using Massive.Client.Interfaces;
+using Massive.Client.Models;
+using Massive.Client.Requests;
 using Microsoft.Extensions.Caching.Memory;
-using Polygon.Client.Responses;
+using Massive.Client.Responses;
 using Snapshot = MarketViewer.Contracts.Models.Snapshot.Snapshot;
 using MarketViewer.Contracts.Responses.Tools;
 using MarketViewer.Contracts.Models;
@@ -17,7 +17,7 @@ namespace MarketViewer.Api.Jobs;
 
 public class SnapshotJob(
     IMemoryCache memoryCache,
-    IPolygonClient polygonClient,
+    IMassiveClient massiveClient,
     CacheWarmupState warmupState,
     BarCacheService barCacheService,
     ILogger<SnapshotJob> logger) : IJob
@@ -34,20 +34,20 @@ public class SnapshotJob(
         {
             logger.LogInformation("Started snapshot job at: {time}.", DateTimeOffset.Now);
 
-            var polygonSnapshotResponse = await polygonClient.GetAllTickersSnapshot(null);
+            var massiveSnapshotResponse = await massiveClient.GetAllTickersSnapshot(null);
 
             // During warmup, buffer snapshots instead of applying them directly
             // This prevents data loss while aggregates are being populated
             if (!warmupState.IsWarmupComplete)
             {
-                warmupState.BufferSnapshot(polygonSnapshotResponse);
+                warmupState.BufferSnapshot(massiveSnapshotResponse);
                 _sp.Stop();
                 logger.LogInformation("Buffered snapshot during warmup. Total buffered: {count}. Time elapsed: {elapsed}ms.", 
                     warmupState.BufferedCount, _sp.ElapsedMilliseconds);
                 return;
             }
 
-            var spy = polygonSnapshotResponse.Tickers.FirstOrDefault(q => q.Ticker == "SPY");
+            var spy = massiveSnapshotResponse.Tickers.FirstOrDefault(q => q.Ticker == "SPY");
             if (spy is not null)
             {
                 logger.LogInformation("Current snapshot: {unix} - {datetime}", spy.Minute.Timestamp, DateTimeOffset.FromUnixTimeMilliseconds(spy.Minute.Timestamp).ToOffset(_timeZone.GetUtcOffset(DateTimeOffset.Now)));
@@ -55,7 +55,7 @@ public class SnapshotJob(
 
             var snapshotResponse = memoryCache.Get<SnapshotResponse>("snapshot");
 
-            foreach (var snapshot in polygonSnapshotResponse.Tickers)
+            foreach (var snapshot in massiveSnapshotResponse.Tickers)
             {
                 var minuteCandle = barCacheService.AddBarToCache(snapshot.Ticker, new Timeframe(1, Timespan.minute), snapshot.Minute);
                 var hourCandle = barCacheService.AddBarToCache(snapshot.Ticker, new Timeframe(1, Timespan.hour), snapshot.Minute);

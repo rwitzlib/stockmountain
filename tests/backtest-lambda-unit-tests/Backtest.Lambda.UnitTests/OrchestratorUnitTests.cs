@@ -34,7 +34,7 @@
 //         using var client = new AmazonSimpleSystemsManagementClient(RegionEndpoint.USEast2);
 //         var response = client.GetParameterAsync(new GetParameterRequest
 //         {
-//             Name = "/tokens/polygon",
+//             Name = "/tokens/massive",
 //             WithDecryption = true
 //         }).Result;
 //
@@ -42,7 +42,7 @@
 //         {
 //             throw new Exception();
 //         }
-//         Environment.SetEnvironmentVariable("POLYGON_TOKEN", response.Parameter.Value);
+//         Environment.SetEnvironmentVariable("MASSIVE_TOKEN", response.Parameter.Value);
 //
 //         _context = new TestLambdaContext();
 //         _classUnderTest = new OrchestratorFunction();

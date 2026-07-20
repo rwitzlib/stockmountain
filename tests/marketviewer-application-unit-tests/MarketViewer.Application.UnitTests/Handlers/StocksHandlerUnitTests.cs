@@ -1,10 +1,10 @@
-﻿using AutoFixture;
+using AutoFixture;
 using Moq;
 using Xunit;
 using FluentAssertions;
 using MarketViewer.Contracts.Interfaces;
 using MarketViewer.Contracts.Enums;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using MarketViewer.Studies.UnitTests;
 using MarketViewer.Application.Handlers.Market;
 using MarketViewer.Contracts.Requests.Market;

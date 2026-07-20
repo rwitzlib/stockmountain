@@ -1,7 +1,7 @@
-﻿using MarketViewer.Contracts.Caching;
+using MarketViewer.Contracts.Caching;
 using MarketViewer.Studies.Studies;
 using Moq;
-using Polygon.Client.Interfaces;
+using Massive.Client.Interfaces;
 using Xunit;
 
 namespace MarketViewer.Studies.UnitTests;
@@ -11,7 +11,7 @@ public class StudyFixture : IClassFixture<StudyFactory>
     public StudyFixture()
     {
         MarketCache = new Mock<IMarketCache>();
-        var polygonClient = new Mock<IPolygonClient>();
+        var massiveClient = new Mock<IMassiveClient>();
         StudyFactory = new StudyFactory(new SMA(), new EMA(), new MACD(), new RSI(), new VWAP(), new RVOL(MarketCache.Object), new MAMR());
     }
 

@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Enums.Strategy;
 using MarketViewer.Contracts.Records;
@@ -9,9 +9,9 @@ using MarketViewer.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Polygon.Client;
-using Polygon.Client.Requests;
-using Polygon.Client.Responses;
+using Massive.Client;
+using Massive.Client.Requests;
+using Massive.Client.Responses;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,17 +31,17 @@ public class TradeRepositoryUnitTests
         PropertyNameCaseInsensitive = true,
     };
 
-    private PolygonClient _polygonClient;
+    private MassiveClient _massiveClient;
 
     public TradeRepositoryUnitTests()
     {
-        _polygonClient = new PolygonClient("ok6cMrmJ9hQpw4rUzielfLc0YjHskzRS");
+        _massiveClient = new MassiveClient("ok6cMrmJ9hQpw4rUzielfLc0YjHskzRS");
     }
 
     private class TradeData
     {
         public string Ticker { get; set; }
-        public PolygonAggregateResponse Response { get; set; }
+        public MassiveAggregateResponse Response { get; set; }
         public float AverageVolume { get; set; }
         public long? Float { get; set; }
     }
@@ -158,7 +158,7 @@ public class TradeRepositoryUnitTests
 
     private async Task<TradeData> GetData(string ticker)
     {
-        var response = await _polygonClient.GetAggregates(new PolygonAggregateRequest
+        var response = await _massiveClient.GetAggregates(new MassiveAggregateRequest
         {
             Ticker = ticker,
             Multiplier = 1,
@@ -166,7 +166,7 @@ public class TradeRepositoryUnitTests
             From = DateTimeOffset.Parse("2025-01-01").ToString("yyyy-MM-dd"),
             To = DateTimeOffset.Parse("2025-09-17").ToString("yyyy-MM-dd")
         });
-        var tickerDetails = await _polygonClient.GetTickerDetails(ticker);
+        var tickerDetails = await _massiveClient.GetTickerDetails(ticker);
 
         return new TradeData
         {
@@ -184,7 +184,7 @@ public class TradeRepositoryUnitTests
             var openedAt = DateTimeOffset.Parse(trade.OpenedAt);
             var closedAt = DateTimeOffset.Parse(trade.ClosedAt);
             var adjustedExit = new DateTimeOffset(closedAt.Year, closedAt.Month, closedAt.Day, 12, 0, 0, closedAt.Offset).AddDays(daysLater);
-            var response = await _polygonClient.GetAggregates(new PolygonAggregateRequest
+            var response = await _massiveClient.GetAggregates(new MassiveAggregateRequest
             {
                 Ticker = trade.Ticker,
                 Multiplier = 1,

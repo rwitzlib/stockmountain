@@ -1,4 +1,4 @@
-﻿//using AutoFixture;
+//using AutoFixture;
 //using Moq;
 //using Xunit;
 //using FluentAssertions;
@@ -19,7 +19,7 @@
 //        private AutoMocker _autoMocker;
 
 //        private Mock<IMapper> _mapper;
-//        //private Mock<IPolygonClient> _polygonClient;
+//        //private Mock<IMassiveClient> _massiveClient;
 
 //        private MarketDataRepository _classUnderTest;
 //        #endregion
@@ -34,9 +34,9 @@
 //            var configuration = new MapperConfiguration(cfg => cfg.AddProfiles(new[] { profile }));
 //            var mapper = new Mapper(configuration);
 
-//            _polygonClient = new Mock<IPolygonClient>();
+//            _massiveClient = new Mock<IMassiveClient>();
 
-//            _classUnderTest = new MarketDataRepository(_polygonClient.Object, mapper);
+//            _classUnderTest = new MarketDataRepository(_massiveClient.Object, mapper);
 //        }
 //        #endregion
 
@@ -45,10 +45,10 @@
 //        {
 //            // Arrange
 //            var request = _autoFixture.Create<StocksRequest>();
-//            var response = _autoFixture.Create<PolygonAggregateResponse>();
+//            var response = _autoFixture.Create<MassiveAggregateResponse>();
 //            response.Ticker = request.Ticker;
 
-//            _polygonClient.Setup(q => q.GetAggregate(It.IsAny<PolygonAggregateRequest>()))
+//            _massiveClient.Setup(q => q.GetAggregate(It.IsAny<MassiveAggregateRequest>()))
 //                .ReturnsAsync(response);
 
 //            // Act
@@ -57,8 +57,8 @@
 //            // Assert
 //            result.Ticker.Should().BeEquivalentTo(request.Ticker);
 
-//            _polygonClient.Verify(q => q.GetAggregate(It.IsAny<PolygonAggregateRequest>()), Times.Once());
-//            _polygonClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetAggregate(It.IsAny<MassiveAggregateRequest>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
 //        }
 
 //        [Fact]
@@ -66,14 +66,14 @@
 //        {
 //            // Arrange
 //            var request = _autoFixture.Create<StocksRequest>();
-//            var response = _autoFixture.Create<PolygonAggregateResponse>();
+//            var response = _autoFixture.Create<MassiveAggregateResponse>();
 //            response.Ticker = request.Ticker;
 
-//            _polygonClient.Setup(q => q.GetAggregate(It.IsAny<PolygonAggregateRequest>()))
+//            _massiveClient.Setup(q => q.GetAggregate(It.IsAny<MassiveAggregateRequest>()))
 //                .ReturnsAsync(response);
 
-//            _polygonClient.Setup(q => q.GetTickerDetails(It.IsAny<string>()))
-//                .ReturnsAsync(_autoFixture.Create<PolygonTickerDetailsResponse>());
+//            _massiveClient.Setup(q => q.GetTickerDetails(It.IsAny<string>()))
+//                .ReturnsAsync(_autoFixture.Create<MassiveTickerDetailsResponse>());
 
 //            // Act
 //            var result = await _classUnderTest.GetStockDataAsync(request);
@@ -82,8 +82,8 @@
 //            result.Ticker.Should().BeEquivalentTo(request.Ticker);
 //            result.TickerDetails.Should().NotBeNull();
 
-//            _polygonClient.Verify(q => q.GetAggregate(It.IsAny<PolygonAggregateRequest>()), Times.Once());
-//            _polygonClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetAggregate(It.IsAny<MassiveAggregateRequest>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
 //        }
 
 //        [Fact]
@@ -91,11 +91,11 @@
 //        {
 //            // Arrange
 //            var request = _autoFixture.Create<StocksRequest>();
-//            _polygonClient.Setup(q => q.GetAggregate(It.IsAny<PolygonAggregateRequest>()))
-//                .ReturnsAsync((PolygonAggregateResponse)null);
+//            _massiveClient.Setup(q => q.GetAggregate(It.IsAny<MassiveAggregateRequest>()))
+//                .ReturnsAsync((MassiveAggregateResponse)null);
 
-//            _polygonClient.Setup(q => q.GetTickerDetails(It.IsAny<string>()))
-//                .ReturnsAsync(_autoFixture.Create<PolygonTickerDetailsResponse>());
+//            _massiveClient.Setup(q => q.GetTickerDetails(It.IsAny<string>()))
+//                .ReturnsAsync(_autoFixture.Create<MassiveTickerDetailsResponse>());
 
 //            // Act
 //            var result = await _classUnderTest.GetStockDataAsync(request);
@@ -103,8 +103,8 @@
 //            // Assert
 //            result.Should().BeNull();
 
-//            _polygonClient.Verify(q => q.GetAggregate(It.IsAny<PolygonAggregateRequest>()), Times.Once());
-//            _polygonClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Never());
+//            _massiveClient.Verify(q => q.GetAggregate(It.IsAny<MassiveAggregateRequest>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Never());
 //        }
 
 //        [Fact]
@@ -112,14 +112,14 @@
 //        {
 //            // Arrange
 //            var request = _autoFixture.Create<StocksRequest>();
-//            var response = _autoFixture.Create<PolygonAggregateResponse>();
+//            var response = _autoFixture.Create<MassiveAggregateResponse>();
 //            response.Ticker = request.Ticker;
 
-//            _polygonClient.Setup(q => q.GetAggregate(It.IsAny<PolygonAggregateRequest>()))
+//            _massiveClient.Setup(q => q.GetAggregate(It.IsAny<MassiveAggregateRequest>()))
 //                .ReturnsAsync(response);
 
-//            _polygonClient.Setup(q => q.GetTickerDetails(It.IsAny<string>()))
-//                .ReturnsAsync((PolygonTickerDetailsResponse)null);
+//            _massiveClient.Setup(q => q.GetTickerDetails(It.IsAny<string>()))
+//                .ReturnsAsync((MassiveTickerDetailsResponse)null);
 
 //            // Act
 //            var result = await _classUnderTest.GetStockDataAsync(request);
@@ -128,8 +128,8 @@
 //            result.Ticker.Should().BeEquivalentTo(request.Ticker);
 //            result.TickerDetails.Should().BeNull();
 
-//            _polygonClient.Verify(q => q.GetAggregate(It.IsAny<PolygonAggregateRequest>()), Times.Once());
-//            _polygonClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetAggregate(It.IsAny<MassiveAggregateRequest>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
 //        }
 
 //        [Fact]
@@ -138,7 +138,7 @@
 //            // Arrange
 //            var request = _autoFixture.Create<StocksRequest>();
 
-//            _polygonClient.Setup(q => q.GetAggregate(It.IsAny<PolygonAggregateRequest>()))
+//            _massiveClient.Setup(q => q.GetAggregate(It.IsAny<MassiveAggregateRequest>()))
 //                .ThrowsAsync(new Exception("asdf"));
 
 //            // Act
@@ -147,17 +147,17 @@
 //            // Assert
 //            result.Should().BeNull();
 
-//            _polygonClient.Verify(q => q.GetAggregate(It.IsAny<PolygonAggregateRequest>()), Times.Once());
-//            _polygonClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Never());
+//            _massiveClient.Verify(q => q.GetAggregate(It.IsAny<MassiveAggregateRequest>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Never());
 //        }
 
 //        [Fact]
 //        public async Task GetTickerDetailsAsync_Returns_Success_Response()
 //        {
 //            // Arrange
-//            var response = _autoFixture.Create<PolygonTickerDetailsResponse>();
+//            var response = _autoFixture.Create<MassiveTickerDetailsResponse>();
 
-//            _polygonClient.Setup(q => q.GetTickerDetails(It.IsAny<string>()))
+//            _massiveClient.Setup(q => q.GetTickerDetails(It.IsAny<string>()))
 //                .ReturnsAsync(response);
 
 //            // Act
@@ -166,7 +166,7 @@
 //            // Assert
 //            result.Ticker.Should().BeEquivalentTo(response.TickerDetails.Ticker);
 
-//            _polygonClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
 //        }
 
 //        [Fact]
@@ -178,7 +178,7 @@
 //            // Assert
 //            result.Should().BeNull();
 
-//            _polygonClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Never());
+//            _massiveClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Never());
 //        }
 
 //        [Fact]
@@ -190,17 +190,17 @@
 //            // Assert
 //            result.Should().BeNull();
 
-//            _polygonClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
 //        }
 
 //        [Fact]
 //        public async Task Client_Null_TickerDetails_Response_Returns_Null_Response()
 //        {
 //            // Arrange
-//            var response = _autoFixture.Create<PolygonTickerDetailsResponse>();
+//            var response = _autoFixture.Create<MassiveTickerDetailsResponse>();
 //            response.TickerDetails = null;
 
-//            _polygonClient.Setup(q => q.GetTickerDetails(It.IsAny<string>()))
+//            _massiveClient.Setup(q => q.GetTickerDetails(It.IsAny<string>()))
 //                .ReturnsAsync(response);
 
 //            // Act
@@ -209,7 +209,7 @@
 //            // Assert
 //            result.Should().BeNull();
 
-//            _polygonClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
+//            _massiveClient.Verify(q => q.GetTickerDetails(It.IsAny<string>()), Times.Once());
 //        }
 //    }
 //}

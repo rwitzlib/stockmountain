@@ -10,10 +10,10 @@ using MarketViewer.Contracts.Records.MarketData;
 using MarketViewer.Contracts.Responses.Market;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Polygon.Client.Interfaces;
-using Polygon.Client.Models;
-using Polygon.Client.Requests;
-using Polygon.Client.Responses;
+using Massive.Client.Interfaces;
+using Massive.Client.Models;
+using Massive.Client.Requests;
+using Massive.Client.Responses;
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
@@ -24,7 +24,7 @@ namespace MarketDataAggregator;
 
 public class AggregatorFunction(IServiceProvider serviceProvider)
 {
-    private readonly IPolygonClient _polygonClient = serviceProvider.GetRequiredService<IPolygonClient>();
+    private readonly IMassiveClient _massiveClient = serviceProvider.GetRequiredService<IMassiveClient>();
     private readonly IAmazonS3 _s3Client = serviceProvider.GetRequiredService<IAmazonS3>();
     private readonly IAmazonDynamoDB _dynamoDb = serviceProvider.GetRequiredService<IAmazonDynamoDB>();
     private readonly ILogger<AggregatorFunction> _logger = serviceProvider.GetRequiredService<ILogger<AggregatorFunction>>();
@@ -128,7 +128,7 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
         var timer = Stopwatch.StartNew();
 
         var tickers = new List<TickerDetails>();
-        var stocksTickersResponse = await _polygonClient.GetTickers(new PolygonGetTickersRequest
+        var stocksTickersResponse = await _massiveClient.GetTickers(new MassiveGetTickersRequest
         {
             Market = "stocks",
             Active = true,
@@ -136,7 +136,7 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
         });
         tickers.AddRange(stocksTickersResponse.Results);
 
-        var etfTickersResponse = await _polygonClient.GetTickers(new PolygonGetTickersRequest
+        var etfTickersResponse = await _massiveClient.GetTickers(new MassiveGetTickersRequest
         {
             Market = "stocks",
             Active = true,
@@ -186,7 +186,7 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
         foreach (var batch in tickers.Chunk(_batchSize))
         {
             var results = await Task.WhenAll(batch.Select(ticker => GetAggregateAsync(request, ticker)));
-            var validResults = results.OfType<PolygonAggregateResponse>();
+            var validResults = results.OfType<MassiveAggregateResponse>();
 
             _logger.LogInformation("Found {count} valid aggregate results.", validResults.Count());
 
@@ -273,7 +273,7 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
 
         try
         {
-            var response = await _polygonClient.GetTickerDetails(ticker);
+            var response = await _massiveClient.GetTickerDetails(ticker);
 
             return response?.TickerDetails;
         }
@@ -284,11 +284,11 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
         }
     }
 
-    private async Task<PolygonAggregateResponse?> GetAggregateAsync(MarketDataAggregatorRequest request, TickerDetails ticker)
+    private async Task<MassiveAggregateResponse?> GetAggregateAsync(MarketDataAggregatorRequest request, TickerDetails ticker)
     {
         var endOfDay = GetEndDate(request.Date).ToUnixTimeMilliseconds();
 
-        var response = await _polygonClient.GetAggregates(new PolygonAggregateRequest
+        var response = await _massiveClient.GetAggregates(new MassiveAggregateRequest
         {
             Ticker = ticker.Ticker,
             Multiplier = request.Multiplier,
@@ -326,7 +326,7 @@ public class AggregatorFunction(IServiceProvider serviceProvider)
         return new DateTimeOffset(date.Year, date.Month, date.Day, 23, 59, 0, offset);
     }
 
-    private static StocksResponse MapToStocksResponse(PolygonAggregateResponse response)
+    private static StocksResponse MapToStocksResponse(MassiveAggregateResponse response)
     {
         return new StocksResponse
         {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
@@ -11,7 +11,7 @@ using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Contracts.Responses.Market;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Enums;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using MarketViewer.Contracts.Models.Indicator;
 using Microsoft.Extensions.Logging;
 

@@ -1,6 +1,6 @@
 using MarketViewer.Contracts.Responses.Market;
 using MarketViewer.Contracts.Enums;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using Xunit;
 using MarketViewer.Contracts.Models;
 

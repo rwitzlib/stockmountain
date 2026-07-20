@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -11,7 +11,7 @@ using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Requests.Market.Scan;
 using MarketViewer.Contracts.Responses.Market;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using MarketViewer.Filters;
 using MarketViewer.Filters.Expressions;
 using MarketViewer.Filters.Interfaces;

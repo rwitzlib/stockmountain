@@ -2,8 +2,8 @@ using FluentAssertions;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Infrastructure.Mapping;
-using Polygon.Client.Models;
-using Polygon.Client.Responses;
+using Massive.Client.Models;
+using Massive.Client.Responses;
 using Xunit;
 
 namespace MarketViewer.Infrastructure.UnitTests.Mappings;
@@ -11,7 +11,7 @@ namespace MarketViewer.Infrastructure.UnitTests.Mappings;
 public class AggregateMapperUnitTests
 {
     [Fact]
-    public void ToPolygonRequest_Maps_StocksRequest_Fields()
+    public void ToMassiveRequest_Maps_StocksRequest_Fields()
     {
         var from = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var to = new DateTimeOffset(2024, 1, 31, 0, 0, 0, TimeSpan.Zero);
@@ -25,7 +25,7 @@ public class AggregateMapperUnitTests
             Limit = 1000
         };
 
-        var result = AggregateMapper.ToPolygonRequest(request);
+        var result = AggregateMapper.ToMassiveRequest(request);
 
         result.Ticker.Should().Be("AAPL");
         result.Multiplier.Should().Be(5);
@@ -38,9 +38,9 @@ public class AggregateMapperUnitTests
     }
 
     [Fact]
-    public void ToStocksResponse_Maps_PolygonAggregateResponse_Fields()
+    public void ToStocksResponse_Maps_MassiveAggregateResponse_Fields()
     {
-        var response = new PolygonAggregateResponse
+        var response = new MassiveAggregateResponse
         {
             Ticker = "AAPL",
             Status = "OK",

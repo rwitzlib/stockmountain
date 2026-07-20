@@ -3,7 +3,7 @@ using MarketViewer.Contracts.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using System.Net;
 
 namespace MarketViewer.Api.Controllers.Market

@@ -30,7 +30,7 @@
 
 //    public async Task Execute(IJobExecutionContext context)
 //    {
-//        // Replace this with call to polygon to check if market is open.
+//        // Replace this with a call to Massive to check if the market is open.
 //        if (DateTimeOffset.Now.DayOfWeek == DayOfWeek.Saturday || DateTimeOffset.Now.DayOfWeek == DayOfWeek.Sunday)
 //        {
 //            return;

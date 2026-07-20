@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 using Xunit.Abstractions;
 
 namespace MarketViewer.Infrastructure.UnitTests.Performance
@@ -61,9 +61,9 @@ namespace MarketViewer.Infrastructure.UnitTests.Performance
             //    new StocksResponse
             //    {
             //        Ticker = "asdf",
-            //        Results = new List<Polygon.Client.Models.Bar>
+            //        Results = new List<Massive.Client.Models.Bar>
             //        {
-            //            new Polygon.Client.Models.Bar
+            //            new Massive.Client.Models.Bar
             //            {
             //                Close = 1234
             //            }

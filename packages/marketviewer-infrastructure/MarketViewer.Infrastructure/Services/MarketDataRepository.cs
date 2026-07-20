@@ -1,25 +1,25 @@
-﻿using MarketViewer.Contracts.Interfaces;
+using MarketViewer.Contracts.Interfaces;
 using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Contracts.Responses.Market;
 using MarketViewer.Infrastructure.Mapping;
 using Microsoft.Extensions.Logging;
-using Polygon.Client.Interfaces;
+using Massive.Client.Interfaces;
 
 namespace MarketViewer.Infrastructure.Services
 {
     public class MarketDataRepository(
-        IPolygonClient polygonClient,
+        IMassiveClient massiveClient,
         ILogger<MarketDataRepository> logger) : IMarketDataRepository
     {
         public async Task<StocksResponse> GetStockDataAsync(StocksRequest request)
         {
             try
             {
-                var aggregateRequest = AggregateMapper.ToPolygonRequest(request);
+                var aggregateRequest = AggregateMapper.ToMassiveRequest(request);
 
-                var polygonResponse = await polygonClient.GetAggregates(aggregateRequest);
+                var massiveResponse = await massiveClient.GetAggregates(aggregateRequest);
 
-                var stocksResponse = AggregateMapper.ToStocksResponse(polygonResponse);
+                var stocksResponse = AggregateMapper.ToStocksResponse(massiveResponse);
 
                 return stocksResponse;
             }

@@ -1,7 +1,7 @@
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 
 namespace MarketViewer.Api.Services;
 

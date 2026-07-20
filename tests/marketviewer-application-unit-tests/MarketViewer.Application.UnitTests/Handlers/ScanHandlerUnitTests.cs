@@ -1,4 +1,4 @@
-﻿using Amazon;
+using Amazon;
 using Amazon.S3;
 using FluentAssertions;
 using MarketViewer.Application.Handlers.Data.Tickers;
@@ -11,8 +11,8 @@ using MarketViewer.Contracts.Responses.Market;
 using MarketViewer.Filters;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
-using Polygon.Client.Models;
-using Polygon.Client.Responses;
+using Massive.Client.Models;
+using Massive.Client.Responses;
 using Xunit;
 
 namespace MarketViewer.Application.UnitTests.Handlers;
@@ -181,7 +181,7 @@ public class ScanHandlerUnitTests
 
         if (bar is null)
         {
-            _marketCache.AddLiveBar(new PolygonWebsocketAggregateResponse
+            _marketCache.AddLiveBar(new MassiveWebsocketAggregateResponse
             {
                 Ticker = "SPY",
                 TickVwap = latestBarShouldPassFilters ? 1000 : 0,
@@ -226,7 +226,7 @@ public class ScanHandlerUnitTests
 
         if (bar is null)
         {
-            _marketCache.AddLiveBar(new PolygonWebsocketAggregateResponse
+            _marketCache.AddLiveBar(new MassiveWebsocketAggregateResponse
             {
                 Ticker = "SPY",
                 Volume = latestBarShouldPassFilters ? 1000 : 0,

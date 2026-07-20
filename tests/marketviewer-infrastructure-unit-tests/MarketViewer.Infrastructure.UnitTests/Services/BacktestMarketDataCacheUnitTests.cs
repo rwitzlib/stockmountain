@@ -1,4 +1,4 @@
-﻿//using AutoFixture;
+//using AutoFixture;
 //using Moq;
 //using Xunit;
 //using FluentAssertions;
@@ -78,7 +78,7 @@
 //        {
 //            // Arrange
 //            var request = _autoFixture.Create<ScanRequest>();
-//            var aggregates = _autoFixture.CreateMany<PolygonAggregateResponse>(100);
+//            var aggregates = _autoFixture.CreateMany<MassiveAggregateResponse>(100);
 //            //_memoryCache.Setup(q => q.TryGetValue(It.IsAny<string>(), out aggregates));
 
 //            // Act
@@ -94,7 +94,7 @@
 //        {
 //            // Arrange
 //            var request = _autoFixture.Create<ScanRequest>();
-//            var aggregates = _autoFixture.CreateMany<PolygonAggregateResponse>(100);
+//            var aggregates = _autoFixture.CreateMany<MassiveAggregateResponse>(100);
 //            aggregates.First().Results = _autoFixture.CreateMany<Candle>(100).ToList();
 //            //_memoryCache.Setup(q => q.TryGetValue(It.IsAny<string>(), out aggregates));
 
@@ -107,7 +107,7 @@
 
 //        private void GivenS3ReturnsAggregates()
 //        {
-//            var aggregates = _autoFixture.CreateMany<PolygonAggregateResponse>(100);
+//            var aggregates = _autoFixture.CreateMany<MassiveAggregateResponse>(100);
 //            var json = JsonSerializer.Serialize(aggregates);
 
 //            var stream = new MemoryStream();

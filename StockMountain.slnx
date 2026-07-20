@@ -6,9 +6,6 @@
   <Folder Name="/apps/api/">
     <Project Path="apps/api/MarketViewer.Api/MarketViewer.Api.csproj" />
   </Folder>
-  <Folder Name="/apps/backtester-api/">
-    <Project Path="apps/backtester-api/Backtester.Api/Backtester.Api.csproj" />
-  </Folder>
   <Folder Name="/apps/backtester/">
     <Project Path="apps/backtester/Backtest.Lambda/Backtest.Lambda.csproj" />
   </Folder>
@@ -19,6 +16,9 @@
     <Project Path="apps/paper-bot-runner/Optimus/Optimus.csproj" />
   </Folder>
   <Folder Name="/packages/" />
+  <Folder Name="/packages/massive-client/">
+    <Project Path="packages/massive-client/Massive.Client/Massive.Client.csproj" />
+  </Folder>
   <Folder Name="/packages/marketviewer-application/">
     <Project Path="packages/marketviewer-application/MarketViewer.Application/MarketViewer.Application.csproj" />
   </Folder>
@@ -52,6 +52,9 @@
   <Folder Name="/tests/" />
   <Folder Name="/tests/backtester-unit-tests/">
     <Project Path="tests/backtest-lambda-unit-tests/Backtest.Lambda.UnitTests/Backtest.Lambda.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/massive-client-unit-tests/">
+    <Project Path="tests/massive-client-unit-tests/Massive.Client.UnitTests/Massive.Client.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/market-data-aggregator-unit-tests/">
     <Project Path="tests/market-data-aggregator-unit-tests/MarketDataAggregator.UnitTests/MarketDataAggregator.UnitTests.csproj" />

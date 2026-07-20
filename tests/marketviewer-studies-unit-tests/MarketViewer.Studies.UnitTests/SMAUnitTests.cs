@@ -1,8 +1,8 @@
-﻿using AutoFixture;
+using AutoFixture;
 using Moq.AutoMock;
 using Xunit;
 using FluentAssertions;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using System.Text.Json;
 using MarketViewer.Studies.Studies;
 using MarketViewer.Contracts.Enums;

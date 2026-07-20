@@ -1,4 +1,4 @@
-﻿using Amazon.S3;
+using Amazon.S3;
 using Amazon.S3.Model;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Enums;
@@ -6,7 +6,7 @@ using MarketViewer.Contracts.MarketData;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Responses.Market;
 using Microsoft.Extensions.Logging;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using System.Diagnostics;
 using System.Text.Json;
 

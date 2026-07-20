@@ -1,6 +1,6 @@
-﻿using MarketViewer.Contracts.Models.Indicator;
+using MarketViewer.Contracts.Models.Indicator;
 using MarketViewer.Contracts.Responses.Market;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 
 namespace MarketViewer.Studies.Studies;
 

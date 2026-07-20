@@ -1,4 +1,4 @@
-﻿using Polygon.Client.Models;
+using Massive.Client.Models;
 using System.Diagnostics.CodeAnalysis;
 
 namespace MarketViewer.Contracts.Models.Snapshot;

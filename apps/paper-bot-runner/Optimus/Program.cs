@@ -13,7 +13,7 @@ using Optimus.Authorization;
 using Optimus.HostedServices;
 using Optimus.Infrastructure.DependencyInjection;
 using Optimus.Services;
-using Polygon.Client.DependencyInjection;
+using Massive.Client.DependencyInjection;
 using Quartz;
 using SchwabApi.DependencyInjection;
 using System.Text.Json.Serialization;
@@ -40,7 +40,9 @@ internal class Program
             .AddSingleton<SellWorker>()
             .AddSingleton<TradeExecutionService>()
             .AddSingleton<UnrealizedPnlService>()
-            .AddPolygonClient(builder.Configuration.GetSection("Tokens").GetValue<string>("PolygonApi"));
+            .AddMassiveClient(
+                Environment.GetEnvironmentVariable("MASSIVE_TOKEN")
+                ?? builder.Configuration.GetSection("Tokens").GetValue<string>("MassiveApi"));
 
         builder.Services.AddHttpClient<UnrealizedPnlService>(client =>
         {

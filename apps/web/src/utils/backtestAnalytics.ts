@@ -203,6 +203,74 @@ export function dateTicks(dates: string[], maxLabels: number): DateTick[] {
   return ticks;
 }
 
+export type PnlBucketUnit = 'day' | 'week' | 'month';
+
+export interface PnlBucket {
+  /** First trading day in the bucket (YYYY-MM-DD) */
+  date: string;
+  pnl: number;
+  tradesTaken: number;
+  /** Balance at the bucket's close */
+  totalBalance: number;
+  /** Trading days rolled into the bucket */
+  days: number;
+}
+
+/** Monday of the calendar week containing the given day */
+function weekKey(day: string): string {
+  const d = new Date(`${day}T12:00:00`);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Daily P&L rolled up so at most maxBars bars are drawn: day-level while it
+ * fits, then calendar weeks, then calendar months (used even past maxBars —
+ * there is no coarser unit).
+ */
+export function binDailyPnl(
+  equity: EquityPoint[],
+  maxBars: number
+): { unit: PnlBucketUnit; buckets: PnlBucket[] } {
+  const day = (pt: EquityPoint) => pt.date.slice(0, 10);
+
+  if (equity.length <= maxBars) {
+    return {
+      unit: 'day',
+      buckets: equity.map((pt) => ({
+        date: day(pt),
+        pnl: pt.dayProfit,
+        tradesTaken: pt.tradesTaken,
+        totalBalance: pt.totalBalance,
+        days: 1,
+      })),
+    };
+  }
+
+  let result: { unit: PnlBucketUnit; buckets: PnlBucket[] } = { unit: 'day', buckets: [] };
+  for (const unit of ['week', 'month'] as const) {
+    const keyOf =
+      unit === 'week' ? (pt: EquityPoint) => weekKey(day(pt)) : (pt: EquityPoint) => day(pt).slice(0, 7);
+    const buckets: PnlBucket[] = [];
+    let lastKey: string | null = null;
+    for (const pt of equity) {
+      const key = keyOf(pt);
+      if (key !== lastKey) {
+        buckets.push({ date: day(pt), pnl: 0, tradesTaken: 0, totalBalance: pt.totalBalance, days: 0 });
+        lastKey = key;
+      }
+      const bucket = buckets[buckets.length - 1];
+      bucket.pnl += pt.dayProfit;
+      bucket.tradesTaken += pt.tradesTaken;
+      bucket.totalBalance = pt.totalBalance;
+      bucket.days++;
+    }
+    result = { unit, buckets };
+    if (buckets.length <= maxBars) break;
+  }
+  return result;
+}
+
 export function computeDerivedTradeStats(trades: ExecutedTrade[]): DerivedTradeStats | null {
   if (trades.length === 0) return null;
 

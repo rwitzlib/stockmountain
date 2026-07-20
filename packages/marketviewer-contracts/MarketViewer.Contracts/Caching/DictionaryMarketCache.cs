@@ -1,11 +1,11 @@
-﻿using Amazon.S3;
+using Amazon.S3;
 using Amazon.S3.Model;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.MarketData;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Responses.Market;
-using Polygon.Client.Models;
-using Polygon.Client.Responses;
+using Massive.Client.Models;
+using Massive.Client.Responses;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
@@ -108,7 +108,7 @@ public class DictionaryMarketCache(IAmazonS3 _amazonS3) : IMarketCache
         _tickerDetails.AddOrUpdate($"TickerDetails/{tickerDetails.Ticker}", tickerDetails, (s, t) => t);
     }
 
-    public void AddLiveBar(PolygonWebsocketAggregateResponse bar)
+    public void AddLiveBar(MassiveWebsocketAggregateResponse bar)
     {
         throw new NotImplementedException();
     }

@@ -1,6 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using MarketViewer.Contracts.Models.Indicator;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 
 namespace MarketViewer.Contracts.Responses.Market;
 

@@ -1,5 +1,5 @@
-﻿using MarketViewer.Contracts.Responses.Market;
-using Polygon.Client.Models;
+using MarketViewer.Contracts.Responses.Market;
+using Massive.Client.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;

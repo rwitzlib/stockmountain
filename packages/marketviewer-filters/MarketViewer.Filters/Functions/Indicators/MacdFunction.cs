@@ -1,6 +1,6 @@
 using MarketViewer.Filters.Interfaces;
 using MarketViewer.Contracts.Responses.Market;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 
 namespace MarketViewer.Filters.Functions.Indicators;
 

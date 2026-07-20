@@ -137,7 +137,7 @@ public class SupportResistanceFunction : ISeriesFunction
         return (lookback, swing, clusterPercent, atrMultiplier, atrPeriod, minTouches);
     }
 
-    private static double[] ComputeAtrSeries(IReadOnlyList<Polygon.Client.Models.Bar> bars, int period)
+    private static double[] ComputeAtrSeries(IReadOnlyList<Massive.Client.Models.Bar> bars, int period)
     {
         var trueRanges = new double[bars.Count];
         trueRanges[0] = Math.Max(Epsilon, bars[0].High - bars[0].Low);
@@ -171,7 +171,7 @@ public class SupportResistanceFunction : ISeriesFunction
         return atr;
     }
 
-    private static (double High, double Low, double AvgVolume) ComputeWindowStats(IReadOnlyList<Polygon.Client.Models.Bar> bars, int start, int end)
+    private static (double High, double Low, double AvgVolume) ComputeWindowStats(IReadOnlyList<Massive.Client.Models.Bar> bars, int start, int end)
     {
         double high = double.MinValue;
         double low = double.MaxValue;
@@ -189,7 +189,7 @@ public class SupportResistanceFunction : ISeriesFunction
         return (high, low, volumeSum / Math.Max(1, count));
     }
 
-    private static PivotLevels? ComputePivotLevels(IReadOnlyList<Polygon.Client.Models.Bar> bars, int start, int end)
+    private static PivotLevels? ComputePivotLevels(IReadOnlyList<Massive.Client.Models.Bar> bars, int start, int end)
     {
         if (start < 0)
         {
@@ -283,7 +283,7 @@ public class SupportResistanceFunction : ISeriesFunction
     private static void GatherSwingCandidates(
         List<LevelCandidate> supports,
         List<LevelCandidate> resistances,
-        IReadOnlyList<Polygon.Client.Models.Bar> bars,
+        IReadOnlyList<Massive.Client.Models.Bar> bars,
         int windowStart,
         int currentIndex,
         int swing,
@@ -354,7 +354,7 @@ public class SupportResistanceFunction : ISeriesFunction
     private static void AddVolumeProfileCandidates(
         List<LevelCandidate> supports,
         List<LevelCandidate> resistances,
-        IReadOnlyList<Polygon.Client.Models.Bar> bars,
+        IReadOnlyList<Massive.Client.Models.Bar> bars,
         int windowStart,
         int currentIndex,
         double tolerance,
@@ -415,7 +415,7 @@ public class SupportResistanceFunction : ISeriesFunction
     private static void AddAnchoredVwapCandidate(
         List<LevelCandidate> supports,
         List<LevelCandidate> resistances,
-        IReadOnlyList<Polygon.Client.Models.Bar> bars,
+        IReadOnlyList<Massive.Client.Models.Bar> bars,
         int windowStart,
         int currentIndex,
         double tolerance,
@@ -440,7 +440,7 @@ public class SupportResistanceFunction : ISeriesFunction
         }
     }
 
-    private static double ComputeAnchoredVwap(IReadOnlyList<Polygon.Client.Models.Bar> bars, int start, int end)
+    private static double ComputeAnchoredVwap(IReadOnlyList<Massive.Client.Models.Bar> bars, int start, int end)
     {
         double pv = 0.0;
         double volumeSum = 0.0;
@@ -535,7 +535,7 @@ public class SupportResistanceFunction : ISeriesFunction
 
     private static void ApplyBrokenPenalty(
         List<Zone> zones,
-        IReadOnlyList<Polygon.Client.Models.Bar> bars,
+        IReadOnlyList<Massive.Client.Models.Bar> bars,
         int windowStart,
         int windowEnd)
     {
@@ -601,7 +601,7 @@ public class SupportResistanceFunction : ISeriesFunction
     }
 
     private static SupportResistanceResult BuildResult(
-        Polygon.Client.Models.Bar bar,
+        Massive.Client.Models.Bar bar,
         Zone? supportZone,
         Zone? resistanceZone)
     {

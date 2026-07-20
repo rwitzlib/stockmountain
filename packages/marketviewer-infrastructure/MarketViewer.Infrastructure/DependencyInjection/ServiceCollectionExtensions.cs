@@ -1,4 +1,4 @@
-﻿using Amazon;
+using Amazon;
 using Amazon.Lambda;
 using Amazon.S3;
 using MarketViewer.Infrastructure.Services;
@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MarketViewer.Contracts.Interfaces;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Configuration;
-using Polygon.Client.DependencyInjection;
+using Massive.Client.DependencyInjection;
 using MarketViewer.Contracts.Caching;
 using Amazon.DynamoDBv2;
 using MarketViewer.Infrastructure.Config;
@@ -20,7 +20,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection RegisterInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var token = Environment.GetEnvironmentVariable("POLYGON_TOKEN") ?? configuration.GetSection("Tokens").GetValue<string>("PolygonApi");
+        var token = Environment.GetEnvironmentVariable("MASSIVE_TOKEN") ?? configuration.GetSection("Tokens").GetValue<string>("MassiveApi");
 
         services.AddSingleton(configuration.GetSection("UserConfig").Get<UserConfig>());
         services.AddSingleton(configuration.GetSection("StrategyConfig").Get<StrategyConfig>());
@@ -33,7 +33,7 @@ public static class ServiceCollectionExtensions
         
 
         services.AddSingleton<IAmazonS3>(client => new AmazonS3Client(RegionEndpoint.USEast2))
-            .AddPolygonClient(token)
+            .AddMassiveClient(token)
             .AddSingleton<IMarketCache, MemoryMarketCache>()
             .AddSingleton<IAmazonLambda, AmazonLambdaClient>(_ => new AmazonLambdaClient(RegionEndpoint.USEast2))
             .AddSingleton<IAmazonDynamoDB, AmazonDynamoDBClient>(client => new AmazonDynamoDBClient(RegionEndpoint.USEast2))

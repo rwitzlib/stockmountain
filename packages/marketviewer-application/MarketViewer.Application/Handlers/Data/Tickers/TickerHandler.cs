@@ -1,13 +1,13 @@
-﻿using Amazon.SQS.Model;
+using Amazon.SQS.Model;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Records.Data;
 using MarketViewer.Contracts.Requests.Data.Ticker;
 using MarketViewer.Contracts.Responses.Data.Ticker;
 using MarketViewer.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
-using Polygon.Client.Interfaces;
-using Polygon.Client.Models;
-using Polygon.Client.Requests;
+using Massive.Client.Interfaces;
+using Massive.Client.Models;
+using Massive.Client.Requests;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 namespace MarketViewer.Application.Handlers.Data.Tickers;
 
 public class TickerHandler(
-    IPolygonClient polygonClient,
+    IMassiveClient massiveClient,
     MetaRepository metaRepository,
     ILogger<TickerHandler> logger)
 {
@@ -77,7 +77,7 @@ public class TickerHandler(
             {
                 for (int j = 0; j < request.Types.Count; j++)
                 {
-                    var tickersResponse = await polygonClient.GetTickers(new PolygonGetTickersRequest
+                    var tickersResponse = await massiveClient.GetTickers(new MassiveGetTickersRequest
                     {
                         Market = request.Markets[i],
                         Active = request.Active,

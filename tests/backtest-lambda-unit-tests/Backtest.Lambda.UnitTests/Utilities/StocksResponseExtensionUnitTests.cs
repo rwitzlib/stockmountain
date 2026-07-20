@@ -1,9 +1,9 @@
-﻿using Backtest.Lambda.Utilities;
+using Backtest.Lambda.Utilities;
 using FluentAssertions;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Responses.Market;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 
 namespace Backtest.Lambda.UnitTests.Utilities;
 

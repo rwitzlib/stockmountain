@@ -12,8 +12,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.AutoMock;
-using Polygon.Client.Interfaces;
-using Polygon.Client.Requests;
+using Massive.Client.Interfaces;
+using Massive.Client.Requests;
 using Xunit;
 
 namespace MarketDataAggregator.UnitTests;
@@ -39,7 +39,7 @@ public class AggregatorFunctionTest
         var services = new ServiceCollection();
         services.AddSingleton(_autoMocker.GetMock<IAmazonS3>().Object);
         services.AddSingleton(_autoMocker.GetMock<IAmazonDynamoDB>().Object);
-        services.AddSingleton(_autoMocker.GetMock<IPolygonClient>().Object);
+        services.AddSingleton(_autoMocker.GetMock<IMassiveClient>().Object);
         services.AddSingleton<ILogger<AggregatorFunction>>(_autoMocker.GetMock<ILogger<AggregatorFunction>>().Object);
         services.AddSingleton<IValidator<MarketDataAggregatorRequest>, MarketDataAggregatorRequestValidator>();
         var serviceProvider = services.BuildServiceProvider();
@@ -50,8 +50,8 @@ public class AggregatorFunctionTest
         await function.FunctionHandler(request, context);
 
         _autoMocker.GetMock<IAmazonS3>().Verify(q => q.PutObjectAsync(It.IsAny<PutObjectRequest>(), default), Times.Never());
-        _autoMocker.GetMock<IPolygonClient>().Verify(q => q.GetTickers(It.IsAny<PolygonGetTickersRequest>()), Times.Never());
-        _autoMocker.GetMock<IPolygonClient>().Verify(q => q.GetAggregates(It.IsAny<PolygonAggregateRequest>()), Times.Never());
+        _autoMocker.GetMock<IMassiveClient>().Verify(q => q.GetTickers(It.IsAny<MassiveGetTickersRequest>()), Times.Never());
+        _autoMocker.GetMock<IMassiveClient>().Verify(q => q.GetAggregates(It.IsAny<MassiveAggregateRequest>()), Times.Never());
     }
 
     [Theory]

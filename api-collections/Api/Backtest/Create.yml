@@ -10,7 +10,7 @@ http:
     type: json
     data: |-
       {
-        "Start": "2026-06-01",
+        "Start": "2025-01-01",
         "End": "2026-06-30",
         "PositionSettings": {
           "StartingBalance": 100000,
@@ -26,8 +26,8 @@ http:
         },
         "EntrySettings": {
           "Filters": [
-            "rsi(30,70,14,ema) > 70.000001 [1m]",
-            "time < 10:15"
+            "rsi(30,70,14,ema) > 70 [1m]",
+            "time < 10:00"
           ]
         },
         "ExitSettings": {
@@ -35,13 +35,13 @@ http:
             "CandleType": "CurrentCandle",
             "PriceActionType": "close",
             "ExitValueType": "percent",
-            "Value": 5
+            "Value": 2.5
           },
           "TakeProfit": {
             "CandleType": "CurrentCandle",
             "PriceActionType": "close",
             "ExitValueType": "percent",
-            "Value": 10
+            "Value": 15
           },
           "TimedExit": {
             "Timeframe": {

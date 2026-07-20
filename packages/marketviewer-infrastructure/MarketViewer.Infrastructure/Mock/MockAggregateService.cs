@@ -1,6 +1,6 @@
-﻿using MarketViewer.Contracts.Interfaces;
+using MarketViewer.Contracts.Interfaces;
 using System.Diagnostics.CodeAnalysis;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Contracts.Responses.Market;
 
@@ -26,7 +26,7 @@ namespace MarketViewer.Infrastructure.Mock
 
             //    var data = await File.ReadAllTextAsync(mockMinute);
 
-            //    var aggregateResponse = JsonSerializer.Deserialize<PolygonAggregateResponse>(data);
+            //    var aggregateResponse = JsonSerializer.Deserialize<MassiveAggregateResponse>(data);
 
             //    return aggregateResponse;
             //}

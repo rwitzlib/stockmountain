@@ -1,12 +1,12 @@
-﻿using Amazon.S3;
+using Amazon.S3;
 using Amazon.S3.Model;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.MarketData;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Responses.Market;
 using Microsoft.Extensions.Caching.Memory;
-using Polygon.Client.Models;
-using Polygon.Client.Responses;
+using Massive.Client.Models;
+using Massive.Client.Responses;
 using System.Text.Json;
 
 namespace MarketViewer.Contracts.Caching;
@@ -106,7 +106,7 @@ public class MemoryMarketCache(IMemoryCache memoryCache, IAmazonS3 s3) : IMarket
     }
 
 
-    public void AddLiveBar(PolygonWebsocketAggregateResponse webSocketBar)
+    public void AddLiveBar(MassiveWebsocketAggregateResponse webSocketBar)
     {
         var currentBar = memoryCache.Get<Bar>(webSocketBar.Ticker);
 

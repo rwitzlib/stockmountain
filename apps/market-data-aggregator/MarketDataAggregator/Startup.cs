@@ -8,7 +8,7 @@ using MarketDataAggregator.Validation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Polygon.Client.DependencyInjection;
+using Massive.Client.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
 
 namespace MarketDataAggregator;
@@ -26,9 +26,9 @@ public static class Startup
             .AddEnvironmentVariables()
             .Build();
 
-        var token = Environment.GetEnvironmentVariable("POLYGON_TOKEN") ?? configuration.GetSection("Tokens").GetValue<string>("PolygonApi");
+        var token = Environment.GetEnvironmentVariable("MASSIVE_TOKEN") ?? configuration.GetSection("Tokens").GetValue<string>("MassiveApi");
 
-        services.AddPolygonClient(token)
+        services.AddMassiveClient(token)
             .AddSingleton<IAmazonS3, AmazonS3Client>(_ => new AmazonS3Client(new AmazonS3Config
             {
                 RegionEndpoint = RegionEndpoint.USEast2

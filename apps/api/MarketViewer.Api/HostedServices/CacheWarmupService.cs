@@ -11,9 +11,9 @@ using MarketViewer.Contracts.Models.Snapshot;
 using MarketViewer.Contracts.Responses.Tools;
 using MarketViewer.Infrastructure.Mapping;
 using Microsoft.Extensions.Caching.Memory;
-using Polygon.Client.Interfaces;
-using Polygon.Client.Models;
-using Polygon.Client.Requests;
+using Massive.Client.Interfaces;
+using Massive.Client.Models;
+using Massive.Client.Requests;
 using Quartz;
 using System.Diagnostics;
 using System.Net;
@@ -29,7 +29,7 @@ namespace MarketViewer.Api.HostedServices
         IMarketCache marketCache,
         ISchedulerFactory schedulerFactory,
         IMemoryCache memoryCache,
-        IPolygonClient polygonClient,
+        IMassiveClient massiveClient,
         CacheWarmupState warmupState,
         BarCacheService barCacheService,
         ILogger<CacheWarmupService> logger) : IHostedLifecycleService
@@ -248,7 +248,7 @@ namespace MarketViewer.Api.HostedServices
                     {
                         var start = date.Add(GetStartOffset(timeframe.Timespan));
 
-                        var polygonAggregateRequest = new PolygonAggregateRequest
+                        var massiveAggregateRequest = new MassiveAggregateRequest
                         {
                             Ticker = ticker,
                             Multiplier = timeframe.Multiplier,
@@ -258,8 +258,8 @@ namespace MarketViewer.Api.HostedServices
                             Limit = 50000
                         };
 
-                        var polygonAggregateResponse = await polygonClient.GetAggregates(polygonAggregateRequest);
-                        var stocksResponse = AggregateMapper.ToStocksResponse(polygonAggregateResponse);
+                        var massiveAggregateResponse = await massiveClient.GetAggregates(massiveAggregateRequest);
+                        var stocksResponse = AggregateMapper.ToStocksResponse(massiveAggregateResponse);
 
                         marketCache.SetStocksResponse(stocksResponse, timeframe, date);
                     }
@@ -373,13 +373,13 @@ namespace MarketViewer.Api.HostedServices
                     }
 
                     var sp = Stopwatch.StartNew();
-                    var polygonSnapshotResponse = await polygonClient.GetAllTickersSnapshot(null);
+                    var massiveSnapshotResponse = await massiveClient.GetAllTickersSnapshot(null);
                     
-                    warmupState.BufferSnapshot(polygonSnapshotResponse);
+                    warmupState.BufferSnapshot(massiveSnapshotResponse);
                     
                     sp.Stop();
                     
-                    var spy = polygonSnapshotResponse.Tickers?.FirstOrDefault(q => q.Ticker == "SPY");
+                    var spy = massiveSnapshotResponse.Tickers?.FirstOrDefault(q => q.Ticker == "SPY");
                     if (spy?.Minute != null)
                     {
                         logger.LogInformation(

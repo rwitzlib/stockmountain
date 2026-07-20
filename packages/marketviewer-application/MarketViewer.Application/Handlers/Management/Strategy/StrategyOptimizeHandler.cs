@@ -1,4 +1,4 @@
-﻿using MarketViewer.Contracts.Enums;
+using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Interfaces;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Records;
@@ -11,7 +11,7 @@ using MarketViewer.Core.Services;
 using MarketViewer.Filters;
 using MarketViewer.Filters.Interfaces;
 using Microsoft.Extensions.Logging;
-using Polygon.Client.Interfaces;
+using Massive.Client.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,7 +26,7 @@ public class StrategyOptimizeHandler(
     IStrategyRepository strategyRepository,
     ITradeRepository tradeRepository,
     IMarketDataRepository marketDataRepository,
-    IPolygonClient polygonClient,
+    IMassiveClient massiveClient,
     IndicatorExpressionEngine engine,
     ILogger<StrategyCreateHandler> logger)
 {
@@ -182,7 +182,7 @@ public class StrategyOptimizeHandler(
             Limit = 5000
         });
 
-        var tickerDetails = await polygonClient.GetTickerDetails(trade.Ticker);
+        var tickerDetails = await massiveClient.GetTickerDetails(trade.Ticker);
 
         stocksResponse.TickerInfo = new StocksResponse.Information
         {

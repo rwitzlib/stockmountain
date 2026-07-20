@@ -1,11 +1,11 @@
-﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Hosting;
 using System.Net.WebSockets;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
-using Polygon.Client.Responses;
-using Polygon.Client.Requests;
+using Massive.Client.Responses;
+using Massive.Client.Requests;
 using MarketViewer.Contracts.Caching;
 
 namespace MarketViewer.Infrastructure.Services;
@@ -34,11 +34,11 @@ public class StocksLiveFeed(
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                logger.LogInformation("Connecting to PolygonApi Websocket at: {time}", DateTimeOffset.Now);
+                logger.LogInformation("Connecting to MassiveApi WebSocket at: {time}", DateTimeOffset.Now);
 
                 var messageBuilder = new StringBuilder();
 
-                await socket.ConnectAsync(new Uri("wss://socket.polygon.io/stocks"), cancellationToken);
+                await socket.ConnectAsync(new Uri("wss://socket.massive.com/stocks"), cancellationToken);
 
                 var buffer = new byte[MaxBufferSize];
                 while (socket.State == WebSocketState.Open)
@@ -58,7 +58,7 @@ public class StocksLiveFeed(
 
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        logger.LogInformation("Disconnected from PolygonApi Websocket.");
+                        logger.LogInformation("Disconnected from MassiveApi WebSocket.");
                         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, cancellationToken);
                         return;
                     }
@@ -92,7 +92,7 @@ public class StocksLiveFeed(
                         if (firstResponse.Status is "connected")
                         {
                             _isConnected = true;
-                            logger.LogInformation("Connected to PolygonApi Websocket successfully.");
+                            logger.LogInformation("Connected to MassiveApi WebSocket successfully.");
                         }
                     }
 
@@ -101,14 +101,15 @@ public class StocksLiveFeed(
                         if (firstResponse.Status is "auth_success")
                         {
                             _isAuthenticated = true;
-                            logger.LogInformation("Authenticated to PolygonApi Websocket successfully.");
+                            logger.LogInformation("Authenticated to MassiveApi WebSocket successfully.");
                         }
                         else
                         {
-                            var request = JsonSerializer.Serialize(new PolygonWebsocketRequest
+                            var request = JsonSerializer.Serialize(new MassiveWebsocketRequest
                             {
                                 Action = "auth",
-                                Params = configuration.GetSection("Tokens").GetValue<string>("PolygonApi")
+                                Params = Environment.GetEnvironmentVariable("MASSIVE_TOKEN")
+                                    ?? configuration.GetSection("Tokens").GetValue<string>("MassiveApi")
                             });
 
                             await socket.SendAsync(Encoding.UTF8.GetBytes(request), WebSocketMessageType.Text, true, cancellationToken);
@@ -120,11 +121,11 @@ public class StocksLiveFeed(
                         if (firstResponse.Status is "success")
                         {
                             _isSubscribed = true;
-                            logger.LogInformation("Subscribed to PolygonApi Websocket successfully.");
+                            logger.LogInformation("Subscribed to MassiveApi WebSocket successfully.");
                         }
                         else
                         {
-                            var request = JsonSerializer.Serialize(new PolygonWebsocketRequest
+                            var request = JsonSerializer.Serialize(new MassiveWebsocketRequest
                             {
                                 Action = "subscribe",
                                 Params = "A.*"
@@ -138,7 +139,7 @@ public class StocksLiveFeed(
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Error in PolygonApi Websocket connection: {message}. ", e.Message);
+            logger.LogError(e, "Error in MassiveApi WebSocket connection: {message}. ", e.Message);
             logger.LogError("WebSocket state: {state}", socket.State);
             if (socket.State == WebSocketState.Open)
             {
@@ -150,15 +151,15 @@ public class StocksLiveFeed(
             _isConnected = false;
             _isAuthenticated = false;
             _isSubscribed = false;
-            logger.LogInformation("PolygonApi Websocket service stopped.");
+            logger.LogInformation("MassiveApi WebSocket service stopped.");
         }
     }
 
-    private bool TryDeserialize(string json, out List<PolygonWebsocketAggregateResponse> response)
+    private bool TryDeserialize(string json, out List<MassiveWebsocketAggregateResponse> response)
     {
         try
         {
-            response = JsonSerializer.Deserialize<List<PolygonWebsocketAggregateResponse>>(json);
+            response = JsonSerializer.Deserialize<List<MassiveWebsocketAggregateResponse>>(json);
 
             return true;
         }

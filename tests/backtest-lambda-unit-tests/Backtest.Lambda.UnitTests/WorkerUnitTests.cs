@@ -28,13 +28,13 @@
 //         using var client = new AmazonSimpleSystemsManagementClient(RegionEndpoint.USEast2);
 //         var response = client.GetParameterAsync(new GetParameterRequest
 //         {
-//             Name = "/tokens/polygon",
+//             Name = "/tokens/massive",
 //             WithDecryption = true
 //         }).Result;
 //
 //         if (response.HttpStatusCode == HttpStatusCode.OK)
 //         {
-//             Environment.SetEnvironmentVariable("POLYGON_TOKEN", response.Parameter.Value);
+//             Environment.SetEnvironmentVariable("MASSIVE_TOKEN", response.Parameter.Value);
 //         }
 //
 //         _classUnderTest = new WorkerFunction();

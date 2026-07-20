@@ -13,10 +13,10 @@ using MarketViewer.Filters;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Polygon.Client.Interfaces;
-using Polygon.Client.Models;
-using Polygon.Client.Requests;
-using Polygon.Client.Responses;
+using Massive.Client.Interfaces;
+using Massive.Client.Models;
+using Massive.Client.Requests;
+using Massive.Client.Responses;
 using System.Data;
 using System.Diagnostics;
 using System.Net;
@@ -27,7 +27,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 {
     private readonly IMarketCache _marketCache = serviceProvider.GetService<IMarketCache>();
     private readonly IMemoryCache _memoryCache = serviceProvider.GetService<IMemoryCache>();
-    private readonly IPolygonClient _polygonClient = serviceProvider.GetRequiredService<IPolygonClient>();
+    private readonly IMassiveClient _massiveClient = serviceProvider.GetRequiredService<IMassiveClient>();
 
     public readonly ScannerService _scannerService = serviceProvider.GetService<ScannerService>();
     public readonly IndicatorExpressionEngine _engine = serviceProvider.GetService<IndicatorExpressionEngine>();
@@ -147,7 +147,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
     private async Task<(List<BacktestEntryResultCollection> Results, List<string> Errors)> GetBacktestResults(List<StrategyEntry> scannerEntries, WorkerRequest request)
     {
-        int batchSize = int.TryParse(Environment.GetEnvironmentVariable("POLYGON_BATCH_SIZE"), out var polygonBatchSize) ? polygonBatchSize : 750;
+        int batchSize = int.TryParse(Environment.GetEnvironmentVariable("MASSIVE_BATCH_SIZE"), out var massiveBatchSize) ? massiveBatchSize : 750;
         var results = new List<BacktestEntryResultCollection>();
         var errors = new List<string>();
 
@@ -171,7 +171,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             var tickerDetails = _marketCache.GetTickerDetails(entry.Ticker);
 
             var entryEnd = GetStrategyEnd(entry.Start, request.ExitSettings.TimedExit.Timeframe);
-            var polygonRequest = new PolygonAggregateRequest
+            var massiveRequest = new MassiveAggregateRequest
             {
                 Ticker = entry.Ticker,
                 Multiplier = 1,
@@ -181,27 +181,27 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 Limit = 50000
             };
 
-            var polygonResponse = await GetAggregatesWithRetry(polygonRequest);
+            var massiveResponse = await GetAggregatesWithRetry(massiveRequest);
 
-            // The Polygon client never throws: failures come back with Status set to an
+            // The Massive client never throws: failures come back with Status set to an
             // HttpStatusCode name and empty Results. Report those as dropped signals
             // instead of silently treating them like tickers with no data.
-            if (!IsPolygonSuccess(polygonResponse))
+            if (!IsMassiveSuccess(massiveResponse))
             {
-                return (null, $"{entry.Ticker} at {entry.Start:HH:mm}: candle data unavailable ({polygonResponse?.Status ?? "no response"})");
+                return (null, $"{entry.Ticker} at {entry.Start:HH:mm}: candle data unavailable ({massiveResponse?.Status ?? "no response"})");
             }
 
             // A successful response can omit results entirely when the ticker has no
             // bars in the window — that's legitimate no-data, not an error.
-            if (polygonResponse.Results is null || !polygonResponse.Results.Any())
+            if (massiveResponse.Results is null || !massiveResponse.Results.Any())
             {
                 return (null, null);
             }
 
             //var passesExitFiltersTimestamp = await WhenPassesExitFilters(entry, request);
-            //var passesExitFiltersCandle = polygonResponse.Results.FirstOrDefault(q => q.Timestamp >= passesExitFiltersTimestamp?.ToUnixTimeMilliseconds());
+            //var passesExitFiltersCandle = massiveResponse.Results.FirstOrDefault(q => q.Timestamp >= passesExitFiltersTimestamp?.ToUnixTimeMilliseconds());
 
-            entry.Bars = polygonResponse.Results.TakeLast(polygonResponse.Results.Count() - 1);
+            entry.Bars = massiveResponse.Results.TakeLast(massiveResponse.Results.Count() - 1);
 
             // Get candles between 9:30 and 3:59 EST
             List<Bar> candlesWithinMarketHours = [];
@@ -227,16 +227,16 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         }
     }
 
-    private async Task<PolygonAggregateResponse> GetAggregatesWithRetry(PolygonAggregateRequest request)
+    private async Task<MassiveAggregateResponse> GetAggregatesWithRetry(MassiveAggregateRequest request)
     {
         const int MaxAttempts = 3;
 
-        PolygonAggregateResponse response = null;
+        MassiveAggregateResponse response = null;
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
-            response = await _polygonClient.GetAggregates(request);
+            response = await _massiveClient.GetAggregates(request);
 
-            if (IsPolygonSuccess(response) || !IsRetryable(response))
+            if (IsMassiveSuccess(response) || !IsRetryable(response))
             {
                 return response;
             }
@@ -253,9 +253,9 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         return response;
     }
 
-    private static bool IsPolygonSuccess(PolygonAggregateResponse response)
+    private static bool IsMassiveSuccess(MassiveAggregateResponse response)
     {
-        // Success is determined by status alone: Polygon omits the results field when a
+        // Success is determined by status alone: Massive omits the results field when a
         // ticker has no data, while the client's error path always sets a non-OK status.
         return response is not null
             && (string.IsNullOrEmpty(response.Status)
@@ -263,7 +263,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 || response.Status.Equals("DELAYED", StringComparison.OrdinalIgnoreCase));
     }
 
-    private static bool IsRetryable(PolygonAggregateResponse response)
+    private static bool IsRetryable(MassiveAggregateResponse response)
     {
         return response?.Status switch
         {
@@ -545,7 +545,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
     //    foreach (var timeframe in timeframes)
     //    {
-    //        var polygonRequest = new PolygonAggregateRequest
+    //        var massiveRequest = new MassiveAggregateRequest
     //        {
     //            Ticker = entry.Ticker,
     //            Multiplier = timeframe.Multiplier,
@@ -555,9 +555,9 @@ public class WorkerFunction(IServiceProvider serviceProvider)
     //            Limit = 50000
     //        };
 
-    //        var polygonResponse = await _polygonClient.GetAggregates(polygonRequest);
+    //        var massiveResponse = await _massiveClient.GetAggregates(massiveRequest);
 
-    //        var json = JsonSerializer.Serialize(polygonResponse);
+    //        var json = JsonSerializer.Serialize(massiveResponse);
     //        var stocksResponse = JsonSerializer.Deserialize<StocksResponse>(json, Options);
 
     //        stocksResponses.Add(timeframe, stocksResponse);

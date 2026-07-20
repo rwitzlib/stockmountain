@@ -1,7 +1,7 @@
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Responses.Market;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using Xunit;
 
 namespace MarketViewer.Filters.UnitTests;

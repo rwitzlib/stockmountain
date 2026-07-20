@@ -1,9 +1,9 @@
 using FluentAssertions;
 using MarketViewer.Contracts.Responses.Market;
 using MarketViewer.Contracts.Responses.Tools;
-using Polygon.Client;
-using Polygon.Client.Interfaces;
-using Polygon.Client.Requests;
+using Massive.Client;
+using Massive.Client.Interfaces;
+using Massive.Client.Requests;
 using System;
 using System.IO;
 using System.Text.Json;
@@ -24,12 +24,12 @@ namespace MarketViewer.Api.UnitTests.Utilities
         private readonly string _minuteDataPath = Path.Combine("Data", "minute.json");
         private readonly string _hourDataPath = Path.Combine("Data", "hour.json");
 
-        private readonly IPolygonClient _polygonClient;
+        private readonly IMassiveClient _massiveClient;
         private ITestOutputHelper _output;
 
         public MarketDataUnitTests(ITestOutputHelper output)
         {
-            _polygonClient = new PolygonClient("C7rpQgrHdbJpryOfXUW8l3X9gWlFEvH4");
+            _massiveClient = new MassiveClient("C7rpQgrHdbJpryOfXUW8l3X9gWlFEvH4");
             _output = output;
         }
 
@@ -38,26 +38,26 @@ namespace MarketViewer.Api.UnitTests.Utilities
         {
             // Arrange
             var json = File.ReadAllText(_minuteDataPath);
-            var liveData = JsonSerializer.Deserialize<PolygonFidelityResponse>(json, _jsonSerializerOptions);
+            var liveData = JsonSerializer.Deserialize<MassiveFidelityResponse>(json, _jsonSerializerOptions);
 
             foreach (var snapshot in liveData.Minute.Snapshots)
             {
                 var snapshotBar = snapshot.Value.Tickers.FirstOrDefault(q => q.Ticker == "SPY").Minute;
                 
-                var polygonAggregate = liveData.Minute.Aggregates.FirstOrDefault(q => q.Key == snapshot.Key).Value;
-                var polygonAggregateBar = polygonAggregate.Results.FirstOrDefault();
+                var massiveAggregate = liveData.Minute.Aggregates.FirstOrDefault(q => q.Key == snapshot.Key).Value;
+                var massiveAggregateBar = massiveAggregate.Results.FirstOrDefault();
 
                 // Assert
-                Assert.Equal(snapshotBar.Timestamp, polygonAggregateBar.Timestamp);
-                Assert.Equal(snapshotBar.Volume, polygonAggregateBar.Volume);
-                Assert.Equal(snapshotBar.Open, polygonAggregateBar.Open);
-                Assert.Equal(snapshotBar.Close, polygonAggregateBar.Close);
+                Assert.Equal(snapshotBar.Timestamp, massiveAggregateBar.Timestamp);
+                Assert.Equal(snapshotBar.Volume, massiveAggregateBar.Volume);
+                Assert.Equal(snapshotBar.Open, massiveAggregateBar.Open);
+                Assert.Equal(snapshotBar.Close, massiveAggregateBar.Close);
 
                 var liveBar = liveData.Minute.Data.Results.FirstOrDefault(q => q.Timestamp == snapshotBar.Timestamp);
-                Assert.Equal(liveBar.Timestamp, polygonAggregateBar.Timestamp);
-                Assert.Equal(liveBar.Volume, polygonAggregateBar.Volume);
-                Assert.Equal(liveBar.Open, polygonAggregateBar.Open);
-                Assert.Equal(liveBar.Close, polygonAggregateBar.Close);
+                Assert.Equal(liveBar.Timestamp, massiveAggregateBar.Timestamp);
+                Assert.Equal(liveBar.Volume, massiveAggregateBar.Volume);
+                Assert.Equal(liveBar.Open, massiveAggregateBar.Open);
+                Assert.Equal(liveBar.Close, massiveAggregateBar.Close);
             }
         }
 
@@ -66,12 +66,12 @@ namespace MarketViewer.Api.UnitTests.Utilities
         {
             // Arrange
             var json = File.ReadAllText(_minuteDataPath);
-            var liveData = JsonSerializer.Deserialize<PolygonFidelityResponse>(json, _jsonSerializerOptions);
+            var liveData = JsonSerializer.Deserialize<MassiveFidelityResponse>(json, _jsonSerializerOptions);
 
             var firstDate = DateTimeOffset.FromUnixTimeMilliseconds(liveData.Hour.Data.Results[0].Timestamp);
             var lastDate = DateTimeOffset.FromUnixTimeMilliseconds(liveData.Hour.Data.Results[^1].Timestamp);
 
-            var polygonResponse = await _polygonClient.GetAggregates(new PolygonAggregateRequest
+            var massiveResponse = await _massiveClient.GetAggregates(new MassiveAggregateRequest
             {
                 Ticker = liveData.Hour.Ticker,
                 Multiplier = 1,
@@ -81,7 +81,7 @@ namespace MarketViewer.Api.UnitTests.Utilities
                 Limit = 50000
             });
 
-            var backtestData = JsonSerializer.Deserialize<StocksResponse>(JsonSerializer.Serialize(polygonResponse), _jsonSerializerOptions);
+            var backtestData = JsonSerializer.Deserialize<StocksResponse>(JsonSerializer.Serialize(massiveResponse), _jsonSerializerOptions);
 
             backtestData.Results = backtestData.Results
                 .Where(q => q.Timestamp >= firstDate.ToUnixTimeMilliseconds() && q.Timestamp <= lastDate.ToUnixTimeMilliseconds())

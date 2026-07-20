@@ -1,13 +1,13 @@
 using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Contracts.Responses.Market;
-using Polygon.Client.Requests;
-using Polygon.Client.Responses;
+using Massive.Client.Requests;
+using Massive.Client.Responses;
 
 namespace MarketViewer.Infrastructure.Mapping;
 
 public static class AggregateMapper
 {
-    public static PolygonAggregateRequest ToPolygonRequest(StocksRequest request) =>
+    public static MassiveAggregateRequest ToMassiveRequest(StocksRequest request) =>
         new()
         {
             Ticker = request.Ticker.ToUpperInvariant(),
@@ -20,7 +20,7 @@ public static class AggregateMapper
             Limit = request.Limit
         };
 
-    public static StocksResponse ToStocksResponse(PolygonAggregateResponse response) =>
+    public static StocksResponse ToStocksResponse(MassiveAggregateResponse response) =>
         new()
         {
             Ticker = response.Ticker,

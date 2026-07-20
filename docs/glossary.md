@@ -2,7 +2,7 @@
 
 ## Market Data Aggregator
 
-Lambda that retrieves ticker details and historical aggregate bars from Polygon and writes bulk market data objects to S3.
+Lambda that retrieves ticker details and historical aggregate bars from Massive and writes bulk market data objects to S3.
 
 ## Market Data Orchestrator
 
@@ -26,7 +26,7 @@ DynamoDB catalog record describing a scheduled or manual market data production 
 
 ## Reconciliation
 
-Process that checks S3 object metadata and repairs or creates catalog inventory records without re-fetching Polygon data.
+Process that checks S3 object metadata and repairs or creates catalog inventory records without re-fetching Massive data.
 
 ## Backfill
 

@@ -1,4 +1,4 @@
-﻿using Amazon;
+using Amazon;
 using Amazon.DynamoDBv2;
 using Amazon.Lambda;
 using Amazon.Lambda.Core;
@@ -16,7 +16,7 @@ using MarketViewer.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Polygon.Client.DependencyInjection;
+using Massive.Client.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
 
 [assembly: LambdaSerializer(typeof(CustomSerializer))]
@@ -40,7 +40,7 @@ public static class Startup
             .AddEnvironmentVariables()
             .Build();
 
-        var token = Environment.GetEnvironmentVariable("POLYGON_TOKEN") ?? configuration.GetSection("Tokens").GetValue<string>("PolygonApi");
+        var token = Environment.GetEnvironmentVariable("MASSIVE_TOKEN") ?? configuration.GetSection("Tokens").GetValue<string>("MassiveApi");
 
         var lambdaConfig = new AmazonLambdaConfig
         {
@@ -54,7 +54,7 @@ public static class Startup
             .AddSingleton<IAmazonLambda, AmazonLambdaClient>(client => new AmazonLambdaClient(lambdaConfig))
             .AddSingleton<IAmazonDynamoDB, AmazonDynamoDBClient>(client => new AmazonDynamoDBClient(Region))
             .AddSingleton<IAmazonSQS, AmazonSQSClient>(client => new AmazonSQSClient(Region))
-            .AddPolygonClient(token)
+            .AddMassiveClient(token)
             .AddSingleton<ScannerService>()
             .AddSingleton<IMarketCache, MemoryMarketCache>()
             .AddSingleton<BacktestConfig>(configuration.GetSection("BacktestConfig").Get<BacktestConfig>())

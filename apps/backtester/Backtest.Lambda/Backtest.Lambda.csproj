@@ -30,7 +30,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.9" />
-    <PackageReference Include="Polygon.Client" Version="2.2.0" />
+    <ProjectReference Include="..\..\..\packages\massive-client\Massive.Client\Massive.Client.csproj" />
     <ProjectReference Include="..\..\..\packages\marketviewer-contracts\MarketViewer.Contracts\MarketViewer.Contracts.csproj" />
     <ProjectReference Include="..\..\..\packages\marketviewer-filters\MarketViewer.Filters\MarketViewer.Filters.csproj" />
     <ProjectReference Include="..\..\..\packages\marketviewer-infrastructure\MarketViewer.Infrastructure\MarketViewer.Infrastructure.csproj" />

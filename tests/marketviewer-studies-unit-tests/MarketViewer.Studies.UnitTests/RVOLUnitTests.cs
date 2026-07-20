@@ -1,4 +1,4 @@
-﻿using AutoFixture;
+using AutoFixture;
 using FluentAssertions;
 using FluentAssertions.Common;
 using MarketViewer.Contracts.Enums;
@@ -7,7 +7,7 @@ using MarketViewer.Contracts.Models.Indicator;
 using MarketViewer.Contracts.Responses.Market;
 using MarketViewer.Studies.Studies;
 using Moq;
-using Polygon.Client.Models;
+using Massive.Client.Models;
 using System.Text.Json;
 using Xunit;
 

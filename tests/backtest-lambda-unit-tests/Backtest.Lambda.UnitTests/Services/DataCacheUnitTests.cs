@@ -204,7 +204,7 @@
 //             stocksResponse.UpdateLatestCandle(new Timeframe(1, Timespan.hour), candle);
 //         }
 //
-//         // Checked these values from Polygon API directly
+//         // Checked these values from Massive API directly
 //         stocksResponse.Results.Last().Open.Should().Be(586.62f);
 //         stocksResponse.Results.Last().High.Should().Be(587.47f);
 //         stocksResponse.Results.Last().Low.Should().Be(584.37f);
