@@ -8,7 +8,7 @@ export function AggregatePage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Data Aggregator</h1>
+      <h1 className="text-3xl font-semibold tracking-tight text-foreground mb-6">Data Aggregator</h1>
       
       <div className="space-y-6">
         <DataInput onDataSubmit={setData} />

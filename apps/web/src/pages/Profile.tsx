@@ -29,11 +29,11 @@ const Profile = () => {
       <div className="p-4 md:p-8 pt-20 md:pt-8">
         <div className="max-w-2xl mx-auto space-y-8">
           <div>
-            <h1 className="text-2xl font-bold gradient-heading">Profile Settings</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Profile Settings</h1>
             <p className="text-muted-foreground mt-2">Manage your account settings and preferences</p>
           </div>
 
-          <div className="space-y-6 p-6 bg-card/50 backdrop-blur-sm rounded-xl border">
+          <div className="space-y-6 p-6 bg-card rounded-xl border border-border/80">
             <UserProfile routing="hash" />
 
             <div className="pt-4 border-t">

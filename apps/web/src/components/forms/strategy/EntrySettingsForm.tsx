@@ -57,7 +57,7 @@ export function EntrySettingsForm({ value, onChange }: EntrySettingsFormProps) {
             </p>
           </div>
           {value.filters.length > 0 && (
-            <span className="px-2 py-1 text-xs font-mono rounded bg-primary/10 text-primary border border-primary/20">
+            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
               {value.filters.length}
             </span>
           )}
@@ -68,7 +68,7 @@ export function EntrySettingsForm({ value, onChange }: EntrySettingsFormProps) {
             {value.filters.map((filter, index) => (
               <div
                 key={`${filter}-${index}`}
-                className="group flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border hover:border-primary/50 transition-colors"
+                className="group flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border hover:bg-accent/40 transition-colors"
               >
                 {/* Drag Handle / Index */}
                 <div className="flex items-center gap-1 text-muted-foreground">
@@ -141,18 +141,18 @@ export function EntrySettingsForm({ value, onChange }: EntrySettingsFormProps) {
         <button
           type="button"
           onClick={() => setIsComposerExpanded(!isComposerExpanded)}
-          className="w-full flex items-center justify-between p-3 rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/20 hover:border-primary/40 transition-colors"
+          className="w-full flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border hover:bg-accent transition-colors"
         >
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-primary">Filter Builder</span>
+            <span className="text-sm font-medium text-foreground">Filter Builder</span>
             <span className="text-xs text-muted-foreground">
               Build expressions with indicators, operators, and timeframes
             </span>
           </div>
           {isComposerExpanded ? (
-            <ChevronUp className="w-4 h-4 text-primary" />
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
           ) : (
-            <ChevronDown className="w-4 h-4 text-primary" />
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
           )}
         </button>
 
@@ -182,7 +182,7 @@ export function EntrySettingsForm({ value, onChange }: EntrySettingsFormProps) {
               key={example}
               type="button"
               onClick={() => handleAddFilter(example)}
-              className="px-3 py-1.5 text-xs font-mono rounded-md bg-muted hover:bg-muted/80 border border-border hover:border-primary/50 transition-colors"
+              className="rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5 font-mono text-xs hover:bg-accent hover:text-foreground transition-colors"
             >
               {example}
             </button>

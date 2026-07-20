@@ -362,13 +362,13 @@ const StrategyOptimizePage = () => {
   const applyTheme = useCallback(() => {
     if (!chartRef.current || !lineSeriesRef.current) return;
     const colors = isDarkMode ? {
-      background: '#0b1220',
-      text: '#e5e7eb',
-      grid: '#1f2937',
+      background: 'transparent',
+      text: '#8b93a1',
+      grid: 'rgba(148,163,184,0.08)',
       crosshair: '#6b7280',
       line: '#10b981',
       markerBorder: '#10b981',
-      markerBg: '#0b1220',
+      markerBg: '#1C2026',
     } : {
       background: '#ffffff',
       text: '#1f2937',
@@ -413,11 +413,11 @@ const StrategyOptimizePage = () => {
     
     const initialIsDark = document.documentElement.classList.contains('dark');
     const initialColors = initialIsDark ? {
-      background: '#0b1220',
-      text: '#e5e7eb',
-      grid: '#1f2937',
+      background: 'transparent',
+      text: '#8b93a1',
+      grid: 'rgba(148,163,184,0.08)',
       crosshair: '#6b7280',
-      border: '#374151',
+      border: 'rgba(148,163,184,0.15)',
     } : {
       background: '#ffffff',
       text: '#1f2937',
@@ -447,7 +447,7 @@ const StrategyOptimizePage = () => {
       crosshairMarkerVisible: true,
       crosshairMarkerRadius: 5,
       crosshairMarkerBorderColor: '#10b981',
-      crosshairMarkerBackgroundColor: initialIsDark ? '#0b1220' : '#ffffff',
+      crosshairMarkerBackgroundColor: initialIsDark ? '#1C2026' : '#ffffff',
       title: 'Filtered Balance',
     });
     lineSeriesRef.current = line;
@@ -563,8 +563,8 @@ const StrategyOptimizePage = () => {
     return (
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center py-8 text-primary dark:text-cyan-400 font-mono text-sm">
-            <div className="animate-pulse">Â» LOADING STRATEGY DATA...</div>
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            <div className="animate-pulse">Loading strategy data…</div>
           </div>
         </div>
       </div>
@@ -575,9 +575,9 @@ const StrategyOptimizePage = () => {
     return (
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center py-8 text-destructive dark:text-red-400 font-mono text-sm">
-            <div>âš  STRATEGY NOT FOUND</div>
-            <div className="text-muted-foreground text-xs mt-2">Â» Invalid strategy ID or access denied</div>
+          <div className="text-center py-8 text-destructive dark:text-red-400 text-sm">
+            <div className="font-medium">Strategy not found</div>
+            <div className="text-muted-foreground text-xs mt-2">Invalid strategy ID or access denied</div>
           </div>
         </div>
       </div>
@@ -593,21 +593,21 @@ const StrategyOptimizePage = () => {
             <Button
               variant="outline"
               size="sm"
-              className="bg-card hover:bg-muted border-border hover:border-primary text-foreground hover:text-primary transition-all"
+              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               onClick={() => navigate(`/optimus/strategy/${strategyId}`)}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
-              <span className="font-mono text-xs uppercase">Back to Strategy</span>
+              <span className="text-xs">Back to Strategy</span>
             </Button>
             <div>
               <div className="flex items-center gap-2">
-                <Beaker className="w-5 h-5 text-emerald-500" />
-                <h1 className="text-xl font-bold text-foreground font-mono uppercase tracking-wider">
+                <Beaker className="w-5 h-5 text-muted-foreground" />
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">
                   Trade Optimization
                 </h1>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Analyzing trades for <span className="text-primary">{strategy.name}</span>
+                Analyzing trades for <span className="text-foreground">{strategy.name}</span>
               </p>
             </div>
           </div>
@@ -615,15 +615,15 @@ const StrategyOptimizePage = () => {
           <div className="flex items-center gap-2">
             <Badge 
               variant="default"
-              className={`px-2 py-0.5 text-xs font-mono uppercase border ${
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border-transparent ${
                 strategy.type === 'Paper' 
-                  ? 'bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700' 
-                  : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                  ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' 
+                  : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
               }`}
             >
               {strategy.type || 'Paper'}
             </Badge>
-            <Badge variant="outline" className="px-2 py-0.5 text-xs font-mono uppercase">
+            <Badge variant="outline" className="rounded-full border-border px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
               {trades.length} Total Trades
             </Badge>
           </div>
@@ -650,11 +650,11 @@ const StrategyOptimizePage = () => {
               }`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full animate-pulse ${
+                    <div className={`w-3 h-3 rounded-full ${
                       optimizedTrades.length > 0 ? 'bg-emerald-500' : 'bg-yellow-500'
                     }`} />
                     <div>
-                      <div className={`font-mono text-sm font-medium ${
+                      <div className={`text-sm font-medium ${
                         optimizedTrades.length > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-yellow-700 dark:text-yellow-400'
                       }`}>
                         {optimizedTrades.length > 0 
@@ -671,7 +671,7 @@ const StrategyOptimizePage = () => {
                     variant="outline"
                     size="sm"
                     onClick={handleClearOptimization}
-                    className="font-mono text-xs uppercase"
+                    className="text-xs"
                   >
                     Clear Filter
                   </Button>
@@ -685,47 +685,47 @@ const StrategyOptimizePage = () => {
             )}
 
             {/* Balance Chart */}
-            <Card className="p-4 bg-card/50 border border-border">
+            <Card className="p-4">
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-border">
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-emerald-500" />
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                  <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                     Filtered Balance
                   </h3>
                 </div>
-                <div className="text-xs font-mono text-muted-foreground">
+                <div className="text-xs text-muted-foreground tabular-nums">
                   Starting: {formatPrice(positionSettings.startingBalance)}
                 </div>
               </div>
-              <div ref={chartContainerRef} className="w-full h-[300px] bg-background dark:bg-[#0a0e17] border border-border rounded" />
+              <div ref={chartContainerRef} className="w-full h-[300px] rounded-lg" />
             </Card>
 
             {/* Calendar */}
-            <Card className="p-4 bg-card/50 border border-border">
+            <Card className="p-4">
               <div className="mb-4 border-b border-border pb-3">
-                <h3 className="text-xs font-mono uppercase tracking-wider text-primary dark:text-cyan-400"># Profit Calendar</h3>
+                <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Profit Calendar</h3>
               </div>
               
-              <div className="bg-muted/30 dark:bg-gray-950/50 border border-border p-4">
+              <div className="rounded-lg border border-border/80 bg-muted/30 p-4">
                 <div className="flex justify-between items-center mb-4 border-b border-border pb-3">
                   <button 
                     onClick={goToPreviousMonth}
-                    className="p-1 hover:bg-muted border border-border hover:border-primary dark:hover:border-cyan-700 transition-colors"
+                    className="p-1 rounded-md hover:bg-accent transition-colors"
                   >
-                    <ChevronLeft className="h-4 w-4 text-muted-foreground hover:text-primary dark:hover:text-cyan-400" />
+                    <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                   </button>
-                  <h3 className="text-sm font-mono uppercase tracking-wider text-primary dark:text-cyan-400">{monthYearDisplay}</h3>
+                  <h3 className="text-sm font-medium text-foreground">{monthYearDisplay}</h3>
                   <button 
                     onClick={goToNextMonth}
-                    className="p-1 hover:bg-muted border border-border hover:border-primary dark:hover:border-cyan-700 transition-colors"
+                    className="p-1 rounded-md hover:bg-accent transition-colors"
                   >
-                    <ChevronRight className="h-4 w-4 text-muted-foreground hover:text-primary dark:hover:text-cyan-400" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
                 </div>
                 
                 <div className="grid grid-cols-7 gap-1 mb-2">
                   {daysOfWeek.map(day => (
-                    <div key={day} className="text-center text-[10px] font-mono uppercase tracking-wider text-muted-foreground py-1">
+                    <div key={day} className="text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground py-1">
                       {day}
                     </div>
                   ))}
@@ -738,10 +738,10 @@ const StrategyOptimizePage = () => {
                       onClick={() => handleDayClick(day)}
                       disabled={day === null}
                       className={`
-                        h-8 w-full flex items-center justify-center text-xs font-mono border transition-colors
-                        ${day === null ? 'text-muted-foreground/30 border-transparent' : 'text-foreground border-border hover:border-primary dark:hover:border-cyan-700'} 
-                        ${isSelected(day) ? 'border-2 border-primary dark:border-cyan-500 text-primary dark:text-cyan-400 font-bold bg-primary/10 dark:bg-cyan-950/30' : ''}
-                        ${isToday(day) ? 'border-2 border-yellow-500 text-yellow-600 dark:text-yellow-400 font-bold' : ''}
+                        h-8 w-full flex items-center justify-center text-xs tabular-nums rounded-md border transition-colors
+                        ${day === null ? 'text-muted-foreground/30 border-transparent' : 'text-foreground border-border hover:bg-accent'} 
+                        ${isSelected(day) ? 'border-primary bg-accent text-foreground font-semibold' : ''}
+                        ${isToday(day) ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400 font-semibold' : ''}
                         ${getDayColor(day)}
                       `}
                     >
@@ -752,12 +752,12 @@ const StrategyOptimizePage = () => {
               </div>
               
               {selectedDate && selectedDayTrades.length > 0 && (
-                <div className="mt-4 p-3 bg-muted/30 dark:bg-gray-950/50 border border-border rounded">
+                <div className="mt-4 p-3 rounded-lg border border-border/80 bg-muted/30">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-mono text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     </span>
-                    <span className={`text-sm font-mono font-bold ${selectedDayProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    <span className={`text-sm font-bold tabular-nums ${selectedDayProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                       {formatPrice(selectedDayProfit)}
                     </span>
                   </div>
@@ -769,10 +769,10 @@ const StrategyOptimizePage = () => {
             </Card>
 
             {/* Trades Table */}
-            <Card className="p-4 bg-card/50 border border-border">
+            <Card className="p-4">
               <div className="mb-4 border-b border-border pb-3 flex items-center justify-between">
-                <h3 className="text-xs font-mono uppercase tracking-wider text-primary dark:text-cyan-400"># Filtered Trades</h3>
-                <span className="text-xs font-mono text-muted-foreground">
+                <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Filtered Trades</h3>
+                <span className="text-xs text-muted-foreground tabular-nums">
                   {filteredTrades.length} trades
                 </span>
               </div>
@@ -786,17 +786,17 @@ const StrategyOptimizePage = () => {
                   />
                   
                   {/* Pagination */}
-                  <div className="flex items-center justify-between flex-wrap gap-4 p-3 bg-card/50 border border-border">
+                  <div className="flex items-center justify-between flex-wrap gap-4 p-3 rounded-lg border border-border/80">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono uppercase text-muted-foreground">Show:</span>
+                        <span className="text-xs text-muted-foreground">Show:</span>
                         <select
                           value={itemsPerPage}
                           onChange={(e) => {
                             setItemsPerPage(Number(e.target.value));
                             setCurrentPage(1);
                           }}
-                          className="px-2 py-1 border border-border bg-card text-primary dark:text-cyan-400 text-xs font-mono"
+                          className="px-2 py-1 rounded-lg border border-input bg-card text-foreground text-xs"
                         >
                           <option value={10}>10</option>
                           <option value={25}>25</option>
@@ -804,7 +804,7 @@ const StrategyOptimizePage = () => {
                         </select>
                       </div>
                       
-                      <div className="text-xs font-mono text-muted-foreground">
+                      <div className="text-xs text-muted-foreground tabular-nums">
                         {Math.min((currentPage - 1) * itemsPerPage + 1, filteredTrades.length)}-{Math.min(currentPage * itemsPerPage, filteredTrades.length)} / {filteredTrades.length}
                       </div>
                     </div>
@@ -815,20 +815,20 @@ const StrategyOptimizePage = () => {
                         size="sm"
                         onClick={() => setCurrentPage(1)}
                         disabled={!hasPrevPage}
-                        className="font-mono text-xs"
+                        className="text-xs"
                       >
-                        â—„â—„
+                        «
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setCurrentPage(currentPage - 1)}
                         disabled={!hasPrevPage}
-                        className="font-mono text-xs"
+                        className="text-xs"
                       >
-                        â—„
+                        ‹
                       </Button>
-                      <span className="px-3 text-xs font-mono">
+                      <span className="px-3 text-xs tabular-nums">
                         {currentPage} / {totalPages || 1}
                       </span>
                       <Button
@@ -836,26 +836,26 @@ const StrategyOptimizePage = () => {
                         size="sm"
                         onClick={() => setCurrentPage(currentPage + 1)}
                         disabled={!hasNextPage}
-                        className="font-mono text-xs"
+                        className="text-xs"
                       >
-                        â–º
+                        ›
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setCurrentPage(totalPages)}
                         disabled={!hasNextPage}
-                        className="font-mono text-xs"
+                        className="text-xs"
                       >
-                        â–ºâ–º
+                        »
                       </Button>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground font-mono text-sm">[ NO TRADES MATCH FILTERS ]</p>
-                  <p className="text-xs text-muted-foreground/60 mt-2 font-mono">
+                  <p className="text-muted-foreground text-sm font-medium">No trades match the filters</p>
+                  <p className="text-xs text-muted-foreground/60 mt-2">
                     {optimizedTrades !== null ? 'Try adjusting your filter criteria' : 'Run an optimization to filter trades'}
                   </p>
                 </div>

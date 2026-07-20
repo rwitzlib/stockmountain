@@ -252,7 +252,7 @@ const StrategyEditorPage = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground font-mono text-sm">Loading strategy...</p>
+          <p className="text-muted-foreground text-sm">Loading strategy...</p>
         </div>
       </div>
     );
@@ -269,13 +269,13 @@ const StrategyEditorPage = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => navigate(-1)}
-                className="border-border hover:border-primary"
+                className="hover:bg-accent hover:text-foreground"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Back
               </Button>
               <div>
-                <h1 className="text-xl font-bold text-foreground">
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">
                   {isEditMode ? 'Edit Strategy' : 'Create New Strategy'}
                 </h1>
                 <p className="text-sm text-muted-foreground">
@@ -319,7 +319,7 @@ const StrategyEditorPage = () => {
           {/* Sidebar Navigation */}
           <div className="lg:col-span-3">
             <Card className="p-4 sticky top-24">
-              <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">
+              <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-4">
                 Configuration Sections
               </h3>
               <nav className="space-y-1">
@@ -329,20 +329,18 @@ const StrategyEditorPage = () => {
                     <button
                       key={section.id}
                       onClick={() => setActiveSection(section.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all ${
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
                         activeSection === section.id
-                          ? 'bg-primary/10 border border-primary/30 text-primary'
-                          : 'hover:bg-muted border border-transparent'
+                          ? 'bg-accent text-foreground font-medium'
+                          : 'hover:bg-accent hover:text-foreground'
                       }`}
                     >
-                      <div className={`${activeSection === section.id ? 'text-primary' : 'text-muted-foreground'}`}>
+                      <div className={`${activeSection === section.id ? 'text-foreground' : 'text-muted-foreground'}`}>
                         {section.icon}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <span className={`text-sm font-medium ${
-                            activeSection === section.id ? 'text-primary' : 'text-foreground'
-                          }`}>
+                          <span className="text-sm font-medium text-foreground">
                             {section.label}
                           </span>
                           {status === 'complete' && (
@@ -363,7 +361,7 @@ const StrategyEditorPage = () => {
 
               {/* Quick Summary */}
               <div className="mt-6 pt-4 border-t border-border">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
+                <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-3">
                   Summary
                 </h4>
                 <div className="space-y-2 text-xs">
@@ -418,7 +416,7 @@ const StrategyEditorPage = () => {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g., RSI Pullback Strategy"
-                      className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground/70"
+                      className="w-full px-4 py-3 rounded-lg border border-input bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground/70"
                       autoFocus
                     />
                     <p className="text-xs text-muted-foreground">

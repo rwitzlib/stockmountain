@@ -15,13 +15,13 @@ export function DataVisualization({ data }: DataVisualizationProps) {
     <div className="space-y-6">
       <DataSummary data={data} />
       
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-4">Price Chart</h2>
+      <div className="rounded-xl border border-border/80 bg-card p-6">
+        <h2 className="text-lg font-semibold tracking-tight mb-4">Price Chart</h2>
         <PriceChart data={chartData} />
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-4">Data Points</h2>
+      <div className="rounded-xl border border-border/80 bg-card p-6">
+        <h2 className="text-lg font-semibold tracking-tight mb-4">Data Points</h2>
         <DataTable data={chartData} />
       </div>
     </div>

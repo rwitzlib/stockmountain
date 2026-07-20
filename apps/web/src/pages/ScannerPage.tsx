@@ -14,19 +14,19 @@ export function ScannerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Stock Scanner</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Stock Scanner</h1>
           <button
             onClick={handleSubmit}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
             Run Scan
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="rounded-xl border border-border/80 bg-card p-6">
           <ArgumentConfigForm
             value={filters}
             onChange={setFilters}

@@ -1,16 +1,14 @@
 import { IndicatorDefinition, IndicatorParamMeta, IndicatorSetup, IndicatorType } from '../types/tools';
 
 const DEFAULT_COLORS = [
-  '#3b82f6', // blue
-  '#ef4444', // red
-  '#10b981', // green
-  '#f59e0b', // yellow
-  '#8b5cf6', // purple
-  '#06b6d4', // cyan
-  '#f97316', // orange
-  '#84cc16', // lime
-  '#ec4899', // pink
-  '#6b7280', // gray
+  '#14a3bd', // teal
+  '#8b5cf6', // violet
+  '#d97706', // amber
+  '#e05252', // rose
+  '#2fae60', // emerald
+  '#6366f1', // slate blue
+  '#b45309', // dark amber
+  '#64748b', // slate
 ];
 
 export const getDefaultColor = (index: number): string => DEFAULT_COLORS[index % DEFAULT_COLORS.length];
@@ -28,7 +26,7 @@ const REGISTRY: Record<IndicatorType, IndicatorDefinition> = {
     name: 'Simple Moving Average',
     category: 'trend',
     defaultPane: 0,
-    defaultColor: '#3b82f6',
+    defaultColor: '#14a3bd',
     params: [makeNumberParam('period', 'Period', '20')],
   },
   ema: {
@@ -36,7 +34,7 @@ const REGISTRY: Record<IndicatorType, IndicatorDefinition> = {
     name: 'Exponential Moving Average',
     category: 'trend',
     defaultPane: 0,
-    defaultColor: '#ef4444',
+    defaultColor: '#8b5cf6',
     params: [makeNumberParam('period', 'Period', '20')],
   },
   macd: {
@@ -44,15 +42,15 @@ const REGISTRY: Record<IndicatorType, IndicatorDefinition> = {
     name: 'MACD',
     category: 'momentum',
     defaultPane: 1,
-    defaultColor: '#10b981',
+    defaultColor: '#14a3bd',
     // Defaults for multi-series rendering
     // macd: main line, signal: signal line, histogram: bars/line
     // Consumers can override via IndicatorSetup.colors
     defaultColors: {
-      macd: '#10b981',
-      signal: '#ef4444',
-      histogramUp: '#10b981',
-      histogramDown: '#ef4444',
+      macd: '#14a3bd',
+      signal: '#e05252',
+      histogramUp: '#2fae60',
+      histogramDown: '#e05252',
     } as any,
     params: [
       makeNumberParam('fastPeriod', 'Fast Period', '12'),
@@ -66,11 +64,11 @@ const REGISTRY: Record<IndicatorType, IndicatorDefinition> = {
     name: 'Relative Strength Index',
     category: 'momentum',
     defaultPane: 1,
-    defaultColor: '#10b981',
+    defaultColor: '#14a3bd',
     defaultColors: {
-      rsi: '#10b981',
-      upper: '#f59e0b',
-      lower: '#f97316',
+      rsi: '#14a3bd',
+      upper: '#d97706',
+      lower: '#b45309',
     } as any,
     params: [
       makeNumberParam('period', 'Period', '14'),

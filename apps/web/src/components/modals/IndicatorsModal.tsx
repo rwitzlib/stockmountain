@@ -193,23 +193,23 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
     const config = getIndicatorDefinition(indicator.type);
 
     return (
-      <div className="border border-border rounded-lg p-4 bg-muted/30 dark:bg-gray-900/50">
+      <div className="border border-border rounded-lg p-4 bg-muted/30">
         <div className="grid grid-cols-3 gap-4">
           {indicator.type !== 'macd' && indicator.type !== 'rsi' && (
             <div>
-              <label className="text-xs font-mono text-muted-foreground mb-2 block uppercase tracking-wide">Color</label>
+              <label className="text-xs text-muted-foreground mb-2 block">Color</label>
               <div className="flex gap-2">
                 <input
                   type="color"
                   value={indicator.color}
                   onChange={(e) => updateIndicator(index, 'color', e.target.value)}
-                  className="w-12 h-10 rounded-md border border-border cursor-pointer bg-background dark:bg-gray-800"
+                  className="w-12 h-10 rounded-lg border border-input cursor-pointer bg-card"
                 />
                 <Input
                   value={indicator.color}
                   onChange={(e) => updateIndicator(index, 'color', e.target.value)}
                   placeholder="#000000"
-                  className="flex-1 border border-border bg-background dark:bg-gray-900 text-foreground dark:text-cyan-400 font-mono text-sm focus:border-primary dark:focus:border-cyan-500"
+                  className="flex-1 rounded-lg border border-input bg-card text-foreground font-mono text-sm"
                 />
               </div>
             </div>
@@ -219,12 +219,12 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
         <div className="grid grid-cols-2 gap-4">
           {config.params.map(param => (
             <div key={param.key}>
-              <label className="text-xs font-mono text-muted-foreground mb-2 block uppercase tracking-wide">{param.label}</label>
+              <label className="text-xs text-muted-foreground mb-2 block">{param.label}</label>
               {param.type === 'select' ? (
                 <select
                   value={indicator.params[param.key] || param.default}
                   onChange={(e) => updateIndicator(index, 'params', { [param.key]: e.target.value })}
-                  className="flex h-10 w-full rounded-md border border-border bg-background dark:bg-gray-900 text-foreground dark:text-cyan-400 font-mono text-sm px-3 py-2 hover:border-primary dark:hover:border-cyan-700 focus:outline-none focus:border-primary dark:focus:border-cyan-500 transition-colors"
+                  className="flex h-10 w-full rounded-lg border border-input bg-card text-foreground text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                 >
                   {param.options?.map(option => (
                     <option key={option} value={option}>{option.toUpperCase()}</option>
@@ -236,7 +236,7 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
                   value={indicator.params[param.key] || param.default}
                   onChange={(e) => updateIndicator(index, 'params', { [param.key]: e.target.value })}
                   placeholder={param.default}
-                  className="border border-border bg-background dark:bg-gray-900 text-foreground dark:text-cyan-400 font-mono text-sm focus:border-primary dark:focus:border-cyan-500"
+                  className="rounded-lg border border-input bg-card text-foreground font-mono text-sm"
                 />
               )}
             </div>
@@ -248,19 +248,19 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
           <div className="grid grid-cols-3 gap-4">
             {['macd','signal','histogramUp','histogramDown'].map(key => (
               <div key={key}>
-                <label className="text-xs font-mono text-muted-foreground mb-2 block uppercase tracking-wide">{key.charAt(0).toUpperCase() + key.slice(1)} Color</label>
+                <label className="text-xs text-muted-foreground mb-2 block">{key.charAt(0).toUpperCase() + key.slice(1)} Color</label>
                 <div className="flex gap-2">
                   <input
                     type="color"
                     value={indicator.colors?.[key] || ''}
                     onChange={(e) => updateIndicator(index, 'colors', { ...(indicator.colors || {}), [key]: e.target.value })}
-                    className="w-12 h-10 rounded-md border border-border cursor-pointer bg-background dark:bg-gray-800"
+                    className="w-12 h-10 rounded-lg border border-input cursor-pointer bg-card"
                   />
                   <Input
                     value={indicator.colors?.[key] || ''}
                     onChange={(e) => updateIndicator(index, 'colors', { ...(indicator.colors || {}), [key]: e.target.value })}
                     placeholder="#000000"
-                    className="flex-1 border border-border bg-background dark:bg-gray-900 text-foreground dark:text-cyan-400 font-mono text-sm focus:border-primary dark:focus:border-cyan-500"
+                    className="flex-1 rounded-lg border border-input bg-card text-foreground font-mono text-sm"
                   />
                 </div>
               </div>
@@ -272,19 +272,19 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
           <div className="grid grid-cols-3 gap-4">
             {['rsi','upper','lower'].map(key => (
               <div key={key}>
-                <label className="text-xs font-mono text-muted-foreground mb-2 block uppercase tracking-wide">{key.charAt(0).toUpperCase() + key.slice(1)} Color</label>
+                <label className="text-xs text-muted-foreground mb-2 block">{key.charAt(0).toUpperCase() + key.slice(1)} Color</label>
                 <div className="flex gap-2">
                   <input
                     type="color"
                     value={indicator.colors?.[key] || ''}
                     onChange={(e) => updateIndicator(index, 'colors', { ...(indicator.colors || {}), [key]: e.target.value })}
-                    className="w-12 h-10 rounded-md border border-border cursor-pointer bg-background dark:bg-gray-800"
+                    className="w-12 h-10 rounded-lg border border-input cursor-pointer bg-card"
                   />
                   <Input
                     value={indicator.colors?.[key] || ''}
                     onChange={(e) => updateIndicator(index, 'colors', { ...(indicator.colors || {}), [key]: e.target.value })}
                     placeholder="#000000"
-                    className="flex-1 border border-border bg-background dark:bg-gray-900 text-foreground dark:text-cyan-400 font-mono text-sm focus:border-primary dark:focus:border-cyan-500"
+                    className="flex-1 rounded-lg border border-input bg-card text-foreground font-mono text-sm"
                   />
                 </div>
               </div>
@@ -299,21 +299,21 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[950px] max-h-[90vh] overflow-y-auto bg-popover border-border">
         <DialogHeader className="border-b border-border pb-4">
-          <DialogTitle className="text-xl font-mono font-semibold text-primary uppercase tracking-wider">
-            :: INDICATORS CONFIG ::
+          <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">
+            Indicators
           </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
           <div className="md:col-span-1 space-y-4">
-            <div className="border border-border rounded-lg p-4 space-y-3 bg-card">
-              <div className="font-mono font-semibold text-primary uppercase tracking-wide text-sm">{'>'} Add Indicator</div>
+            <div className="border border-border/80 rounded-xl p-4 space-y-3 bg-card">
+              <div className="text-sm font-semibold tracking-tight text-foreground">Add Indicator</div>
               <div>
-                <label className="text-xs font-mono text-muted-foreground mb-2 block uppercase tracking-wide">Indicator</label>
+                <label className="text-xs text-muted-foreground mb-2 block">Indicator</label>
                 <select
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value as IndicatorType)}
-                  className="flex h-10 w-full rounded-md border border-border bg-background text-foreground dark:text-cyan-400 font-mono text-sm px-3 py-2 hover:border-primary dark:hover:border-cyan-700 focus:outline-none focus:border-primary dark:focus:border-cyan-500 transition-colors"
+                  className="flex h-10 w-full rounded-lg border border-input bg-card text-foreground text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                 >
                   {Object.values(categories).map(group => (
                     <optgroup key={group.label} label={group.label.toUpperCase()}>
@@ -324,15 +324,15 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
                   ))}
                 </select>
               </div>
-              <Button onClick={addIndicator} className="w-full bg-background dark:bg-gray-800 border border-border dark:border-gray-700 text-primary dark:text-cyan-400 hover:bg-muted dark:hover:bg-gray-700 hover:border-primary dark:hover:border-cyan-500 font-mono uppercase text-sm tracking-wide transition-colors">
+              <Button onClick={addIndicator} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium transition-colors">
                 <Plus className="w-4 h-4 mr-2" />
                 Add
               </Button>
             </div>
 
-            <div className="border border-border rounded-lg p-4 bg-card">
-              <div className="text-xs text-muted-foreground font-mono leading-relaxed">
-                {'>'} Select an indicator and click Add. Changes on the right apply immediately.
+            <div className="border border-border/80 rounded-xl p-4 bg-card">
+              <div className="text-xs text-muted-foreground leading-relaxed">
+                Select an indicator and click Add. Changes on the right apply immediately.
               </div>
             </div>
           </div>
@@ -350,8 +350,8 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
 
               if (panes.length === 0) {
                 return (
-                  <div className="text-center py-8 text-muted-foreground font-mono text-sm">
-                    :: NO INDICATORS CONFIGURED ::
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No indicators configured
                     <br />
                     <span className="text-xs">Use the left panel to add indicators</span>
                   </div>
@@ -362,7 +362,7 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
                 <div key={pane} className="space-y-3">
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-px bg-border" />
-                    <div className="text-xs text-primary dark:text-cyan-400 font-mono uppercase tracking-wide px-2">Pane {pane}</div>
+                    <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground px-2">Pane {pane}</div>
                     <div className="flex-1 h-px bg-border" />
                   </div>
                   <div className="space-y-3">
@@ -375,7 +375,7 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
                       return (
                         <div
                           key={index}
-                          className={`border border-border rounded-lg p-3 bg-card/50 dark:bg-gray-900/30 ${dragOverIndex === index ? 'ring-2 ring-primary dark:ring-cyan-500' : ''} hover:border-primary/50 dark:hover:border-gray-600 transition-colors`}
+                          className={`border border-border/80 rounded-xl p-3 bg-card ${dragOverIndex === index ? 'ring-2 ring-ring' : ''} hover:bg-accent/40 transition-colors`}
                           draggable
                           onDragStart={(e) => handleDragStart(index, e)}
                           onDragOver={(e) => handleDragOver(index, e)}
@@ -386,21 +386,21 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="w-4 h-4 rounded-sm border border-border" style={{ backgroundColor: item.color }} />
                               <div className="truncate">
-                                <div className="font-mono font-medium text-primary dark:text-cyan-400 truncate text-sm">{def.name}</div>
+                                <div className="font-medium text-foreground truncate text-sm">{def.name}</div>
                                 <div className="text-xs text-muted-foreground font-mono truncate">{summary}</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <Button variant="ghost" size="sm" onClick={() => setEditingIndex(isEditing ? null : index)} title="Edit" className="text-muted-foreground hover:text-primary dark:hover:text-cyan-400 hover:bg-muted dark:hover:bg-gray-800">
+                              <Button variant="ghost" size="sm" onClick={() => setEditingIndex(isEditing ? null : index)} title="Edit" className="text-muted-foreground hover:bg-accent hover:text-foreground">
                                 <Pencil className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => updateIndicator(index, 'pane', String(Math.max(0, item.pane - 1)))} title="Move to previous pane" className="text-muted-foreground hover:text-primary dark:hover:text-cyan-400 hover:bg-muted dark:hover:bg-gray-800">
+                              <Button variant="ghost" size="sm" onClick={() => updateIndicator(index, 'pane', String(Math.max(0, item.pane - 1)))} title="Move to previous pane" className="text-muted-foreground hover:bg-accent hover:text-foreground">
                                 <ArrowUp className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => updateIndicator(index, 'pane', String(item.pane + 1))} title="Move to next pane" className="text-muted-foreground hover:text-primary dark:hover:text-cyan-400 hover:bg-muted dark:hover:bg-gray-800">
+                              <Button variant="ghost" size="sm" onClick={() => updateIndicator(index, 'pane', String(item.pane + 1))} title="Move to next pane" className="text-muted-foreground hover:bg-accent hover:text-foreground">
                                 <ArrowDown className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => removeIndicator(index)} title="Delete" className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-100/50 dark:hover:bg-gray-800">
+                              <Button variant="ghost" size="sm" onClick={() => removeIndicator(index)} title="Delete" className="text-muted-foreground hover:bg-accent hover:text-red-600 dark:hover:text-red-400">
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
@@ -415,7 +415,7 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
                     })}
                     {/* Drop zone at end of pane */}
                     <div
-                      className="h-8 rounded-md border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground font-mono hover:border-primary dark:hover:border-cyan-500 hover:text-primary dark:hover:text-cyan-400 transition-colors"
+                      className="h-8 rounded-md border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground hover:text-foreground transition-colors"
                       onDragOver={(e) => {
                         if (dragIndex !== null && indicators[dragIndex].pane === pane) {
                           e.preventDefault();
@@ -423,7 +423,7 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
                       }}
                       onDrop={(e) => handleDropToPaneEnd(pane, e)}
                     >
-                      :: DROP TO END OF PANE {pane} ::
+                      Drop to end of pane {pane}
                     </div>
                   </div>
                 </div>
@@ -433,10 +433,10 @@ export function IndicatorsModal({ isOpen, onClose, onApply, currentIndicators = 
         </div>
 
         <DialogFooter className="border-t border-border pt-4">
-          <Button variant="outline" onClick={onClose} className="border-border text-muted-foreground hover:bg-muted dark:hover:bg-gray-800 hover:border-border font-mono uppercase text-sm tracking-wide">
+          <Button variant="outline" onClick={onClose} className="border-border text-muted-foreground hover:bg-accent hover:text-foreground text-sm">
             Close
           </Button>
-          <Button onClick={handleApply} className="bg-primary/10 dark:bg-gray-800 border border-primary dark:border-gray-600 text-primary dark:text-cyan-400 hover:bg-primary/20 dark:hover:bg-gray-700 hover:border-primary dark:hover:border-cyan-500 font-mono uppercase text-sm tracking-wide">
+          <Button onClick={handleApply} className="bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium">
             Apply Changes
           </Button>
         </DialogFooter>

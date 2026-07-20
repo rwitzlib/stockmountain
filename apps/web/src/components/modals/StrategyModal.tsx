@@ -33,9 +33,9 @@ export function StrategyModal({ isOpen, onClose, onSubmit, isLoading, initialDat
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto bg-white">
+      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold gradient-heading">
+          <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">
             {initialData ? 'Clone Strategy' : 'Create New Strategy'}
           </DialogTitle>
         </DialogHeader>

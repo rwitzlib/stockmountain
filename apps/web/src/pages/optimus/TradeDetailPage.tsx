@@ -153,9 +153,9 @@ const TradeDetailPage = () => {
     
     const initialIsDark = document.documentElement.classList.contains('dark');
     const initialColors = initialIsDark ? {
-      background: '#0b1220',
-      text: '#e5e7eb',
-      grid: '#1f2937',
+      background: 'transparent',
+      text: '#8b93a1',
+      grid: 'rgba(148,163,184,0.08)',
       crosshair: '#6b7280',
     } : {
       background: '#ffffff',
@@ -285,9 +285,9 @@ const TradeDetailPage = () => {
       setIsDarkMode(currentIsDark);
       if (chartRef.current) {
         const colors = currentIsDark ? {
-          background: '#0b1220',
-          text: '#e5e7eb',
-          grid: '#1f2937',
+          background: 'transparent',
+          text: '#8b93a1',
+          grid: 'rgba(148,163,184,0.08)',
           crosshair: '#6b7280',
         } : {
           background: '#ffffff',
@@ -329,7 +329,7 @@ const TradeDetailPage = () => {
   if ((!tradeFromState && isTradeLoading) || !trade) {
     return (
       <div className="min-h-screen bg-background p-4 md:p-8 pt-20 md:pt-8 flex items-center justify-center">
-        <div className="text-primary dark:text-cyan-400 font-mono text-sm animate-pulse">Â» LOADING TRADE DATA...</div>
+        <div className="text-muted-foreground text-sm animate-pulse">Loading trade data…</div>
       </div>
     );
   }
@@ -338,10 +338,10 @@ const TradeDetailPage = () => {
   if (!tradeFromState && error) {
     return (
       <div className="min-h-screen bg-background p-4 md:p-8 pt-20 md:pt-8 flex items-center justify-center">
-        <div className="text-center bg-red-100/50 dark:bg-red-950/20 border border-red-300 dark:border-red-900 p-6">
-          <p className="text-red-700 dark:text-red-400 font-mono text-sm mb-4">[ ERROR LOADING TRADE ]</p>
-          <p className="text-muted-foreground font-mono text-xs mb-4">{'>> '}Failed to retrieve trade data</p>
-          <Button onClick={() => navigate('/optimus/trades')} className="bg-card border-border text-foreground hover:border-primary dark:hover:border-cyan-500 hover:text-primary dark:hover:text-cyan-400 font-mono text-xs uppercase">
+        <div className="text-center rounded-xl border border-red-300 dark:border-red-900 bg-red-100/50 dark:bg-red-950/20 p-6">
+          <p className="text-red-700 dark:text-red-400 text-sm font-medium mb-4">Error loading trade</p>
+          <p className="text-muted-foreground text-xs mb-4">Failed to retrieve trade data</p>
+          <Button onClick={() => navigate('/optimus/trades')} variant="outline" className="text-xs hover:bg-accent hover:text-foreground">
             Return to Trades
           </Button>
         </div>
@@ -357,24 +357,24 @@ const TradeDetailPage = () => {
             <Button
               variant="outline"
               size="sm"
-              className="bg-card hover:bg-muted border-border hover:border-primary text-foreground hover:text-primary transition-all"
+              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               onClick={() => navigate(-1)}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
-              <span className="font-mono text-xs uppercase">Back</span>
+              <span className="text-xs">Back</span>
             </Button>
             <div>
-              <h1 className="text-xl font-mono font-bold uppercase tracking-wider text-foreground"># Trade Analysis - {trade.ticker}</h1>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">Trade Analysis — {trade.ticker}</h1>
               <div className="flex items-center gap-2 mt-2">
-                <span className={`px-2 py-0.5 text-[9px] font-mono uppercase border ${
+                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                   trade.orderStatus === 'Closed'
-                    ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-800'
-                    : 'bg-primary/10 dark:bg-cyan-950 text-primary dark:text-cyan-400 border-primary/30 dark:border-cyan-800'
+                    ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                    : 'bg-green-500/10 text-green-600 dark:text-green-400'
                 }`}>
                   {trade.orderStatus}
                 </span>
-                <p className="text-muted-foreground font-mono text-xs">
-                  {formatDateDisplay(trade.openedAt)} {'â†’'} {formatDateDisplay(trade.closedAt) || 'PRESENT'}
+                <p className="text-muted-foreground text-xs">
+                  {formatDateDisplay(trade.openedAt)} → {formatDateDisplay(trade.closedAt) || 'Present'}
                 </p>
               </div>
             </div>
@@ -383,21 +383,21 @@ const TradeDetailPage = () => {
 
         {/* Trade Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-card/50 p-3 border border-border hover:border-primary dark:hover:border-cyan-700 transition-colors">
-            <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Shares</h3>
-            <p className="text-lg font-mono font-bold text-primary dark:text-cyan-400">{trade.shares}</p>
+          <div className="rounded-xl border border-border/80 bg-card p-3">
+            <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Shares</h3>
+            <p className="text-lg font-semibold tabular-nums text-foreground">{trade.shares}</p>
           </div>
-          <div className="bg-card/50 p-3 border border-border hover:border-green-600 dark:hover:border-green-700 transition-colors">
-            <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Entry Price</h3>
-            <p className="text-lg font-mono font-bold text-green-600 dark:text-green-400">{formatPrice(trade.entryPrice)}</p>
+          <div className="rounded-xl border border-border/80 bg-card p-3">
+            <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Entry Price</h3>
+            <p className="text-lg font-semibold tabular-nums text-foreground">{formatPrice(trade.entryPrice)}</p>
           </div>
-          <div className="bg-card/50 p-3 border border-border hover:border-yellow-600 dark:hover:border-yellow-700 transition-colors">
-            <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Exit Price</h3>
-            <p className="text-lg font-mono font-bold text-yellow-600 dark:text-yellow-400">{formatPrice(trade.closePrice)}</p>
+          <div className="rounded-xl border border-border/80 bg-card p-3">
+            <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Exit Price</h3>
+            <p className="text-lg font-semibold tabular-nums text-foreground">{formatPrice(trade.closePrice)}</p>
           </div>
-          <div className="bg-card/50 p-3 border border-border hover:border-primary dark:hover:border-cyan-700 transition-colors">
-            <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Profit/Loss</h3>
-            <p className={`text-lg font-mono font-bold ${trade.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          <div className="rounded-xl border border-border/80 bg-card p-3">
+            <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Profit/Loss</h3>
+            <p className={`text-lg font-semibold tabular-nums ${trade.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
               {formatProfit(trade.profit)}
             </p>
           </div>
@@ -406,57 +406,57 @@ const TradeDetailPage = () => {
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
-            <div className="bg-card/50 border border-border">
+            <div className="rounded-xl border border-border/80 bg-card">
               <div className="p-4 border-b border-border">
-                <h2 className="text-xs font-mono uppercase tracking-wider text-primary dark:text-cyan-400 mb-2"># Price Chart</h2>
-                <p className="text-[10px] font-mono text-muted-foreground">
-                  {'>> '}ENTRY: {formatPrice(trade.entryPrice)} | EXIT: {formatPrice(trade.closePrice)}
+                <h2 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">Price Chart</h2>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  Entry {formatPrice(trade.entryPrice)} · Exit {formatPrice(trade.closePrice)}
                 </p>
               </div>
               <div className="p-3 border-b border-border">
                 <TimeSelector onRangeChange={handleRangeChange} initialRange={timeRange} />
               </div>
               {isLoading ? (
-                <div className="h-[50vh] flex items-center justify-center bg-muted/30 dark:bg-gray-950/50 border border-border">
+                <div className="h-[50vh] flex items-center justify-center bg-muted/30 rounded-b-xl">
                   <div className="text-center">
-                    <p className="text-primary dark:text-cyan-400 font-mono text-sm animate-pulse">Â» LOADING CHART...</p>
-                    <p className="text-[10px] font-mono text-muted-foreground mt-2">{'>> '}Retrieving market data</p>
+                    <p className="text-muted-foreground text-sm animate-pulse">Loading chart…</p>
+                    <p className="text-xs text-muted-foreground mt-2">Retrieving market data</p>
                   </div>
                 </div>
               ) : (
                 <div
                   ref={chartContainerRef}
-                  className="chart-container h-[50vh] w-full bg-background dark:bg-[#0a0e17] border border-border"
+                  className="chart-container h-[50vh] w-full rounded-b-xl"
                 />
               )}
             </div>
           </div>
 
           <div className="lg:col-span-1">
-            <div className="bg-card/50 border border-border h-fit">
+            <div className="rounded-xl border border-border/80 bg-card h-fit">
               <div className="p-4 border-b border-border">
-                <h3 className="text-xs font-mono uppercase text-muted-foreground"># Trade Details</h3>
+                <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Trade Details</h3>
               </div>
               <div className="p-4 space-y-3">
                 <div className="space-y-1">
-                  <div className="text-[10px] font-mono uppercase text-muted-foreground">TICKER:</div>
+                  <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Ticker</div>
                   <div className="text-lg font-mono font-bold text-foreground">{trade.ticker}</div>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-[10px] font-mono uppercase text-muted-foreground">ENTRY TIME:</div>
-                  <div className="text-xs font-mono text-primary dark:text-cyan-400">{formatDateDisplay(trade.openedAt)}</div>
+                  <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Entry Time</div>
+                  <div className="text-xs text-foreground">{formatDateDisplay(trade.openedAt)}</div>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-[10px] font-mono uppercase text-muted-foreground">EXIT TIME:</div>
-                  <div className="text-xs font-mono text-primary dark:text-cyan-400">{formatDateDisplay(trade.closedAt) || 'STILL OPEN'}</div>
+                  <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Exit Time</div>
+                  <div className="text-xs text-foreground">{formatDateDisplay(trade.closedAt) || 'Still open'}</div>
                 </div>
                 {trade.type && (
                   <div className="space-y-1">
-                    <div className="text-[10px] font-mono uppercase text-muted-foreground">TRADE TYPE:</div>
-                    <div className={`px-2 py-1 text-[9px] font-mono uppercase border ${
+                    <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Trade Type</div>
+                    <div className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                       trade.type === 'Live'
-                        ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800'
-                        : 'bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800'
+                        ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                        : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
                     }`}>
                       {trade.type}
                     </div>
@@ -467,19 +467,19 @@ const TradeDetailPage = () => {
           </div>
         </div>
 
-        <div className="bg-card/50 border border-border">
+        <div className="rounded-xl border border-border/80 bg-card">
           <div className="p-4 border-b border-border">
-            <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground"># Trade Notes</h2>
+            <h2 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Trade Notes</h2>
           </div>
           <div className="p-4">
             {(trade as TradeDetail).notes ? (
-              <div className="font-mono text-sm text-foreground leading-relaxed">
+              <div className="text-sm text-foreground leading-relaxed">
                 {(trade as TradeDetail).notes}
               </div>
             ) : (
               <div className="text-center py-6">
-                <p className="text-muted-foreground font-mono text-xs">[ NO NOTES RECORDED ]</p>
-                <p className="text-[10px] font-mono text-muted-foreground/60 mt-1">{'>> '}Trade executed without additional context</p>
+                <p className="text-muted-foreground text-xs">No notes recorded</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Trade executed without additional context</p>
               </div>
             )}
           </div>

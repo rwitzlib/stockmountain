@@ -130,21 +130,21 @@ export function SnapshotPage() {
   return (
     <div className="p-6">
       <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-amber-50 rounded-lg">
-          <Camera className="w-6 h-6 text-amber-600" />
+        <div className="p-2 bg-accent rounded-lg">
+          <Camera className="w-6 h-6 text-amber-600 dark:text-amber-400" />
         </div>
-        <h1 className="text-3xl font-bold text-gray-900">Snapshot Tool</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Snapshot Tool</h1>
       </div>
       
       <div className="space-y-6">
         {/* Input Form */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-4">JSON Data Input</h2>
+        <div className="rounded-xl border border-border/80 bg-card p-6">
+          <h2 className="text-lg font-semibold tracking-tight mb-4">JSON Data Input</h2>
           <div className="space-y-4">
             <textarea
               value={jsonInput}
               onChange={(e) => setJsonInput(e.target.value)}
-              className="w-full h-64 p-3 border rounded-lg font-mono text-sm resize-y"
+              className="w-full h-64 p-3 rounded-lg border border-input bg-card font-mono text-sm resize-y"
               placeholder='Paste your JSON data here in the bon.json format (case-insensitive):
 
 Examples - All of these work:
@@ -196,14 +196,14 @@ Alternative field names supported:
             />
             
             {error && (
-              <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+              <div className="bg-red-100/50 dark:bg-red-950/30 text-red-700 dark:text-red-400 p-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
             
             <button
               onClick={handleSubmit}
-              className="px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
               Parse & Display Data
             </button>
@@ -214,91 +214,91 @@ Alternative field names supported:
         {data && (
           <div className="space-y-6">
             {data.entries.map((entry, entryIndex) => (
-              <div key={entryIndex} className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-semibold mb-4 text-gray-900">
-                  {entry.ticker} - Market Data
+              <div key={entryIndex} className="rounded-xl border border-border/80 bg-card p-6">
+                <h2 className="text-xl font-semibold tracking-tight mb-4 text-foreground">
+                  <span className="font-mono">{entry.ticker}</span> - Market Data
                 </h2>
                 
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-gray-50">
-                        <th className="border border-gray-200 px-4 py-2 text-left font-medium text-gray-700">Date/Time</th>
-                        <th className="border border-gray-200 px-4 py-2 text-left font-medium text-gray-700">Timeframe</th>
-                        <th className="border border-gray-200 px-4 py-2 text-right font-medium text-gray-700">Open</th>
-                        <th className="border border-gray-200 px-4 py-2 text-right font-medium text-gray-700">High</th>
-                        <th className="border border-gray-200 px-4 py-2 text-right font-medium text-gray-700">Low</th>
-                        <th className="border border-gray-200 px-4 py-2 text-right font-medium text-gray-700">Close</th>
-                        <th className="border border-gray-200 px-4 py-2 text-right font-medium text-gray-700">Volume</th>
-                        <th className="border border-gray-200 px-4 py-2 text-right font-medium text-gray-700">VWAP</th>
-                        <th className="border border-gray-200 px-4 py-2 text-right font-medium text-gray-700">Trades</th>
+                      <tr className="bg-muted/50">
+                        <th className="border border-border px-4 py-2 text-left text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Date/Time</th>
+                        <th className="border border-border px-4 py-2 text-left text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Timeframe</th>
+                        <th className="border border-border px-4 py-2 text-right text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Open</th>
+                        <th className="border border-border px-4 py-2 text-right text-[11px] font-medium uppercase tracking-widest text-muted-foreground">High</th>
+                        <th className="border border-border px-4 py-2 text-right text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Low</th>
+                        <th className="border border-border px-4 py-2 text-right text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Close</th>
+                        <th className="border border-border px-4 py-2 text-right text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Volume</th>
+                        <th className="border border-border px-4 py-2 text-right text-[11px] font-medium uppercase tracking-widest text-muted-foreground">VWAP</th>
+                        <th className="border border-border px-4 py-2 text-right text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Trades</th>
                       </tr>
                     </thead>
                     <tbody>
                       {entry.results.map((result, resultIndex) => (
                         <React.Fragment key={resultIndex}>
                           {result.minute && (
-                            <tr className="hover:bg-gray-50">
-                              <td className="border border-gray-200 px-4 py-2 text-sm">
+                            <tr className="hover:bg-accent">
+                              <td className="border border-border px-4 py-2 text-sm">
                                 {result.dateTime}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm">
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <td className="border border-border px-4 py-2 text-sm">
+                                <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                                   Minute
                                 </span>
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums">
                                 {formatCurrency(result.minute.o)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right text-green-600">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums text-green-600 dark:text-green-400">
                                 {formatCurrency(result.minute.h)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right text-red-600">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums text-red-600 dark:text-red-400">
                                 {formatCurrency(result.minute.l)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right font-medium">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums font-medium">
                                 {formatCurrency(result.minute.c)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums">
                                 {formatNumber(result.minute.v)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums">
                                 {formatCurrency(result.minute.vw)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums">
                                 {formatNumber(result.minute.n)}
                               </td>
                             </tr>
                           )}
                           {result.hour && (
-                            <tr className="hover:bg-gray-50">
-                              <td className="border border-gray-200 px-4 py-2 text-sm">
+                            <tr className="hover:bg-accent">
+                              <td className="border border-border px-4 py-2 text-sm">
                                 {result.dateTime}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm">
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <td className="border border-border px-4 py-2 text-sm">
+                                <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                                   Hour
                                 </span>
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums">
                                 {formatCurrency(result.hour.o)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right text-green-600">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums text-green-600 dark:text-green-400">
                                 {formatCurrency(result.hour.h)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right text-red-600">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums text-red-600 dark:text-red-400">
                                 {formatCurrency(result.hour.l)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right font-medium">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums font-medium">
                                 {formatCurrency(result.hour.c)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums">
                                 {formatNumber(result.hour.v)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums">
                                 {formatCurrency(result.hour.vw)}
                               </td>
-                              <td className="border border-gray-200 px-4 py-2 text-sm text-right">
+                              <td className="border border-border px-4 py-2 text-sm text-right tabular-nums">
                                 {formatNumber(result.hour.n)}
                               </td>
                             </tr>
@@ -310,25 +310,25 @@ Alternative field names supported:
                 </div>
                 
                 {/* Summary Statistics */}
-                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
                   <div>
-                    <p className="text-sm text-gray-600">Total Records</p>
+                    <p className="text-sm text-muted-foreground">Total Records</p>
                     <p className="text-lg font-semibold">{entry.results.length}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Minute Records</p>
+                    <p className="text-sm text-muted-foreground">Minute Records</p>
                     <p className="text-lg font-semibold">
                       {entry.results.filter(r => r.minute).length}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Hour Records</p>
+                    <p className="text-sm text-muted-foreground">Hour Records</p>
                     <p className="text-lg font-semibold">
                       {entry.results.filter(r => r.hour).length}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Time Range</p>
+                    <p className="text-sm text-muted-foreground">Time Range</p>
                     <p className="text-lg font-semibold">
                       {entry.results.length > 0 ? 
                         `${entry.results.length} ${entry.results.length === 1 ? 'point' : 'points'}` : 

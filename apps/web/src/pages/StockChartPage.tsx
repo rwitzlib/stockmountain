@@ -65,7 +65,7 @@ export function StockChartPage() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <div className="py-2 px-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90 shadow-lg flex justify-between items-center z-10">
+      <div className="py-2 px-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90 flex justify-between items-center z-10">
         <div className="flex items-center gap-3">
           <Clock />
           <MarketStatus />
@@ -104,7 +104,7 @@ export function StockChartPage() {
             return (
               <div 
                 key={chart.id} 
-                className="bg-card border border-border hover:border-primary shadow-lg overflow-hidden transition-colors"
+                className="rounded-xl border border-border/80 bg-card overflow-hidden transition-colors"
                 style={{ position: 'relative', height: '100%' }}
                 data-chart-id={chart.id}
                 data-grid={{

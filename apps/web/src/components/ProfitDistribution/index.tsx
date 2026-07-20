@@ -29,10 +29,10 @@ export function ProfitDistribution({ entries }: ProfitDistributionProps) {
   );
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="rounded-xl border border-border/80 bg-card p-6">
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-semibold">Profit Distribution by Trade</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">Profit Distribution by Trade</h3>
           <Filters
             startDate={startDate}
             endDate={endDate}

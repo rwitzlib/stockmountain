@@ -116,8 +116,8 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
 
   if (completedResults.length === 0) {
     return (
-      <div className="bg-card border border-border p-6 text-center">
-        <p className="text-sm font-mono text-muted-foreground">
+      <div className="rounded-xl border border-border/80 bg-card p-6 text-center">
+        <p className="text-sm text-muted-foreground">
           No completed backtests to analyze
         </p>
       </div>
@@ -128,9 +128,9 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
     <div className="space-y-6">
       {/* Performance Distribution Chart */}
       {profitDistribution.length > 0 && (
-        <div className="bg-card border border-border p-4">
-          <h3 className="text-sm font-mono uppercase tracking-wider text-foreground mb-4">
-            :: Hold Profit Distribution
+        <div className="rounded-xl border border-border/80 bg-card p-4">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground mb-4">
+            Hold Profit Distribution
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -140,26 +140,25 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
                   angle={-45}
                   textAnchor="end"
                   height={80}
-                  tick={{ fontSize: 10, fontFamily: 'monospace' }}
+                  tick={{ fontSize: 10, fill: '#8b93a1' }}
                 />
-                <YAxis tick={{ fontSize: 10, fontFamily: 'monospace' }} />
+                <YAxis tick={{ fontSize: 10, fill: '#8b93a1' }} />
                 <Tooltip 
                   contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))',
+                    backgroundColor: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
-                    borderRadius: '4px',
-                    fontFamily: 'monospace',
-                    fontSize: '11px'
+                    borderRadius: '8px',
+                    fontSize: '12px'
                   }}
                   formatter={(value: number) => [value, 'Count']}
                 />
-                <Bar dataKey="count" fill="hsl(var(--primary))">
+                <Bar dataKey="count" fill="var(--chart-strategy)">
                   {profitDistribution.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={entry.min >= 0 
-                        ? 'hsl(142 76% 36%)' 
-                        : 'hsl(0 84% 60%)'
+                        ? 'var(--chart-gain)' 
+                        : 'var(--chart-loss)'
                       } 
                     />
                   ))}
@@ -172,31 +171,30 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
 
       {/* Time Series Chart */}
       {timeSeriesData.length > 0 && (
-        <div className="bg-card border border-border p-4">
-          <h3 className="text-sm font-mono uppercase tracking-wider text-foreground mb-4">
-            :: Backtest Trend Over Time
+        <div className="rounded-xl border border-border/80 bg-card p-4">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground mb-4">
+            Backtest Trend Over Time
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={timeSeriesData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
                 <XAxis 
                   dataKey="date" 
-                  tick={{ fontSize: 10, fontFamily: 'monospace' }}
+                  tick={{ fontSize: 10, fill: '#8b93a1' }}
                   angle={-45}
                   textAnchor="end"
                   height={60}
                 />
                 <YAxis 
-                  tick={{ fontSize: 10, fontFamily: 'monospace' }}
+                  tick={{ fontSize: 10, fill: '#8b93a1' }}
                   tickFormatter={(value) => formatCurrency(value)}
                 />
                 <Tooltip 
                   contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))',
+                    backgroundColor: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
-                    borderRadius: '4px',
-                    fontFamily: 'monospace',
-                    fontSize: '11px'
+                    borderRadius: '8px',
+                    fontSize: '12px'
                   }}
                   formatter={(value: number) => [formatCurrency(value), 'Avg Profit']}
                   labelFormatter={(label) => `Date: ${label}`}
@@ -204,7 +202,7 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
                 <Line 
                   type="monotone" 
                   dataKey="profit" 
-                  stroke="hsl(var(--primary))" 
+                  stroke="var(--chart-strategy)" 
                   strokeWidth={2}
                   dot={{ r: 3 }}
                 />
@@ -218,25 +216,25 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Credits Efficiency */}
         {creditsEfficiency !== null && (
-          <div className="bg-card border border-border p-4">
+          <div className="rounded-xl border border-border/80 bg-card p-4">
             <div className="flex items-center gap-2 mb-2">
               {creditsEfficiency > 0 ? (
                 <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
               ) : (
                 <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
               )}
-              <h3 className="text-sm font-mono uppercase tracking-wider text-foreground">
+              <h3 className="text-sm font-semibold tracking-tight text-foreground">
                 Credits Efficiency
               </h3>
             </div>
-            <div className={`text-2xl font-mono font-bold ${
+            <div className={`text-2xl font-semibold tabular-nums ${
               creditsEfficiency > 0 
                 ? 'text-green-600 dark:text-green-400' 
                 : 'text-red-600 dark:text-red-400'
             }`}>
               {formatCurrency(creditsEfficiency)} / credit
             </div>
-            <p className="text-xs font-mono text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Average profit per credit used
             </p>
           </div>
@@ -244,25 +242,25 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
 
         {/* Best Performer */}
         {bestPerformer && (
-          <div className="bg-card border border-border p-4">
+          <div className="rounded-xl border border-border/80 bg-card p-4">
             <div className="flex items-center gap-2 mb-2">
               <Award className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <h3 className="text-sm font-mono uppercase tracking-wider text-foreground">
+              <h3 className="text-sm font-semibold tracking-tight text-foreground">
                 Best Performer
               </h3>
             </div>
             <div className="space-y-1">
-              <div className="text-xs font-mono text-muted-foreground">
-                ID: <span className="text-primary dark:text-cyan-400">{bestPerformer.id.substring(0, 12)}...</span>
+              <div className="text-xs text-muted-foreground">
+                ID: <span className="font-mono text-foreground">{bestPerformer.id.substring(0, 12)}...</span>
               </div>
-              <div className={`text-xl font-mono font-bold ${
+              <div className={`text-xl font-semibold tabular-nums ${
                 (bestPerformer.holdProfit || 0) >= 0 
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-red-600 dark:text-red-400'
               }`}>
                 {formatCurrency(bestPerformer.holdProfit || 0)}
               </div>
-              <div className="text-xs font-mono text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 {formatDateNoTimezone(bestPerformer.createdAt)}
               </div>
             </div>
@@ -271,25 +269,25 @@ export function BacktestInsights({ results }: BacktestInsightsProps) {
 
         {/* Worst Performer */}
         {worstPerformer && (
-          <div className="bg-card border border-border p-4">
+          <div className="rounded-xl border border-border/80 bg-card p-4">
             <div className="flex items-center gap-2 mb-2">
               <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-              <h3 className="text-sm font-mono uppercase tracking-wider text-foreground">
+              <h3 className="text-sm font-semibold tracking-tight text-foreground">
                 Worst Performer
               </h3>
             </div>
             <div className="space-y-1">
-              <div className="text-xs font-mono text-muted-foreground">
-                ID: <span className="text-primary dark:text-cyan-400">{worstPerformer.id.substring(0, 12)}...</span>
+              <div className="text-xs text-muted-foreground">
+                ID: <span className="font-mono text-foreground">{worstPerformer.id.substring(0, 12)}...</span>
               </div>
-              <div className={`text-xl font-mono font-bold ${
+              <div className={`text-xl font-semibold tabular-nums ${
                 (worstPerformer.holdProfit || 0) >= 0 
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-red-600 dark:text-red-400'
               }`}>
                 {formatCurrency(worstPerformer.holdProfit || 0)}
               </div>
-              <div className="text-xs font-mono text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 {formatDateNoTimezone(worstPerformer.createdAt)}
               </div>
             </div>

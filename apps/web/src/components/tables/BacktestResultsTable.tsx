@@ -91,13 +91,13 @@ export function BacktestResultsTable({
 
     const rank = sortedByProfit.findIndex(r => r.id === result.id);
     if (rank < top10Percent) {
-      return { label: 'Top Performer', color: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800' };
+      return { label: 'Top Performer', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-transparent' };
     }
 
     const profitPerSecond = (result.holdProfit || 0) / (result.durationSeconds || 1);
     const avgProfitPerSecond = completedResults.reduce((sum, r) => sum + ((r.holdProfit || 0) / (r.durationSeconds || 1)), 0) / completedResults.length;
     if (profitPerSecond > avgProfitPerSecond * 3) {
-      return { label: 'High Risk', color: 'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800' };
+      return { label: 'High Risk', color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-transparent' };
     }
 
     return null;
@@ -110,12 +110,12 @@ export function BacktestResultsTable({
 
   if (results.length === 0) {
     return (
-      <div className="bg-card border border-border p-10 text-center space-y-3">
+      <div className="rounded-xl border border-border/80 bg-card p-10 text-center space-y-3">
         <Filter className="h-8 w-8 text-muted-foreground mx-auto opacity-50" />
-        <p className="text-sm font-mono text-foreground">
+        <p className="text-sm text-foreground">
           {hasActiveFilters ? 'No backtests match your filters' : 'No backtests yet'}
         </p>
-        <p className="text-xs font-mono text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {hasActiveFilters
             ? `Showing 0 of ${totalCount}. Try adjusting or clearing filters.`
             : 'Create a backtest to see results here.'}
@@ -125,7 +125,7 @@ export function BacktestResultsTable({
             onClick={onClearFilters}
             variant="outline"
             size="sm"
-            className="font-mono text-xs mt-2"
+            className="text-xs mt-2"
           >
             Clear Filters
           </Button>
@@ -135,63 +135,63 @@ export function BacktestResultsTable({
   }
 
   return (
-    <div className="table-container bg-card border border-border overflow-x-auto">
+    <div className="table-container rounded-xl border border-border/80 bg-card overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow className="border-border hover:bg-muted/50">
             <TableHead
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('createdAt')}
             >
               Created
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground text-center cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground text-center cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('status')}
             >
               Status
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
-            <TableHead className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground min-w-[140px]">
+            <TableHead className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground min-w-[140px]">
               Entry Filters
             </TableHead>
             <TableHead
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('start')}
             >
               Period
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground text-center cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground text-center cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('durationSeconds')}
             >
               Duration
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground text-right cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground text-right cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('holdProfit')}
             >
               Hold P/L
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground text-right cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground text-right cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('highProfit')}
             >
               High P/L
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground text-right cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground text-right cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('creditsUsed')}
             >
               Credits
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
-            <TableHead className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground text-center w-12">
+            <TableHead className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground text-center w-12">
               Details
             </TableHead>
           </TableRow>
@@ -227,25 +227,25 @@ export function BacktestResultsTable({
             return (
               <Fragment key={result.id}>
                 <TableRow
-                  className="border-border hover:bg-muted/50 hover:border-primary cursor-pointer transition-all"
+                  className="border-border hover:bg-accent/40 cursor-pointer transition-colors"
                   onClick={(e) => handleRowClick(result, e)}
                 >
-                  <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
+                  <TableCell className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
                     {formatDateTime(new Date(result.createdAt))}
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                      <span className={`px-2 py-0.5 text-[9px] font-mono uppercase border ${
+                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                         result.status === 'Completed'
-                          ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800' :
+                          ? 'bg-green-500/10 text-green-600 dark:text-green-400' :
                         result.status === 'InProgress'
-                          ? 'bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800 animate-pulse' :
-                          'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800'
+                          ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' :
+                          'bg-red-500/10 text-red-600 dark:text-red-400'
                       }`}>
                         {result.status}
                       </span>
                       {performanceBadge && (
-                        <Badge className={`text-[8px] font-mono uppercase border ${performanceBadge.color}`}>
+                        <Badge className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${performanceBadge.color}`}>
                           {performanceBadge.label === 'Top Performer' && <Award className="h-2.5 w-2.5 mr-0.5" />}
                           {performanceBadge.label === 'High Risk' && <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />}
                           {performanceBadge.label}
@@ -281,20 +281,20 @@ export function BacktestResultsTable({
                         )}
                       </div>
                     ) : (
-                      <span className="font-mono text-xs text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-primary dark:text-cyan-400 whitespace-nowrap">
+                  <TableCell className="text-xs text-foreground tabular-nums whitespace-nowrap">
                     {formatDateNoTimezone(result.start)}
                     {result.start !== result.end && (
                       <span className="text-muted-foreground"> → {formatDateNoTimezone(result.end)}</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                  <TableCell className="text-center text-xs text-muted-foreground tabular-nums">
                     {formatDuration(result.durationSeconds)}
                   </TableCell>
                   <TableCell className={`text-right ${getProfitBgColor(result.holdProfit >= 0)}`}>
-                    <span className={`font-mono text-xs font-bold ${
+                    <span className={`text-xs font-semibold tabular-nums ${
                       result.holdProfit >= 0
                         ? 'text-green-600 dark:text-green-400'
                         : 'text-red-600 dark:text-red-400'
@@ -303,7 +303,7 @@ export function BacktestResultsTable({
                     </span>
                   </TableCell>
                   <TableCell className={`text-right ${getProfitBgColor(result.highProfit >= 0)}`}>
-                    <span className={`font-mono text-xs font-bold ${
+                    <span className={`text-xs font-semibold tabular-nums ${
                       result.highProfit >= 0
                         ? 'text-green-600 dark:text-green-400'
                         : 'text-red-600 dark:text-red-400'
@@ -311,13 +311,13 @@ export function BacktestResultsTable({
                       {formatCurrency(result.highProfit)}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs text-purple-600 dark:text-purple-400">
+                  <TableCell className="text-right text-xs text-foreground tabular-nums">
                     {typeof result.creditsUsed === 'number' ? result.creditsUsed.toFixed(1) : result.creditsUsed}
                   </TableCell>
                   <TableCell className="text-center">
                     <button
                       onClick={(e) => toggleExpand(result.id, e)}
-                      className="expand-button p-1 hover:bg-muted rounded transition-colors"
+                      className="expand-button p-1 hover:bg-accent rounded-md transition-colors"
                       aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
                     >
                       {isExpanded ? (
@@ -331,14 +331,14 @@ export function BacktestResultsTable({
                 {isExpanded && (
                   <TableRow className="border-border bg-muted/20">
                     <TableCell colSpan={9} className="p-4">
-                      <div className="space-y-3 font-mono text-xs">
+                      <div className="space-y-3 text-xs tabular-nums">
                         {/* Stats that used to be table columns */}
                         {(result.holdStats || result.conditionalProfit != null) && (
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                             {result.conditionalProfit != null && (
                               <div>
-                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Conditional P/L</div>
-                                <div className={`font-bold ${
+                                <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Conditional P/L</div>
+                                <div className={`font-semibold ${
                                   result.conditionalProfit >= 0
                                     ? 'text-green-600 dark:text-green-400'
                                     : 'text-red-600 dark:text-red-400'
@@ -350,14 +350,14 @@ export function BacktestResultsTable({
                             {result.holdStats && (
                               <>
                                 <div>
-                                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Win Ratio</div>
+                                  <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Win Ratio</div>
                                   <div className="text-foreground">
                                     {(result.holdStats.winRatio * 100).toFixed(1)}%
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Profit Factor</div>
-                                  <div className={`font-bold ${
+                                  <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Profit Factor</div>
+                                  <div className={`font-semibold ${
                                     result.holdStats.profitFactor > 1.5
                                       ? 'text-green-600 dark:text-green-400'
                                       : result.holdStats.profitFactor > 1.0
@@ -368,11 +368,11 @@ export function BacktestResultsTable({
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Trades</div>
+                                  <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Trades</div>
                                   <div className="text-foreground">{result.holdStats.totalTradesTaken}</div>
                                 </div>
                                 <div>
-                                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Max Drawdown</div>
+                                  <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Max Drawdown</div>
                                   <div className={`${
                                     result.holdStats.maxDrawdown < 0.1
                                       ? 'text-green-600 dark:text-green-400'
@@ -390,26 +390,26 @@ export function BacktestResultsTable({
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
-                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Starting Balance</div>
-                            <div className="text-primary dark:text-cyan-400">
+                            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Starting Balance</div>
+                            <div className="text-foreground tabular-nums">
                               {formatCurrency(requestInfo.positionInfo.startingBalance || 0)}
                             </div>
                           </div>
                           <div>
-                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Max Positions</div>
-                            <div className="text-primary dark:text-cyan-400">
+                            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Max Positions</div>
+                            <div className="text-foreground tabular-nums">
                               {requestInfo.positionInfo.maxConcurrentPositions || 'N/A'}
                             </div>
                           </div>
                           <div>
-                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Position Size</div>
-                            <div className="text-primary dark:text-cyan-400">
+                            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Position Size</div>
+                            <div className="text-foreground tabular-nums">
                               {requestInfo.positionInfo.positionSize || 'N/A'}
                             </div>
                           </div>
                           <div>
-                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Credits Used</div>
-                            <div className="text-purple-600 dark:text-purple-400">
+                            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Credits Used</div>
+                            <div className="text-foreground tabular-nums">
                               {result.creditsUsed}
                             </div>
                           </div>
@@ -417,10 +417,10 @@ export function BacktestResultsTable({
 
                         {requestInfo.exitInfo && (requestInfo.exitInfo.stopLoss || requestInfo.exitInfo.profitTarget || requestInfo.exitInfo.timedExit) && (
                           <div className="border-t border-border pt-3">
-                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Exit Settings</div>
+                            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">Exit Settings</div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
                               {requestInfo.exitInfo.stopLoss && (
-                                <div className="bg-card border border-border p-2 rounded">
+                                <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
                                   <div className="text-muted-foreground">Stop Loss:</div>
                                   <div className="text-foreground">
                                     {(requestInfo.exitInfo.stopLoss.type || requestInfo.exitInfo.stopLoss.priceActionType || 'value')} @ {requestInfo.exitInfo.stopLoss.value}
@@ -428,7 +428,7 @@ export function BacktestResultsTable({
                                 </div>
                               )}
                               {requestInfo.exitInfo.profitTarget && (
-                                <div className="bg-card border border-border p-2 rounded">
+                                <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
                                   <div className="text-muted-foreground">Profit Target:</div>
                                   <div className="text-foreground">
                                     {(requestInfo.exitInfo.profitTarget.type || requestInfo.exitInfo.profitTarget.priceActionType || 'value')} @ {requestInfo.exitInfo.profitTarget.value}
@@ -436,7 +436,7 @@ export function BacktestResultsTable({
                                 </div>
                               )}
                               {requestInfo.exitInfo.timedExit && (
-                                <div className="bg-card border border-border p-2 rounded">
+                                <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
                                   <div className="text-muted-foreground">Timed Exit:</div>
                                   <div className="text-foreground">
                                     {requestInfo.exitInfo.timedExit.timeframe.multiplier}
@@ -452,7 +452,7 @@ export function BacktestResultsTable({
 
                         {filters.length > 0 && (
                           <div className="border-t border-border pt-3">
-                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+                            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">
                               Entry Filters ({filters.length})
                             </div>
                             <div className="flex flex-wrap gap-1">

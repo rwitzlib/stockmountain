@@ -15,7 +15,7 @@ export function StudyOperandForm({ value, onChange }: StudyOperandFormProps) {
           <select
             value={value.name || 'rsi'}
             onChange={e => onChange({ ...value, type: 'Study', name: e.target.value })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           >
             <option value="sma">SMA</option>
             <option value="ema">EMA</option>
@@ -33,7 +33,7 @@ export function StudyOperandForm({ value, onChange }: StudyOperandFormProps) {
             value={value.parameters || ''}
             onChange={e => onChange({ ...value, type: 'Study', parameters: e.target.value })}
             placeholder="e.g., 30, 70, 14"
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           />
         </div>
 
@@ -42,7 +42,7 @@ export function StudyOperandForm({ value, onChange }: StudyOperandFormProps) {
           <select
             value={value.modifier || 'Value'}
             onChange={e => onChange({ ...value, type: 'Study', modifier: e.target.value as "Value" | "Slope" })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           >
             <option value="Value">Value</option>
             <option value="Slope">Slope</option>
@@ -51,7 +51,7 @@ export function StudyOperandForm({ value, onChange }: StudyOperandFormProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">Timespan</label>
+        <label className="block text-sm font-medium text-foreground">Timespan</label>
         <div className="grid grid-cols-2 gap-2">
           <NumberInput
             value={value.timeframe?.multiplier || 1}
@@ -77,7 +77,7 @@ export function StudyOperandForm({ value, onChange }: StudyOperandFormProps) {
                 timespan: e.target.value
               }
             })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="minute">Minute</option>
             <option value="hour">Hour</option>

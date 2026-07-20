@@ -131,7 +131,7 @@ export function BacktestTradesTable({ trades }: BacktestTradesTableProps) {
           }}
           placeholder="Filter by ticker…"
           aria-label="Filter trades by ticker"
-          className="ml-auto w-52 rounded-lg border border-border bg-background px-3 py-1.5 text-[13px] placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+          className="ml-auto w-52 rounded-lg border border-input bg-card px-3 py-1.5 text-[13px] placeholder:text-muted-foreground focus:border-ring focus:outline-none"
         />
       </div>
 

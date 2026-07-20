@@ -111,13 +111,13 @@ export function DataInput({ onDataSubmit }: DataInputProps) {
   return (
     <div className="space-y-6">
       <div className="flex justify-center">
-        <div className="inline-flex rounded-lg border border-gray-200 p-1">
+        <div className="inline-flex rounded-lg border border-border p-1">
           <button
             onClick={() => setInputMethod('massive')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               inputMethod === 'massive'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-accent text-foreground font-medium'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
             }`}
           >
             Massive API
@@ -126,8 +126,8 @@ export function DataInput({ onDataSubmit }: DataInputProps) {
             onClick={() => setInputMethod('local')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               inputMethod === 'local'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-accent text-foreground font-medium'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
             }`}
           >
             Local API
@@ -136,8 +136,8 @@ export function DataInput({ onDataSubmit }: DataInputProps) {
             onClick={() => setInputMethod('manual')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               inputMethod === 'manual'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-accent text-foreground font-medium'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
             }`}
           >
             Manual JSON
@@ -146,34 +146,34 @@ export function DataInput({ onDataSubmit }: DataInputProps) {
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+        <div className="bg-red-100/50 dark:bg-red-950/30 text-red-700 dark:text-red-400 p-3 rounded-lg text-sm">
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="rounded-xl border border-border/80 bg-card p-6">
         {inputMethod === 'massive' && (
           <>
-            <h2 className="text-lg font-semibold mb-4">Fetch from Massive</h2>
+            <h2 className="text-lg font-semibold tracking-tight mb-4">Fetch from Massive</h2>
             <MarketDataForm onSubmit={handleMassiveFetch} isLoading={isLoading} />
           </>
         )}
         
         {inputMethod === 'local' && (
           <>
-            <h2 className="text-lg font-semibold mb-4">Fetch from Local API</h2>
+            <h2 className="text-lg font-semibold tracking-tight mb-4">Fetch from Local API</h2>
             <LocalDataForm onSubmit={handleLocalFetch} isLoading={isLoading} />
           </>
         )}
         
         {inputMethod === 'manual' && (
           <>
-            <h2 className="text-lg font-semibold mb-4">Manual JSON Input</h2>
+            <h2 className="text-lg font-semibold tracking-tight mb-4">Manual JSON Input</h2>
             <div className="space-y-4">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="w-full h-64 p-3 border rounded-lg font-mono text-sm"
+                className="w-full h-64 p-3 rounded-lg border border-input bg-card font-mono text-sm"
                 placeholder='Paste your JSON data here... Example format:
 {
   "Ticker": "AAPL",
@@ -194,7 +194,7 @@ export function DataInput({ onDataSubmit }: DataInputProps) {
               />
               <button
                 onClick={handleManualSubmit}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Analyze Data
               </button>

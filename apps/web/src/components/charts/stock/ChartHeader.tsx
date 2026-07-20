@@ -50,7 +50,7 @@ export function ChartHeader({
     <div className="p-2 border-b border-border flex items-center justify-between gap-3 bg-card/50 backdrop-blur-sm">
       <div className="flex items-center gap-3">
         <div className="cursor-move" data-drag-handle>
-          <GripVertical className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
+          <GripVertical className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
         </div>
 
         <StockSearch
@@ -65,7 +65,7 @@ export function ChartHeader({
             const newValue = Math.max(1, parseInt(e.target.value) || 1);
             handleMultiplierChange(newValue);
           }}
-          className="w-16 px-2 py-1 border border-border bg-background text-foreground dark:text-cyan-400 text-xs font-mono hover:border-primary dark:hover:border-cyan-700 focus:outline-none focus:border-primary dark:focus:border-cyan-500 transition-colors"
+          className="w-16 px-2 py-1 rounded-lg border border-input bg-card text-foreground text-xs tabular-nums focus:outline-none focus:border-ring transition-colors"
         />
 
         <select
@@ -74,7 +74,7 @@ export function ChartHeader({
             const value = e.target.value as 'minute' | 'hour' | 'day' | 'week' | 'year';
             handleTimespanChange(value);
           }}
-          className="px-2 py-1 border border-border bg-background text-foreground dark:text-cyan-400 text-xs font-mono uppercase hover:border-primary dark:hover:border-cyan-700 focus:outline-none focus:border-primary dark:focus:border-cyan-500 transition-colors"
+          className="px-2 py-1 rounded-lg border border-input bg-card text-foreground text-xs focus:outline-none focus:border-ring transition-colors"
         >
           <option value="minute">Min</option>
           <option value="hour">Hour</option>
@@ -86,11 +86,11 @@ export function ChartHeader({
 
       <button
         onClick={() => setIsIndicatorsModalOpen(true)}
-        className="px-3 py-1 border border-border bg-background dark:bg-gray-900 text-foreground dark:text-cyan-400 hover:bg-muted dark:hover:bg-gray-800 hover:border-primary dark:hover:border-cyan-700 focus:outline-none focus:border-primary dark:focus:border-cyan-500 transition-all flex items-center gap-2"
+        className="px-3 py-1 rounded-lg border border-border bg-card text-foreground hover:bg-accent focus:outline-none transition-colors flex items-center gap-2"
         title="Configure Indicators"
       >
         <TrendingUp className="w-4 h-4" />
-        <span className="text-xs font-mono">Indicators</span>
+        <span className="text-xs">Indicators</span>
       </button>
 
       <IndicatorsModal

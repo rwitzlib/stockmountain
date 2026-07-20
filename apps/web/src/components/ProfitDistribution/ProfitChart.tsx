@@ -20,9 +20,9 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   const entry = payload[0].payload as ProfitData;
   
   return (
-    <div className="bg-white p-2 border border-gray-200 rounded shadow-sm">
-      <div className="font-medium">Ticker: {label}</div>
-      <div className="text-gray-500 text-sm">
+    <div className="rounded-lg border border-border bg-popover p-2 text-xs shadow-md">
+      <div className="font-semibold text-foreground">Ticker: <span className="font-mono">{label}</span></div>
+      <div className="text-muted-foreground">
         Bought at: {formatDateTimeWithHours(entry.boughtAt)}
       </div>
       <div className="mt-1 space-y-1">
@@ -32,7 +32,7 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
               className="w-3 h-3 rounded-full"
               style={{ backgroundColor: item.fill }}
             />
-            <span>{item.name}: {formatCurrency(item.value)}</span>
+            <span className="tabular-nums">{item.name}: {formatCurrency(item.value)}</span>
           </div>
         ))}
       </div>
@@ -51,18 +51,20 @@ export function ProfitChart({ data }: ProfitChartProps) {
           data={data}
           margin={{ top: 20, right: 30, left: 60, bottom: 10 }}
         >
-          <XAxis dataKey="ticker" />
+          <XAxis dataKey="ticker" tick={{ fill: '#8b93a1', fontSize: 11 }} />
           <YAxis
             tickFormatter={(value) => formatCurrency(value)}
+            tick={{ fill: '#8b93a1', fontSize: 11 }}
             label={{
               value: 'Profit/Loss',
               angle: -90,
               position: 'insideLeft',
-              offset: -45
+              offset: -45,
+              style: { fill: '#8b93a1', fontSize: '11px' }
             }}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="hold" fill="#2563eb" name="Hold" />
+          <Bar dataKey="hold" fill="var(--chart-strategy)" name="Hold" />
           <Bar dataKey="high" fill="#16a34a" name="High" />
           {hasOtherStrategy && (
             <Bar dataKey="other" fill="#d97706" name="Other" />

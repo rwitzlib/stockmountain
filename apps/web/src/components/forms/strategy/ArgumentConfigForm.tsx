@@ -69,19 +69,19 @@ export function ArgumentConfigForm({ value, onChange }: ArgumentConfigFormProps)
   return (
     <div className="space-y-3">
       <div 
-        className="w-full flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-gray-500 hover:bg-gray-900/50 transition-colors p-2 cursor-pointer border border-gray-800"
+        className="w-full flex items-center justify-between text-sm font-medium text-foreground hover:bg-accent transition-colors p-2 cursor-pointer rounded-lg border border-border/80"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2">
           {isExpanded ? (
-            <ChevronDown className="w-3 h-3 text-cyan-400" />
+            <ChevronDown className="w-3 h-3 text-muted-foreground" />
           ) : (
-            <ChevronRight className="w-3 h-3 text-cyan-400" />
+            <ChevronRight className="w-3 h-3 text-muted-foreground" />
           )}
-          <span>:: Entry Conditions</span>
+          <span>Entry Conditions</span>
           {value.filters.length > 0 && (
             <span className="ml-2">
-              <Badge variant="secondary" className="text-[9px] font-mono bg-cyan-950 text-cyan-400 border-cyan-800">{value.filters.length}</Badge>
+              <Badge variant="secondary" className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground bg-transparent">{value.filters.length}</Badge>
             </span>
           )}
         </div>
@@ -90,7 +90,7 @@ export function ArgumentConfigForm({ value, onChange }: ArgumentConfigFormProps)
             <button
               type="button"
               onClick={handleAddFilter}
-              className="px-3 py-1 text-xs bg-green-950 text-green-400 border border-green-700 hover:bg-green-900 transition-all font-mono uppercase"
+              className="px-3 py-1 text-xs font-medium rounded-lg border border-border bg-card text-foreground hover:bg-accent transition-colors"
             >
               + Filter
             </button>
@@ -102,19 +102,19 @@ export function ArgumentConfigForm({ value, onChange }: ArgumentConfigFormProps)
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="space-y-2">
-              <div className="text-[10px] font-mono uppercase text-gray-600">Combine With:</div>
-              <div className="inline-grid grid-cols-2 gap-1 p-0.5 border border-gray-800 bg-gray-950">
+              <div className="text-xs text-muted-foreground">Combine with</div>
+              <div className="inline-grid grid-cols-2 gap-1 p-0.5 rounded-lg border border-border bg-muted/30">
                 <button
                   type="button"
                   onClick={() => onChange({ ...value, operator: 'AND' })}
-                  className={`px-3 py-1 font-mono text-xs uppercase transition-all ${value.operator === 'AND' ? 'bg-emerald-950 text-emerald-400 border border-emerald-700' : 'text-gray-600 hover:text-emerald-400'}`}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${value.operator === 'AND' ? 'bg-accent text-foreground font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}
                 >
                   AND
                 </button>
                 <button
                   type="button"
                   onClick={() => onChange({ ...value, operator: 'OR' })}
-                  className={`px-3 py-1 font-mono text-xs uppercase transition-all ${value.operator === 'OR' ? 'bg-emerald-950 text-emerald-400 border border-emerald-700' : 'text-gray-600 hover:text-emerald-400'}`}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${value.operator === 'OR' ? 'bg-accent text-foreground font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}
                 >
                   OR
                 </button>
@@ -123,7 +123,7 @@ export function ArgumentConfigForm({ value, onChange }: ArgumentConfigFormProps)
             <button
               type="button"
               onClick={handleAddFilter}
-              className="px-4 py-2 bg-green-950 text-green-400 border border-green-700 hover:bg-green-900 hover:border-green-500 transition-all font-mono text-xs uppercase"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors"
             >
               + Add Filter
             </button>
@@ -133,22 +133,22 @@ export function ArgumentConfigForm({ value, onChange }: ArgumentConfigFormProps)
             {value.filters.map((filter, index) => {
               const isFilterExpanded = expandedFilters.includes(index);
               return (
-                <div key={index} className="bg-gray-950/50 border border-gray-800 overflow-hidden">
+                <div key={index} className="rounded-xl border border-border/80 bg-card overflow-hidden">
                   <div 
-                    className="p-3 cursor-pointer hover:bg-gray-900/50 transition-colors flex items-center justify-between"
+                    className="p-3 cursor-pointer hover:bg-accent/40 transition-colors flex items-center justify-between"
                     onClick={() => toggleFilterExpanded(index)}
                   >
                     <div className="flex items-center gap-3">
                       {isFilterExpanded ? (
-                        <ChevronDown className="w-3 h-3 text-cyan-400" />
+                        <ChevronDown className="w-3 h-3 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="w-3 h-3 text-cyan-400" />
+                        <ChevronRight className="w-3 h-3 text-muted-foreground" />
                       )}
-                      <span className="text-xs font-mono uppercase text-gray-400">
-                        Filter #{index + 1}
+                      <span className="text-xs font-medium text-foreground">
+                        Filter {index + 1}
                       </span>
                       {!isFilterExpanded && (
-                        <span className="text-xs text-gray-600 font-mono">
+                        <span className="text-xs text-muted-foreground font-mono">
                           {`${filter.firstOperand?.type || ''} ${filter.operator?.toUpperCase?.() || ''} ${filter.secondOperand?.type || ''}`}
                         </span>
                       )}
@@ -159,7 +159,7 @@ export function ArgumentConfigForm({ value, onChange }: ArgumentConfigFormProps)
                         e.stopPropagation();
                         handleRemoveFilter(index);
                       }}
-                      className="flex items-center gap-1 px-2 py-1 text-red-400 hover:bg-red-950/30 hover:border-red-700 border border-transparent transition-all font-mono text-xs uppercase"
+                      className="flex items-center gap-1 px-2 py-1 rounded-md text-red-600 dark:text-red-400 hover:bg-accent transition-colors text-xs"
                     >
                       <Trash2 className="w-3 h-3" />
                       <span>Delete</span>
@@ -167,7 +167,7 @@ export function ArgumentConfigForm({ value, onChange }: ArgumentConfigFormProps)
                   </div>
                   
                   {isFilterExpanded && (
-                    <div className="border-t border-gray-800 p-3">
+                    <div className="border-t border-border p-3">
                       <FilterForm
                         value={filter}
                         onChange={filter => handleFilterChange(index, filter)}

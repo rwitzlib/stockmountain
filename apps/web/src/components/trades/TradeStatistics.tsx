@@ -50,21 +50,21 @@ export const TradeStatistics = ({ trades }: TradeStatisticsProps) => {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <div className="p-3 border border-border bg-card hover:border-primary dark:hover:border-cyan-700 transition-colors">
-        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Total Trades</div>
-        <div className="text-xl font-mono font-bold text-primary dark:text-cyan-400">{totalTrades}</div>
+      <div className="p-3 rounded-xl border border-border/80 bg-card">
+        <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Total Trades</div>
+        <div className="text-xl font-semibold tabular-nums text-foreground">{totalTrades}</div>
       </div>
-      <div className="p-3 border border-border bg-card hover:border-green-500 dark:hover:border-green-700 transition-colors">
-        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Open Positions</div>
-        <div className="text-xl font-mono font-bold text-green-600 dark:text-green-400">{openTrades}</div>
+      <div className="p-3 rounded-xl border border-border/80 bg-card">
+        <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Open Positions</div>
+        <div className="text-xl font-semibold tabular-nums text-foreground">{openTrades}</div>
       </div>
-      <div className="p-3 border border-border bg-card hover:border-yellow-500 dark:hover:border-yellow-700 transition-colors">
-        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Max Concurrent</div>
-        <div className="text-xl font-mono font-bold text-yellow-600 dark:text-yellow-400">{maxConcurrentTrades}</div>
+      <div className="p-3 rounded-xl border border-border/80 bg-card">
+        <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Max Concurrent</div>
+        <div className="text-xl font-semibold tabular-nums text-foreground">{maxConcurrentTrades}</div>
       </div>
-      <div className="p-3 border border-border bg-card hover:border-primary dark:hover:border-cyan-700 transition-colors">
-        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Total P/L</div>
-        <div className={`text-xl font-mono font-bold ${
+      <div className="p-3 rounded-xl border border-border/80 bg-card">
+        <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Total P/L</div>
+        <div className={`text-xl font-semibold tabular-nums ${
           totalProfit >= 0 
             ? 'text-green-600 dark:text-green-400' 
             : 'text-red-600 dark:text-red-400'

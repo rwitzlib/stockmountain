@@ -142,7 +142,7 @@ export function NumberInput({
     }
   };
 
-  const baseInputClasses = "block w-full border border-gray-700 bg-gray-950 text-cyan-400 font-mono text-xs px-3 py-2 hover:border-cyan-700 focus:outline-none focus:border-cyan-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+  const baseInputClasses = "block w-full rounded-lg border border-input bg-card text-foreground text-xs tabular-nums px-3 py-2 focus:outline-none focus:border-ring transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
   const inputClasses = `${baseInputClasses} ${className}`;
 
   if (prefix || suffix) {
@@ -150,7 +150,7 @@ export function NumberInput({
       <div className="relative">
         {prefix && (
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <span className="text-gray-600 font-mono text-xs">{prefix}</span>
+            <span className="text-muted-foreground text-xs">{prefix}</span>
           </div>
         )}
         <input
@@ -169,7 +169,7 @@ export function NumberInput({
         />
         {suffix && (
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <span className="text-gray-600 font-mono text-xs">{suffix}</span>
+            <span className="text-muted-foreground text-xs">{suffix}</span>
           </div>
         )}
       </div>

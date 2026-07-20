@@ -190,16 +190,16 @@ export const FilterComposer = forwardRef(function FilterComposer({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-2 border-b border-border pb-2">
-        <h3 className="text-xs font-mono uppercase tracking-wider text-primary dark:text-cyan-400"># Filters</h3>
+        <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Filters</h3>
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setMode('builder')}
-            className={`font-mono text-xs uppercase px-3 py-1 transition-all ${
+            className={`text-xs px-3 py-1 transition-colors border-border ${
               mode === 'builder'
-                ? 'bg-primary/10 dark:bg-cyan-950 text-primary dark:text-cyan-400 border-primary dark:border-cyan-700'
-                : 'bg-background dark:bg-gray-900 text-muted-foreground border-border dark:border-gray-700 hover:text-primary dark:hover:text-cyan-400 hover:border-primary dark:hover:border-cyan-700'
+                ? 'bg-accent text-foreground font-medium'
+                : 'bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground'
             }`}
             disabled={disabled}
           >
@@ -210,10 +210,10 @@ export const FilterComposer = forwardRef(function FilterComposer({
               variant="outline"
               size="sm"
               onClick={() => setMode('code')}
-              className={`font-mono text-xs uppercase px-3 py-1 transition-all ${
+              className={`text-xs px-3 py-1 transition-colors border-border ${
                 mode === 'code'
-                  ? 'bg-primary/10 dark:bg-cyan-950 text-primary dark:text-cyan-400 border-primary dark:border-cyan-700'
-                  : 'bg-background dark:bg-gray-900 text-muted-foreground border-border dark:border-gray-700 hover:text-primary dark:hover:text-cyan-400 hover:border-primary dark:hover:border-cyan-700'
+                  ? 'bg-accent text-foreground font-medium'
+                  : 'bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
               disabled={disabled}
             >
@@ -227,7 +227,7 @@ export const FilterComposer = forwardRef(function FilterComposer({
         <div className="space-y-3">
           {paletteGroups.map(group => (
             <div key={group.label}>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">:: {group.label}</div>
+              <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">{group.label}</div>
               <div className="flex flex-wrap gap-2">
                 {group.buttons.map(button => (
                   <Button
@@ -238,7 +238,7 @@ export const FilterComposer = forwardRef(function FilterComposer({
                     disabled={disabled}
                     className={
                       button.className ??
-                      'bg-background dark:bg-gray-900 border-border dark:border-gray-700 text-primary dark:text-cyan-400 hover:border-primary dark:hover:border-cyan-700 hover:bg-primary/10 dark:hover:bg-cyan-950/30 font-mono text-xs px-2 py-1 transition-all disabled:opacity-50'
+                      'rounded-md border-border/60 bg-muted/50 text-foreground hover:bg-accent hover:text-foreground font-mono text-xs px-2 py-1 transition-colors disabled:opacity-50'
                     }
                   >
                     {button.label}
@@ -250,7 +250,7 @@ export const FilterComposer = forwardRef(function FilterComposer({
                     size="sm"
                     onClick={handleAddEditable}
                     disabled={disabled}
-                    className="bg-background dark:bg-gray-900 border-border dark:border-gray-700 text-muted-foreground dark:text-slate-300 hover:border-primary dark:hover:border-cyan-700 hover:text-primary dark:hover:text-cyan-400 font-mono text-xs px-2 py-1 transition-all disabled:opacity-50"
+                    className="rounded-md border-border/60 bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground text-xs px-2 py-1 transition-colors disabled:opacity-50"
                   >
                     Custom...
                   </Button>
@@ -259,14 +259,14 @@ export const FilterComposer = forwardRef(function FilterComposer({
             </div>
           ))}
 
-          <div className="flex flex-wrap gap-2 min-h-[38px] p-2 rounded border border-border bg-muted/30 dark:bg-gray-950/40">
+          <div className="flex flex-wrap gap-2 min-h-[38px] p-2 rounded-lg border border-border bg-muted/30">
             {tokens.length === 0 ? (
-              <span className="text-xs text-muted-foreground italic font-mono">{'>> '}Build expression by clicking palette buttons...</span>
+              <span className="text-xs text-muted-foreground italic">Build an expression by clicking palette buttons...</span>
             ) : (
               tokens.map((token, index) => (
                 <div
                   key={`${tokenLabel(token)}-${index}`}
-                  className="flex items-center gap-1 px-3 py-1.5 border rounded-lg transition-all duration-200 ease-in-out bg-card dark:bg-gray-900/70 border-border dark:border-gray-700 text-primary dark:text-cyan-300 font-mono text-xs"
+                  className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5 font-mono text-xs text-foreground transition-colors"
                 >
                   {token.type === 'editable' ? (
                     <Input
@@ -297,7 +297,7 @@ export const FilterComposer = forwardRef(function FilterComposer({
                     </button>
                   )}
                   <button
-                    className="text-sm font-bold opacity-60 hover:opacity-100 hover:scale-125 transition-all text-foreground"
+                    className="text-sm font-bold opacity-60 hover:opacity-100 transition-opacity text-foreground"
                     onClick={() => handleRemoveToken(index)}
                     disabled={disabled}
                   >
@@ -313,14 +313,14 @@ export const FilterComposer = forwardRef(function FilterComposer({
               variant="outline"
               onClick={() => setTokens([])}
               disabled={tokens.length === 0 || disabled}
-              className="bg-background dark:bg-gray-900 border-border dark:border-gray-700 text-muted-foreground hover:border-red-500 dark:hover:border-red-700 hover:text-red-600 dark:hover:text-red-400 font-mono text-xs uppercase px-3 py-1 transition-all disabled:opacity-50"
+              className="border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-red-600 dark:hover:text-red-400 text-xs px-3 py-1 transition-colors disabled:opacity-50"
             >
               Clear
             </Button>
             <Button
               onClick={() => handleAddFilter(expression)}
               disabled={builderDisabled}
-              className="bg-green-100 dark:bg-green-950 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900 hover:border-green-400 dark:hover:border-green-500 font-mono text-xs uppercase px-3 py-1 transition-all disabled:opacity-50"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium px-3 py-1 transition-colors disabled:opacity-50"
             >
               {addButtonLabel}
             </Button>
@@ -339,12 +339,12 @@ export const FilterComposer = forwardRef(function FilterComposer({
             }}
             placeholder="e.g. adv() > 2000000 [1d]"
             disabled={disabled}
-            className="flex-1 bg-background dark:bg-gray-950 border-border dark:border-gray-700 text-foreground dark:text-cyan-400 font-mono text-xs px-3 py-2 rounded placeholder:text-muted-foreground hover:border-primary dark:hover:border-cyan-700 focus:border-primary dark:focus:border-cyan-500 transition-colors"
+            className="flex-1 rounded-lg border border-input bg-card text-foreground font-mono text-xs px-3 py-2 placeholder:text-muted-foreground transition-colors"
           />
           <Button
             onClick={() => handleAddFilter(codeInput)}
             disabled={codeDisabled}
-            className="bg-green-100 dark:bg-green-950 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900 hover:border-green-400 dark:hover:border-green-500 font-mono text-xs uppercase px-3 py-1 transition-all disabled:opacity-50"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium px-3 py-1 transition-colors disabled:opacity-50"
           >
             {addButtonLabel}
           </Button>

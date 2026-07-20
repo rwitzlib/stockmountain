@@ -47,7 +47,7 @@ export function ContextMenu({ children, onDelete }: ContextMenuProps) {
       {showMenu && (
         <div
           ref={menuRef}
-          className="absolute z-50 bg-gray-900 border border-gray-700 shadow-xl shadow-black/50 py-1 w-48"
+          className="absolute z-50 rounded-lg bg-popover border border-border shadow-lg py-1 w-48"
           style={{
             left: `${position.x}px`,
             top: `${position.y}px`,
@@ -58,7 +58,7 @@ export function ContextMenu({ children, onDelete }: ContextMenuProps) {
               onDelete();
               setShowMenu(false);
             }}
-            className="w-full px-4 py-2 text-left text-xs font-mono uppercase text-red-400 hover:bg-red-950/30 hover:text-red-300 border-l-2 border-transparent hover:border-red-700 transition-all"
+            className="w-full px-4 py-2 text-left text-xs text-red-600 dark:text-red-400 hover:bg-accent transition-colors"
           >
             Delete Chart
           </button>

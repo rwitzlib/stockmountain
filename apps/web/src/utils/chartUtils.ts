@@ -3,22 +3,22 @@ import { Trade } from '../types/trade';
 export const chartOptions = {
   layout: {
     background: { color: '#ffffff' },
-    textColor: '#333',
+    textColor: '#64748b',
   },
   grid: {
-    vertLines: { color: 'rgba(42, 46, 57, 0.1)' },
-    horzLines: { color: 'rgba(42, 46, 57, 0.1)' },
+    vertLines: { color: 'rgba(15, 23, 42, 0.06)' },
+    horzLines: { color: 'rgba(15, 23, 42, 0.06)' },
   },
   crosshair: {
     mode: 0,
     vertLine: {
       width: 1 as 1,
-      color: 'rgba(32, 38, 46, 0.1)',
+      color: 'rgba(15, 23, 42, 0.3)',
       style: 0,
     },
     horzLine: {
       width: 1 as 1,
-      color: 'rgba(32, 38, 46, 0.1)',
+      color: 'rgba(15, 23, 42, 0.3)',
       style: 0,
     },
   },
@@ -27,14 +27,14 @@ export const chartOptions = {
     secondsVisible: false,
   },
   rightPriceScale: {
-    borderColor: 'rgba(197, 203, 206, 0.8)',
+    borderColor: 'rgba(15, 23, 42, 0.15)',
   },
 };
 
 export const seriesOptions = {
-  lineColor: '#2962FF',
-  topColor: 'rgba(41, 98, 255, 0.3)',
-  bottomColor: 'rgba(41, 98, 255, 0)',
+  lineColor: '#14a3bd',
+  topColor: 'rgba(20, 163, 189, 0.25)',
+  bottomColor: 'rgba(20, 163, 189, 0)',
   lineWidth: 2 as 1 | 2 | 3 | 4,
 };
 

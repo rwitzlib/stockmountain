@@ -40,7 +40,7 @@ export function ExitForm({ value, onChange }: ExitFormProps) {
                   ...value,
                   StopLoss: { ...value.StopLoss, type: e.target.value as 'percent' | 'value' }
                 })}
-                className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                className="w-full px-3 py-2 border border-input bg-card text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
               >
                 <option value="percent">Percentage</option>
                 <option value="value">Fixed Value</option>
@@ -51,7 +51,7 @@ export function ExitForm({ value, onChange }: ExitFormProps) {
                   ...value,
                   StopLoss: { ...value.StopLoss!, value: newValue || 0 }
                 })}
-                className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                className="w-full px-3 py-2 border border-input bg-card text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                 placeholder={`Enter stop loss ${value.StopLoss.type === 'percent' ? 'percentage' : 'value'}`}
                 suffix={value.StopLoss.type === 'percent' ? '%' : '$'}
                 step="any"
@@ -86,7 +86,7 @@ export function ExitForm({ value, onChange }: ExitFormProps) {
                   ...value,
                   ProfitTarget: { ...value.ProfitTarget, type: e.target.value as 'percent' | 'value' }
                 })}
-                className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                className="w-full px-3 py-2 border border-input bg-card text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
               >
                 <option value="percent">Percentage</option>
                 <option value="value">Fixed Value</option>
@@ -97,7 +97,7 @@ export function ExitForm({ value, onChange }: ExitFormProps) {
                   ...value,
                   ProfitTarget: { ...value.ProfitTarget!, value: newValue || 0 }
                 })}
-                className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                className="w-full px-3 py-2 border border-input bg-card text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                 placeholder={`Enter profit target ${value.ProfitTarget.type === 'percent' ? 'percentage' : 'value'}`}
                 suffix={value.ProfitTarget.type === 'percent' ? '%' : '$'}
                 step="any"

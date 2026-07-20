@@ -115,7 +115,7 @@ export function StrategyForm({ onSubmit, isLoading, initialData }: StrategyFormP
         <button
           type="submit"
           disabled={isLoading}
-          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-400"
+          className="px-6 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
           {isLoading ? 'Saving Strategy...' : 'Save Strategy'}
         </button>

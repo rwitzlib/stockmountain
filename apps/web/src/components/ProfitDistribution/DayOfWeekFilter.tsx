@@ -19,17 +19,17 @@ export function DayOfWeekFilter({ selectedDays, onChange }: DayOfWeekFilterProps
 
   return (
     <div className="flex items-center gap-2">
-      <CalendarDays className="w-4 h-4 text-gray-500" />
+      <CalendarDays className="w-4 h-4 text-muted-foreground" />
       <div className="flex gap-1">
         {days.map(day => (
           <button
             key={day}
             onClick={() => toggleDay(day)}
-            className={`px-2 py-1 text-sm rounded-md ${
+            className={`px-2 py-1 text-sm rounded-md border transition-colors ${
               selectedDays.includes(day)
-                ? 'bg-blue-100 text-blue-700 border-blue-300'
-                : 'bg-gray-50 text-gray-700 border-gray-200'
-            } border hover:bg-blue-50 transition-colors`}
+                ? 'bg-accent text-foreground font-medium border-border'
+                : 'bg-card text-muted-foreground border-border hover:bg-accent hover:text-foreground'
+            }`}
           >
             {day.slice(0, 3)}
           </button>

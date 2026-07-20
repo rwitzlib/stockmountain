@@ -16,22 +16,22 @@ export function DateRangeFilter({
   return (
     <div className="flex items-center gap-4">
       <div className="flex items-center gap-2">
-        <CalendarIcon className="w-4 h-4 text-gray-500" />
+        <CalendarIcon className="w-4 h-4 text-muted-foreground" />
         <input
           type="date"
           value={startDate}
           onChange={(e) => onStartDateChange(e.target.value)}
-          className="px-2 py-1 border rounded-md text-sm"
+          className="px-2 py-1 rounded-lg border border-input bg-card text-sm tabular-nums"
         />
       </div>
-      <span className="text-gray-500">to</span>
+      <span className="text-muted-foreground">to</span>
       <div className="flex items-center gap-2">
-        <CalendarIcon className="w-4 h-4 text-gray-500" />
+        <CalendarIcon className="w-4 h-4 text-muted-foreground" />
         <input
           type="date"
           value={endDate}
           onChange={(e) => onEndDateChange(e.target.value)}
-          className="px-2 py-1 border rounded-md text-sm"
+          className="px-2 py-1 rounded-lg border border-input bg-card text-sm tabular-nums"
         />
       </div>
     </div>

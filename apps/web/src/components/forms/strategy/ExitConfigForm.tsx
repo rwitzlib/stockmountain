@@ -70,10 +70,10 @@ export function ExitConfigForm({ value, onChange }: ExitConfigFormProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-3">
-        <h3 className="text-[10px] font-mono uppercase tracking-wider text-gray-500">:: Exit Configuration</h3>
+        <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Exit Configuration</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <div className="flex items-center gap-3 border border-gray-800 p-2 bg-gray-950/50">
+            <div className="flex items-center gap-3 rounded-lg border border-border p-2 bg-muted/30">
               <Switch
                 id="useStopLoss"
                 checked={!!value.stopLoss}
@@ -82,7 +82,7 @@ export function ExitConfigForm({ value, onChange }: ExitConfigFormProps) {
                   stopLoss: checked ? { type: 'percent', value: -10, priceActionType: 'close' } : undefined
                 })}
               />
-              <label htmlFor="useStopLoss" className="text-xs font-mono uppercase text-gray-400">
+              <label htmlFor="useStopLoss" className="text-sm font-medium text-foreground">
                 Stop Loss
               </label>
             </div>
@@ -95,7 +95,7 @@ export function ExitConfigForm({ value, onChange }: ExitConfigFormProps) {
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center gap-3 border border-gray-800 p-2 bg-gray-950/50">
+            <div className="flex items-center gap-3 rounded-lg border border-border p-2 bg-muted/30">
               <Switch
                 id="useProfitTarget"
                 checked={!!value.profitTarget}
@@ -104,7 +104,7 @@ export function ExitConfigForm({ value, onChange }: ExitConfigFormProps) {
                   profitTarget: checked ? { type: 'percent', value: 10, priceActionType: 'close' } : undefined
                 })}
               />
-              <label htmlFor="useProfitTarget" className="text-xs font-mono uppercase text-gray-400">
+              <label htmlFor="useProfitTarget" className="text-sm font-medium text-foreground">
                 Profit Target
               </label>
             </div>
@@ -118,7 +118,7 @@ export function ExitConfigForm({ value, onChange }: ExitConfigFormProps) {
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center gap-3 border border-gray-800 p-2 bg-gray-950/50">
+          <div className="flex items-center gap-3 rounded-lg border border-border p-2 bg-muted/30">
             <Switch
               id="useTimeframe"
               checked={!!value.timeframe}
@@ -127,7 +127,7 @@ export function ExitConfigForm({ value, onChange }: ExitConfigFormProps) {
                 timeframe: checked ? { multiplier: 1, timespan: 'minute' } : undefined
               })}
             />
-            <label htmlFor="useTimeframe" className="text-xs font-mono uppercase text-gray-400">
+            <label htmlFor="useTimeframe" className="text-sm font-medium text-foreground">
               Exit Timeframe
             </label>
           </div>
@@ -141,15 +141,15 @@ export function ExitConfigForm({ value, onChange }: ExitConfigFormProps) {
       </div>
 
       <div className="space-y-3">
-        <h4 className="text-[10px] font-mono uppercase tracking-wider text-gray-500">:: Additional Exit Conditions</h4>
+        <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Additional Exit Conditions</h4>
         <div className="space-y-3">
           {value.other?.filters.map((filter, index) => (
-            <div key={index} className="relative p-3 bg-gray-950/50 border border-gray-800">
+            <div key={index} className="relative p-3 rounded-xl border border-border/80 bg-card">
               <button
                 type="button"
                 aria-label="Remove exit condition"
                 onClick={() => handleRemoveFilter(index)}
-                className="absolute top-2 right-2 text-gray-600 hover:text-red-400 font-bold text-lg transition-colors"
+                className="absolute top-2 right-2 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 font-bold text-lg transition-colors"
               >
                 ×
               </button>
@@ -162,7 +162,7 @@ export function ExitConfigForm({ value, onChange }: ExitConfigFormProps) {
           <button
             type="button"
             onClick={handleAddFilter}
-            className="w-full py-2 px-4 border border-gray-700 bg-gray-900 text-green-400 hover:bg-green-950/30 hover:border-green-700 focus:outline-none focus:border-green-500 transition-all font-mono text-xs uppercase"
+            className="w-full py-2 px-4 rounded-lg border border-border bg-card text-foreground hover:bg-accent focus:outline-none transition-colors text-xs font-medium"
           >
             + Add Exit Condition
           </button>

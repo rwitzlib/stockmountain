@@ -97,9 +97,9 @@ export function ApiStatus() {
   const Icon = statusInfo.icon;
 
   return (
-    <div className={`flex items-center gap-2 ${statusInfo.bgColor} border ${statusInfo.borderColor} px-3 py-1.5 transition-all duration-300`}>
+    <div className={`flex items-center gap-2 rounded-full ${statusInfo.bgColor} border ${statusInfo.borderColor} px-3 py-1.5 transition-colors duration-300`}>
       <Icon className={`w-3 h-3 ${statusInfo.color} ${apiStatus === 'loading' ? 'animate-spin' : ''}`} />
-      <span className={`font-mono text-xs ${statusInfo.color} tracking-wider`}>
+      <span className={`text-xs font-medium ${statusInfo.color}`}>
         API {statusInfo.label}
       </span>
     </div>

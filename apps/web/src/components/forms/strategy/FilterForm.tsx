@@ -15,7 +15,7 @@ export function FilterForm({ value, onChange }: FilterFormProps) {
         <select
           value={value.collectionModifier}
           onChange={e => onChange({ ...value, collectionModifier: e.target.value as 'ANY' | 'ALL' })}
-          className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+          className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
         >
           <option value="ANY">ANY</option>
           <option value="ALL">ALL</option>
@@ -34,7 +34,7 @@ export function FilterForm({ value, onChange }: FilterFormProps) {
           <select
             value={value.operator}
             onChange={e => onChange({ ...value, operator: e.target.value as 'gt' | 'lt' | 'eq' })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           >
             <option value="gt">Greater Than</option>
             <option value="lt">Less Than</option>

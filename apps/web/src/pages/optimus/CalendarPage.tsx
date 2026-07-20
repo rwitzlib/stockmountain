@@ -286,14 +286,14 @@ const CalendarPage = () => {
                           </div>
                           <div className="text-right">
                             <div>Shares: {trade.shares}</div>
-                            <div>Price: {formatPrice(trade.entryPrice)} â†’ {formatPrice(trade.closePrice)}</div>
+                            <div>Price: {formatPrice(trade.entryPrice)} → {formatPrice(trade.closePrice)}</div>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <p className="text-muted-foreground mb-2">No trades on this day</p>
                     <p className="text-sm">Select another date to view trades</p>
                   </div>

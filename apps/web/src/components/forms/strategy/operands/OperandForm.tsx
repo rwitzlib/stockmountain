@@ -47,7 +47,7 @@ export function OperandForm({ value, onChange, label }: OperandFormProps) {
               const newType = e.target.value as OperandType;
               onChange(defaultOperands[newType]);
             }}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           >
             <option value="PriceAction">Price Action</option>
             <option value="Study">Study</option>

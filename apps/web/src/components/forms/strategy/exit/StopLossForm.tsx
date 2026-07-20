@@ -9,7 +9,7 @@ interface StopLossFormProps {
 export function StopLossForm({ value, onChange }: StopLossFormProps) {
   return (
     <div className="space-y-4">
-      <h4 className="text-base font-medium">Stop Loss</h4>
+      <h4 className="text-base font-semibold tracking-tight">Stop Loss</h4>
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium">Price Action</label>
@@ -19,7 +19,7 @@ export function StopLossForm({ value, onChange }: StopLossFormProps) {
               ...value,
               priceActionType: e.target.value as 'open' | 'close' | 'high' | 'low'
             })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           >
             <option value="open">Open</option>
             <option value="close">Close</option>
@@ -36,7 +36,7 @@ export function StopLossForm({ value, onChange }: StopLossFormProps) {
               ...value,
               type: e.target.value as 'percent' | 'value'
             })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           >
             <option value="percent">Percent</option>
             <option value="value">Fixed Value</option>
@@ -53,7 +53,7 @@ export function StopLossForm({ value, onChange }: StopLossFormProps) {
                 value: newValue || 0
               })}
               step="any"
-              className="border border-input bg-background text-foreground rounded-md"
+              className="border border-input bg-card text-foreground rounded-lg"
               suffix={value.type === 'percent' ? '%' : '$'}
               defaultValue={0}
             />

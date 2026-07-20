@@ -321,7 +321,7 @@ export function BacktestPage() {
                       placeholder="Min"
                       value={minProfit !== null ? minProfit : ''}
                       onChange={(e) => updateFilter('minProfit', e.target.value)}
-                      className="font-mono text-xs h-9"
+                      className="text-xs h-9 tabular-nums"
                     />
                   </div>
 
@@ -334,7 +334,7 @@ export function BacktestPage() {
                       placeholder="Max"
                       value={maxProfit !== null ? maxProfit : ''}
                       onChange={(e) => updateFilter('maxProfit', e.target.value)}
-                      className="font-mono text-xs h-9"
+                      className="text-xs h-9 tabular-nums"
                     />
                   </div>
                 </div>
@@ -348,7 +348,7 @@ export function BacktestPage() {
                       type="date"
                       value={startDate}
                       onChange={(e) => updateFilter('startDate', e.target.value)}
-                      className="font-mono text-xs h-9"
+                      className="text-xs h-9 tabular-nums"
                     />
                   </div>
 
@@ -360,7 +360,7 @@ export function BacktestPage() {
                       type="date"
                       value={endDate}
                       onChange={(e) => updateFilter('endDate', e.target.value)}
-                      className="font-mono text-xs h-9"
+                      className="text-xs h-9 tabular-nums"
                     />
                   </div>
                 </div>

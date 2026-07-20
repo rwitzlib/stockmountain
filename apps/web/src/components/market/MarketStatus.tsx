@@ -99,9 +99,9 @@ export function MarketStatus() {
   const Icon = marketInfo.icon;
 
   return (
-    <div className={`flex items-center gap-2 ${marketInfo.bgColor} border ${marketInfo.borderColor} px-3 py-1.5 transition-all duration-300`}>
+    <div className={`flex items-center gap-2 rounded-full ${marketInfo.bgColor} border ${marketInfo.borderColor} px-3 py-1.5 transition-colors duration-300`}>
       <Icon className={`w-3 h-3 ${marketInfo.color}`} />
-      <span className={`font-mono text-xs ${marketInfo.color} tracking-wider`}>
+      <span className={`text-xs font-medium ${marketInfo.color}`}>
         NYSE {marketInfo.label}
       </span>
     </div>

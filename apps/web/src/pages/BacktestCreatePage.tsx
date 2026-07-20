@@ -327,35 +327,35 @@ export function BacktestCreatePage() {
               <ApiStatus />
             </div>
             <div>
-              <h1 className="text-lg font-mono font-bold uppercase tracking-wider text-foreground"># Create Backtest</h1>
-              <p className="text-[10px] font-mono text-muted-foreground">{'>> '}Configure and launch a new strategy backtest</p>
+              <h1 className="text-lg font-semibold tracking-tight text-foreground">Create Backtest</h1>
+              <p className="text-xs text-muted-foreground">Configure and launch a new strategy backtest</p>
             </div>
           </div>
           
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 bg-muted/30 dark:bg-muted/50 border border-border rounded-md px-3 py-1.5">
-              <span className="text-[10px] font-mono uppercase text-muted-foreground">From</span>
+            <div className="flex items-center gap-2 rounded-lg border border-input bg-card px-3 py-1.5">
+              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">From</span>
               <Input
                 type="date"
                 value={startDate}
                 onChange={event => setStartDate(event.target.value)}
                 disabled={isCreatingBacktest}
-                className="bg-transparent border-0 text-foreground font-mono text-xs h-6 w-[120px] p-0 focus-visible:ring-0"
+                className="bg-transparent border-0 text-foreground text-xs tabular-nums h-6 w-[120px] p-0 focus-visible:ring-0"
               />
-              <span className="text-[10px] font-mono uppercase text-muted-foreground">To</span>
+              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">To</span>
               <Input
                 type="date"
                 value={endDate}
                 onChange={event => setEndDate(event.target.value)}
                 disabled={isCreatingBacktest}
-                className="bg-transparent border-0 text-foreground font-mono text-xs h-6 w-[120px] p-0 focus-visible:ring-0"
+                className="bg-transparent border-0 text-foreground text-xs tabular-nums h-6 w-[120px] p-0 focus-visible:ring-0"
               />
             </div>
             
             <Button
               variant="outline"
               onClick={() => navigate('/backtest')}
-              className="font-mono text-xs uppercase h-9"
+              className="text-xs h-9"
             >
               ← Results
             </Button>
@@ -363,7 +363,7 @@ export function BacktestCreatePage() {
             <Button
               onClick={handleCreateBacktest}
               disabled={isCreatingBacktest}
-              className="bg-green-100 dark:bg-green-950 border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900 hover:border-green-400 dark:hover:border-green-500 font-mono text-xs uppercase px-4 h-9 transition-all disabled:opacity-50"
+              className="text-xs px-4 h-9 disabled:opacity-50"
             >
               {isCreatingBacktest ? 'Submitting...' : 'Start Backtest'}
             </Button>
@@ -371,8 +371,8 @@ export function BacktestCreatePage() {
         </div>
 
         {error && (
-          <div className="bg-destructive/10 dark:bg-red-950/50 border border-destructive dark:border-red-700 text-destructive dark:text-red-400 px-4 py-2 relative font-mono text-sm rounded">
-            <span className="text-destructive dark:text-red-500">ERROR:</span> {error}
+          <div className="rounded-xl bg-destructive/10 border border-destructive/40 text-destructive dark:text-red-400 px-4 py-2 relative text-sm">
+            <span className="font-medium">Error:</span> {error}
             <button
               onClick={() => setError('')}
               className="absolute top-1 right-2 text-destructive dark:text-red-400 hover:text-destructive/80 dark:hover:text-red-300 font-bold"
@@ -386,8 +386,8 @@ export function BacktestCreatePage() {
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Left Column - Filter Composer & List */}
           <div className="space-y-4">
-            <Card className="p-4 bg-card border border-border">
-              <div className="text-xs font-mono uppercase tracking-wider text-primary dark:text-cyan-400 mb-3"># Filters</div>
+            <Card className="p-4">
+              <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-3">Filters</div>
               <FilterComposer 
                 ref={filterComposerRef}
                 onAddFilter={handleAddFilter} 
@@ -395,17 +395,17 @@ export function BacktestCreatePage() {
               />
             </Card>
             
-            <Card className="p-4 bg-card border border-border">
+            <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                  :: Entry Filters ({activeFilters.length} active)
+                <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                  Entry Filters ({activeFilters.length} active)
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleClearFilters}
                   disabled={filters.length === 0 || isCreatingBacktest}
-                  className="bg-background border-border text-muted-foreground hover:border-destructive hover:text-destructive font-mono text-[10px] uppercase px-2 py-0.5 h-6 transition-all disabled:opacity-50"
+                  className="text-muted-foreground hover:text-destructive text-xs px-2 py-0.5 h-6 transition-colors disabled:opacity-50"
                 >
                   Clear All
                 </Button>
@@ -421,13 +421,13 @@ export function BacktestCreatePage() {
           </div>
 
           {/* Right Column - Settings with Tabs */}
-          <Card className="p-4 bg-card border border-border">
+          <Card className="p-4">
             <Tabs defaultValue="position" className="w-full">
-              <TabsList className="w-full bg-muted/50 border border-border mb-4">
-                <TabsTrigger value="position" className="flex-1 font-mono text-xs uppercase data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <TabsList className="w-full bg-muted/50 mb-4">
+                <TabsTrigger value="position" className="flex-1 text-xs data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=active]:font-medium">
                   Position
                 </TabsTrigger>
-                <TabsTrigger value="exit" className="flex-1 font-mono text-xs uppercase data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+                <TabsTrigger value="exit" className="flex-1 text-xs data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=active]:font-medium">
                   Exit Rules
                 </TabsTrigger>
               </TabsList>
@@ -435,7 +435,7 @@ export function BacktestCreatePage() {
               <TabsContent value="position" className="space-y-4 mt-0">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase text-muted-foreground">Starting Balance</label>
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Starting Balance</label>
                     <Input
                       type="text"
                       value={startingBalance}
@@ -446,11 +446,11 @@ export function BacktestCreatePage() {
                         }
                       }}
                       disabled={isCreatingBacktest}
-                      className="bg-background border border-border text-foreground font-mono text-xs h-8"
+                      className="rounded-lg border border-input bg-card text-foreground text-xs tabular-nums h-8"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase text-muted-foreground">Max Concurrent</label>
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Max Concurrent</label>
                     <Input
                       type="text"
                       value={maxConcurrentPositions}
@@ -461,18 +461,18 @@ export function BacktestCreatePage() {
                         }
                       }}
                       disabled={isCreatingBacktest}
-                      className="bg-background border border-border text-foreground font-mono text-xs h-8"
+                      className="rounded-lg border border-input bg-card text-foreground text-xs tabular-nums h-8"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase text-muted-foreground">Model Type</label>
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Model Type</label>
                     <select
                       value={modelType}
                       onChange={event =>
                         setModelType(event.target.value as (typeof MODEL_TYPE_OPTIONS)[number])
                       }
                       disabled={isCreatingBacktest}
-                      className="w-full bg-background border border-border text-foreground font-mono text-xs uppercase px-2 py-1 h-8 rounded-md"
+                      className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-8"
                     >
                       {MODEL_TYPE_OPTIONS.map(option => (
                         <option key={option} value={option}>
@@ -482,7 +482,7 @@ export function BacktestCreatePage() {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase text-muted-foreground">Model Size</label>
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Model Size</label>
                     <Input
                       type="text"
                       value={modelSize}
@@ -493,7 +493,7 @@ export function BacktestCreatePage() {
                         }
                       }}
                       disabled={isCreatingBacktest}
-                      className="bg-background border border-border text-foreground font-mono text-xs h-8"
+                      className="rounded-lg border border-input bg-card text-foreground text-xs tabular-nums h-8"
                     />
                   </div>
                 </div>
@@ -501,8 +501,8 @@ export function BacktestCreatePage() {
                 <div className="border-t border-border pt-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-[10px] font-mono uppercase text-muted-foreground">Cooldown</div>
-                      <div className="text-[10px] font-mono text-muted-foreground/70">Wait before new positions</div>
+                      <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Cooldown</div>
+                      <div className="text-[11px] text-muted-foreground/70">Wait before new positions</div>
                     </div>
                     <Switch
                       checked={cooldownEnabled}
@@ -511,9 +511,9 @@ export function BacktestCreatePage() {
                     />
                   </div>
                   {cooldownEnabled && (
-                    <div className="grid grid-cols-2 gap-3 pl-2 border-l-2 border-primary/30">
+                    <div className="grid grid-cols-2 gap-3 pl-2 border-l-2 border-border">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Multiplier</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Multiplier</label>
                         <Input
                           type="text"
                           value={cooldownMultiplier}
@@ -524,18 +524,18 @@ export function BacktestCreatePage() {
                             }
                           }}
                           disabled={isCreatingBacktest}
-                          className="bg-background border border-border text-foreground font-mono text-xs h-8"
+                          className="rounded-lg border border-input bg-card text-foreground text-xs tabular-nums h-8"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Timespan</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Timespan</label>
                         <select
                           value={cooldownTimespan}
                           onChange={event =>
                             setCooldownTimespan(event.target.value as (typeof TIMESPAN_OPTIONS)[number])
                           }
                           disabled={isCreatingBacktest}
-                          className="w-full bg-background border border-border text-foreground font-mono text-xs uppercase px-2 py-1 h-8 rounded-md"
+                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-8"
                         >
                           {TIMESPAN_OPTIONS.map(option => (
                             <option key={`cooldown-${option}`} value={option}>
@@ -551,8 +551,8 @@ export function BacktestCreatePage() {
                 <div className="border-t border-border pt-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-[10px] font-mono uppercase text-muted-foreground">Allow Simultaneous</div>
-                      <div className="text-[10px] font-mono text-muted-foreground/70">Permit overlapping positions</div>
+                      <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Allow Simultaneous</div>
+                      <div className="text-[11px] text-muted-foreground/70">Permit overlapping positions</div>
                     </div>
                     <Switch
                       checked={allowSimultaneous}
@@ -565,11 +565,11 @@ export function BacktestCreatePage() {
 
               <TabsContent value="exit" className="space-y-4 mt-0">
                 {/* Take Profit */}
-                <div className="space-y-3 border border-border rounded-md p-3 bg-muted/10">
+                <div className="space-y-3 rounded-lg border border-border/60 p-3 bg-muted/10">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-[10px] font-mono uppercase text-green-600 dark:text-green-400">Take Profit</div>
-                      <div className="text-[10px] font-mono text-muted-foreground/70">Exit on profit target</div>
+                      <div className="text-[11px] font-medium uppercase tracking-widest text-green-600 dark:text-green-400">Take Profit</div>
+                      <div className="text-[11px] text-muted-foreground/70">Exit on profit target</div>
                     </div>
                     <Switch
                       checked={takeProfitEnabled}
@@ -581,7 +581,7 @@ export function BacktestCreatePage() {
                   {takeProfitEnabled && (
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Value</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Value</label>
                         <Input
                           type="text"
                           value={takeProfitValueInput}
@@ -605,30 +605,30 @@ export function BacktestCreatePage() {
                             }
                           }}
                           disabled={isCreatingBacktest}
-                          className="bg-background border border-border text-foreground font-mono text-xs h-7"
+                          className="rounded-lg border border-input bg-card text-foreground text-xs tabular-nums h-7"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Type</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Type</label>
                         <select
                           value={takeProfitType}
                           onChange={event => setTakeProfitType(event.target.value as 'percent' | 'value')}
                           disabled={isCreatingBacktest}
-                          className="w-full bg-background border border-border text-foreground font-mono text-xs uppercase px-2 py-1 h-7 rounded-md"
+                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
                         >
                           <option value="percent">Percent</option>
                           <option value="value">Value</option>
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Candle</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Candle</label>
                         <select
                           value={takeProfitCandleType}
                           onChange={event =>
                             setTakeProfitCandleType(event.target.value as (typeof CANDLE_TYPE_OPTIONS)[number])
                           }
                           disabled={isCreatingBacktest}
-                          className="w-full bg-background border border-border text-foreground font-mono text-xs uppercase px-2 py-1 h-7 rounded-md"
+                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
                         >
                           {CANDLE_TYPE_OPTIONS.map(option => (
                             <option key={`tp-candle-${option}`} value={option}>
@@ -638,7 +638,7 @@ export function BacktestCreatePage() {
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Price</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Price</label>
                         <select
                           value={takeProfitPriceActionType}
                           onChange={event =>
@@ -647,7 +647,7 @@ export function BacktestCreatePage() {
                             )
                           }
                           disabled={isCreatingBacktest}
-                          className="w-full bg-background border border-border text-foreground font-mono text-xs uppercase px-2 py-1 h-7 rounded-md"
+                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
                         >
                           {PRICE_ACTION_OPTIONS.map(option => (
                             <option key={`tp-price-${option}`} value={option}>
@@ -661,11 +661,11 @@ export function BacktestCreatePage() {
                 </div>
 
                 {/* Stop Loss */}
-                <div className="space-y-3 border border-border rounded-md p-3 bg-muted/10">
+                <div className="space-y-3 rounded-lg border border-border/60 p-3 bg-muted/10">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-[10px] font-mono uppercase text-red-600 dark:text-red-400">Stop Loss</div>
-                      <div className="text-[10px] font-mono text-muted-foreground/70">Protective stop</div>
+                      <div className="text-[11px] font-medium uppercase tracking-widest text-red-600 dark:text-red-400">Stop Loss</div>
+                      <div className="text-[11px] text-muted-foreground/70">Protective stop</div>
                     </div>
                     <Switch
                       checked={stopLossEnabled}
@@ -677,7 +677,7 @@ export function BacktestCreatePage() {
                   {stopLossEnabled && (
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Value</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Value</label>
                         <Input
                           type="text"
                           value={stopLossValueInput}
@@ -701,30 +701,30 @@ export function BacktestCreatePage() {
                             }
                           }}
                           disabled={isCreatingBacktest}
-                          className="bg-background border border-border text-foreground font-mono text-xs h-7"
+                          className="rounded-lg border border-input bg-card text-foreground text-xs tabular-nums h-7"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Type</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Type</label>
                         <select
                           value={stopLossType}
                           onChange={event => setStopLossType(event.target.value as 'percent' | 'value')}
                           disabled={isCreatingBacktest}
-                          className="w-full bg-background border border-border text-foreground font-mono text-xs uppercase px-2 py-1 h-7 rounded-md"
+                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
                         >
                           <option value="percent">Percent</option>
                           <option value="value">Value</option>
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Candle</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Candle</label>
                         <select
                           value={stopLossCandleType}
                           onChange={event =>
                             setStopLossCandleType(event.target.value as (typeof CANDLE_TYPE_OPTIONS)[number])
                           }
                           disabled={isCreatingBacktest}
-                          className="w-full bg-background border border-border text-foreground font-mono text-xs uppercase px-2 py-1 h-7 rounded-md"
+                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
                         >
                           {CANDLE_TYPE_OPTIONS.map(option => (
                             <option key={`sl-candle-${option}`} value={option}>
@@ -734,7 +734,7 @@ export function BacktestCreatePage() {
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Price</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Price</label>
                         <select
                           value={stopLossPriceActionType}
                           onChange={event =>
@@ -743,7 +743,7 @@ export function BacktestCreatePage() {
                             )
                           }
                           disabled={isCreatingBacktest}
-                          className="w-full bg-background border border-border text-foreground font-mono text-xs uppercase px-2 py-1 h-7 rounded-md"
+                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
                         >
                           {PRICE_ACTION_OPTIONS.map(option => (
                             <option key={`sl-price-${option}`} value={option}>
@@ -757,11 +757,11 @@ export function BacktestCreatePage() {
                 </div>
 
                 {/* Timed Exit */}
-                <div className="space-y-3 border border-border rounded-md p-3 bg-muted/10">
+                <div className="space-y-3 rounded-lg border border-border/60 p-3 bg-muted/10">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-[10px] font-mono uppercase text-amber-600 dark:text-amber-400">Timed Exit</div>
-                      <div className="text-[10px] font-mono text-muted-foreground/70">Force exit after duration</div>
+                      <div className="text-[11px] font-medium uppercase tracking-widest text-amber-600 dark:text-amber-400">Timed Exit</div>
+                      <div className="text-[11px] text-muted-foreground/70">Force exit after duration</div>
                     </div>
                     <Switch
                       checked={timedExitEnabled}
@@ -773,7 +773,7 @@ export function BacktestCreatePage() {
                   {timedExitEnabled && (
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Multiplier</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Multiplier</label>
                         <Input
                           type="text"
                           value={timedExitMultiplier}
@@ -784,18 +784,18 @@ export function BacktestCreatePage() {
                             }
                           }}
                           disabled={isCreatingBacktest}
-                          className="bg-background border border-border text-foreground font-mono text-xs h-7"
+                          className="rounded-lg border border-input bg-card text-foreground text-xs tabular-nums h-7"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-muted-foreground">Timespan</label>
+                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Timespan</label>
                         <select
                           value={timedExitTimespan}
                           onChange={event =>
                             setTimedExitTimespan(event.target.value as (typeof TIMESPAN_OPTIONS)[number])
                           }
                           disabled={isCreatingBacktest}
-                          className="w-full bg-background border border-border text-foreground font-mono text-xs uppercase px-2 py-1 h-7 rounded-md"
+                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
                         >
                           {TIMESPAN_OPTIONS.map(option => (
                             <option key={`timed-${option}`} value={option}>

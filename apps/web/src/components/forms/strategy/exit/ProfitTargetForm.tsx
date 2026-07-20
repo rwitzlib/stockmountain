@@ -9,7 +9,7 @@ interface ProfitTargetFormProps {
 export function ProfitTargetForm({ value, onChange }: ProfitTargetFormProps) {
   return (
     <div className="space-y-4">
-      <h4 className="text-base font-medium">Profit Target</h4>
+      <h4 className="text-base font-semibold tracking-tight">Profit Target</h4>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium">Type</label>
@@ -19,7 +19,7 @@ export function ProfitTargetForm({ value, onChange }: ProfitTargetFormProps) {
               ...value,
               type: e.target.value as 'percent' | 'value'
             })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           >
             <option value="percent">Percent</option>
             <option value="value">Fixed Value</option>
@@ -38,7 +38,7 @@ export function ProfitTargetForm({ value, onChange }: ProfitTargetFormProps) {
               step="any"
               suffix={value.type === 'percent' ? '%' : '$'}
               defaultValue={0}
-              className="border border-input bg-background text-foreground rounded-md"
+              className="border border-input bg-card text-foreground rounded-lg"
             />
           </div>
         </div>

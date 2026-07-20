@@ -18,7 +18,7 @@ export function CustomTooltip({ active, payload }: TooltipProps) {
   if (!active || !payload) return null;
 
   const strategies = [
-    { name: 'Hold', color: 'hsl(var(--primary))', trades: payload[0]?.payload.holdTrades },
+    { name: 'Hold', color: 'var(--chart-strategy)', trades: payload[0]?.payload.holdTrades },
     { name: 'High', color: '#16a34a', trades: payload[1]?.payload.highTrades }
   ];
 
@@ -32,14 +32,14 @@ export function CustomTooltip({ active, payload }: TooltipProps) {
   }
 
   return (
-    <div className="bg-card border border-border p-4 rounded-lg shadow-lg">
-      <p className="text-xs font-mono uppercase tracking-wider text-primary mb-3">{formatDateTime(payload[0]?.payload.rawDate)}</p>
+    <div className="rounded-lg border border-border bg-popover p-4 shadow-md">
+      <p className="text-xs font-semibold text-foreground mb-3">{formatDateTime(payload[0]?.payload.rawDate)}</p>
       {strategies.map(({ name, color, trades }) => (
         <div key={name} className="mb-3 last:mb-0">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-2.5 h-2.5 rounded-full border border-border" style={{ backgroundColor: color }} />
-            <span className="text-xs font-mono uppercase tracking-wide text-foreground">
-              {name}: <span className="text-primary">{formatCurrency(payload.find(p => p.name === name)?.value)}</span>
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+            <span className="text-xs text-muted-foreground">
+              {name}: <span className="font-semibold text-foreground tabular-nums">{formatCurrency(payload.find(p => p.name === name)?.value)}</span>
             </span>
           </div>
           <TradeList trades={trades} />
@@ -53,24 +53,24 @@ function TradeList({ trades }: { trades: TradeInfo }) {
   if (!trades?.bought?.length && !trades?.sold?.length) return null;
 
   return (
-    <div className="text-xs font-mono space-y-1.5">
+    <div className="text-xs space-y-1.5">
       {trades.bought.length > 0 && (
-        <div className="bg-green-500/10 border border-green-500/30 p-2 rounded">
-          <p className="text-[10px] uppercase tracking-wider text-green-600 dark:text-green-400 mb-1">{'>> '}BOUGHT</p>
+        <div className="rounded-md bg-green-500/10 p-2">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-green-600 dark:text-green-400 mb-1">Bought</p>
           {trades.bought.map((trade, i) => (
-            <p key={i} className="text-muted-foreground ml-2 text-[10px]">
-              {trade.shares} {trade.ticker} @ {formatCurrency(trade.price)}
+            <p key={i} className="text-muted-foreground ml-2 text-[10px] tabular-nums">
+              {trade.shares} <span className="font-mono">{trade.ticker}</span> @ {formatCurrency(trade.price)}
             </p>
           ))}
         </div>
       )}
       {trades.sold.length > 0 && (
-        <div className="bg-red-500/10 border border-red-500/30 p-2 rounded">
-          <p className="text-[10px] uppercase tracking-wider text-red-600 dark:text-red-400 mb-1">{'>> '}SOLD</p>
+        <div className="rounded-md bg-red-500/10 p-2">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-red-600 dark:text-red-400 mb-1">Sold</p>
           {trades.sold.map((trade, i) => (
-            <p key={i} className="text-muted-foreground ml-2 text-[10px]">
-              {trade.shares} {trade.ticker} @ {formatCurrency(trade.price)} 
-              {' '}({trade.stoppedOut ? 'STOPPED' : `${formatCurrency(trade.profit)} PROFIT`})
+            <p key={i} className="text-muted-foreground ml-2 text-[10px] tabular-nums">
+              {trade.shares} <span className="font-mono">{trade.ticker}</span> @ {formatCurrency(trade.price)} 
+              {' '}({trade.stoppedOut ? 'stopped' : `${formatCurrency(trade.profit)} profit`})
             </p>
           ))}
         </div>

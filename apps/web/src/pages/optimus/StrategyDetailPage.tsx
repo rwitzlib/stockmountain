@@ -588,20 +588,20 @@ const StrategyDetailPage = () => {
   const applyTheme = () => {
     if (!chartRef.current || !lineSeriesRef.current) return;
     const colors = isDarkMode ? {
-      background: '#0b1220',
-      text: '#e5e7eb',
-      grid: '#1f2937',
+      background: 'transparent',
+      text: '#8b93a1',
+      grid: 'rgba(148,163,184,0.08)',
       crosshair: '#6b7280',
-      line: '#8b5cf6',
-      markerBorder: '#8b5cf6',
-      markerBg: '#0b1220',
+      line: '#14a3bd',
+      markerBorder: '#14a3bd',
+      markerBg: '#1C2026',
     } : {
       background: '#ffffff',
       text: '#1f2937',
       grid: '#e5e7eb',
       crosshair: '#9ca3af',
-      line: '#8b5cf6',
-      markerBorder: '#8b5cf6',
+      line: '#14a3bd',
+      markerBorder: '#14a3bd',
       markerBg: '#ffffff',
     };
     chartRef.current.applyOptions({
@@ -648,11 +648,11 @@ const StrategyDetailPage = () => {
     
     const initialIsDark = document.documentElement.classList.contains('dark');
     const initialColors = initialIsDark ? {
-      background: '#0b1220',
-      text: '#e5e7eb',
-      grid: '#1f2937',
+      background: 'transparent',
+      text: '#8b93a1',
+      grid: 'rgba(148,163,184,0.08)',
       crosshair: '#6b7280',
-      border: '#374151',
+      border: 'rgba(148,163,184,0.15)',
     } : {
       background: '#ffffff',
       text: '#1f2937',
@@ -677,12 +677,12 @@ const StrategyDetailPage = () => {
     chartRef.current = chart;
 
     const line = chart.addSeries(LineSeries, {
-      color: '#8b5cf6',
+      color: '#14a3bd',
       lineWidth: 3,
       crosshairMarkerVisible: true,
       crosshairMarkerRadius: 6,
       crosshairMarkerBorderColor: '#ffffff',
-      crosshairMarkerBackgroundColor: '#8b5cf6',
+      crosshairMarkerBackgroundColor: '#14a3bd',
       title: 'Strategy',
     });
     lineSeriesRef.current = line;
@@ -852,8 +852,8 @@ const StrategyDetailPage = () => {
     return (
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center py-8 text-primary dark:text-cyan-400 font-mono text-sm">
-            <div className="animate-pulse">Â» LOADING STRATEGY DATA...</div>
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            <div className="animate-pulse">Loading strategy data…</div>
           </div>
         </div>
       </div>
@@ -864,9 +864,9 @@ const StrategyDetailPage = () => {
     return (
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center py-8 text-destructive dark:text-red-400 font-mono text-sm">
-            <div>âš  STRATEGY NOT FOUND</div>
-            <div className="text-muted-foreground text-xs mt-2">Â» Invalid strategy ID or access denied</div>
+          <div className="text-center py-8 text-destructive dark:text-red-400 text-sm">
+            <div className="font-medium">Strategy not found</div>
+            <div className="text-muted-foreground text-xs mt-2">Invalid strategy ID or access denied</div>
           </div>
         </div>
       </div>
@@ -898,34 +898,34 @@ const StrategyDetailPage = () => {
             <Button
               variant="outline"
               size="sm"
-              className="bg-card hover:bg-muted border-border hover:border-primary text-foreground hover:text-primary transition-all"
+              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               onClick={() => navigate(getBackNavigationPath())}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
-              <span className="font-mono text-xs uppercase">Back</span>
+              <span className="text-xs">Back</span>
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-foreground font-mono uppercase tracking-wider">{strategy.name || 'UNNAMED STRATEGY'}</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">{strategy.name || 'Unnamed Strategy'}</h1>
               <div className="flex items-center space-x-2 mt-2">
                 <Badge 
                   variant={strategy.type === 'Paper' ? 'default' : 'default'}
-                  className={`px-2 py-0.5 text-xs font-mono uppercase border ${
+                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border-transparent ${
                     strategy.type === 'Paper' 
-                      ? 'bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700' 
-                      : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                      ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' 
+                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                   }`}
                 >
                   <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                    strategy.type === 'Paper' ? 'bg-yellow-600 dark:bg-yellow-400 animate-pulse' : 'bg-emerald-600 dark:bg-emerald-400 animate-pulse'
+                    strategy.type === 'Paper' ? 'bg-yellow-600 dark:bg-yellow-400' : 'bg-emerald-600 dark:bg-emerald-400'
                   }`} />
                   {strategy.type || 'Paper'}
                 </Badge>
                 
                 <Badge 
                   variant="default"
-                  className="px-2 py-0.5 text-xs font-mono uppercase bg-primary/10 dark:bg-cyan-950 text-primary dark:text-cyan-400 border border-primary/30 dark:border-cyan-700"
+                  className="rounded-full border border-border bg-transparent px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
                 >
-                  <div className="w-1.5 h-1.5 rounded-full mr-1.5 bg-primary dark:bg-cyan-400" />
+                  <div className="w-1.5 h-1.5 rounded-full mr-1.5 bg-muted-foreground" />
                   {strategy.integration || 'Default'}
                 </Badge>
                 
@@ -933,16 +933,16 @@ const StrategyDetailPage = () => {
                 <div className="flex items-center gap-3">
                   <Badge 
                     variant={strategy.state === 'active' ? 'default' : 'secondary'}
-                    className={`px-2 py-0.5 text-xs font-mono uppercase border ${
+                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border-transparent ${
                       strategy.state === 'active' 
-                        ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700' 
-                        : 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700'
+                        ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
+                        : 'bg-red-500/10 text-red-600 dark:text-red-400'
                     }`}
                   >
                     <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
                       strategy.state === 'active' ? 'bg-green-600 dark:bg-green-400 animate-pulse' : 'bg-red-600 dark:bg-red-400'
                     }`} />
-                    {strategy.state === 'active' ? 'ACTIVE' : 'OFFLINE'}
+                    {strategy.state === 'active' ? 'Active' : 'Offline'}
                   </Badge>
                 </div>
               </div>
@@ -956,15 +956,15 @@ const StrategyDetailPage = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-card hover:bg-muted border-border hover:border-primary text-foreground hover:text-primary transition-all"
+                  className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-card border-border">
-                <DropdownMenuItem onClick={handleCloneStrategy} className="text-foreground hover:text-primary hover:bg-muted font-mono text-xs">
+                <DropdownMenuItem onClick={handleCloneStrategy} className="text-foreground hover:bg-accent text-xs">
                   <Copy className="h-3 w-3 mr-2" />
-                  CLONE
+                  Clone
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -973,22 +973,22 @@ const StrategyDetailPage = () => {
             <Button
               variant="outline"
               size="sm"
-              className="bg-emerald-50 dark:bg-emerald-950 hover:bg-emerald-100 dark:hover:bg-emerald-900 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all"
+              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               onClick={() => navigate(`/optimus/strategy/${strategyId}/optimize`)}
             >
               <Beaker className="h-3 w-3 mr-1.5" />
-              <span className="font-mono text-xs uppercase">Optimize</span>
+              <span className="text-xs">Optimize</span>
             </Button>
 
             {/* Settings Button */}
             <Button
               variant="outline"
               size="sm"
-              className="bg-card hover:bg-muted border-border hover:border-primary text-foreground hover:text-primary transition-all"
+              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               onClick={() => navigate(`/optimus/strategy/${strategyId}/settings`)}
             >
               <Settings className="h-3 w-3 mr-1.5" />
-              <span className="font-mono text-xs uppercase">Config</span>
+              <span className="text-xs">Settings</span>
             </Button>
 
             <AlertDialog>
@@ -996,28 +996,26 @@ const StrategyDetailPage = () => {
                 <Button 
                   variant="destructive" 
                   size="sm"
-                  className="bg-red-100 dark:bg-red-950 hover:bg-red-200 dark:hover:bg-red-900 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700 hover:border-red-400 dark:hover:border-red-500 transition-all font-mono text-xs uppercase"
+                  className="text-xs"
                 >
                   <Trash2 className="h-3 w-3 mr-1.5" />
-                  Terminate
+                  Delete
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent className="bg-card border border-destructive dark:border-red-700">
+              <AlertDialogContent className="bg-card border border-border/80">
                 <AlertDialogHeader>
-                  <AlertDialogTitle className="text-destructive dark:text-red-400 font-mono uppercase">âš ï¸ Terminate Strategy</AlertDialogTitle>
-                  <AlertDialogDescription className="text-muted-foreground font-mono text-sm">
-                    {'>> '}CONFIRM DELETION OF &quot;{strategy.name}&quot;<br/>
-                    {'>> '}THIS OPERATION IS IRREVERSIBLE<br/>
-                    {'>> '}ALL ASSOCIATED DATA WILL BE PURGED
+                  <AlertDialogTitle className="text-destructive dark:text-red-400">Delete strategy</AlertDialogTitle>
+                  <AlertDialogDescription className="text-muted-foreground text-sm">
+                    This will permanently delete &quot;{strategy.name}&quot; and all associated data. This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel className="bg-muted border-border text-foreground hover:bg-muted/80 font-mono text-xs uppercase">Abort</AlertDialogCancel>
+                  <AlertDialogCancel className="text-xs">Cancel</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleDeleteStrategy}
-                    className="bg-destructive dark:bg-red-950 hover:bg-destructive/90 dark:hover:bg-red-900 text-destructive-foreground dark:text-red-400 border border-destructive dark:border-red-700 font-mono text-xs uppercase"
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs"
                   >
-                    Confirm Termination
+                    Delete
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -1025,36 +1023,35 @@ const StrategyDetailPage = () => {
           </div>
         </div>
 
-        {/* Compact Stats Bar - Terminal Style */}
-        <div className="bg-card/50 border border-border">
+        {/* Compact Stats Bar */}
+        <div className="rounded-xl border border-border/80 bg-card overflow-hidden">
           {/* Config Stats Row */}
           <div className="flex flex-wrap items-center divide-x divide-border border-b border-border">
             <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">::</span>
-              <span className="text-[10px] font-mono uppercase text-muted-foreground">INIT BAL</span>
-              <span className="text-sm font-mono font-bold text-primary dark:text-cyan-400">${positionSettings.startingBalance.toLocaleString()}</span>
+              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Init Bal</span>
+              <span className="text-sm font-semibold tabular-nums text-foreground">${positionSettings.startingBalance.toLocaleString()}</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[10px] font-mono uppercase text-muted-foreground">POS SIZE</span>
-              <span className="text-sm font-mono font-bold text-primary dark:text-cyan-400">${positionSettings.model.size.toLocaleString()}</span>
+              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Pos Size</span>
+              <span className="text-sm font-semibold tabular-nums text-foreground">${positionSettings.model.size.toLocaleString()}</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[10px] font-mono uppercase text-muted-foreground">MAX POS</span>
-              <span className="text-sm font-mono font-bold text-primary dark:text-cyan-400">{positionSettings.maxConcurrentPositions}</span>
+              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Max Pos</span>
+              <span className="text-sm font-semibold tabular-nums text-foreground">{positionSettings.maxConcurrentPositions}</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[10px] font-mono uppercase text-muted-foreground">TRADES</span>
-              <span className="text-sm font-mono font-bold text-green-600 dark:text-green-400">{tradesResponse?.totalTrades ?? trades.length}</span>
+              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Trades</span>
+              <span className="text-sm font-semibold tabular-nums text-foreground">{tradesResponse?.totalTrades ?? trades.length}</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[10px] font-mono uppercase text-muted-foreground">WIN RATE</span>
-              <span className={`text-sm font-mono font-bold ${winRatePercent && winRatePercent >= 50 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Win Rate</span>
+              <span className={`text-sm font-semibold tabular-nums ${winRatePercent && winRatePercent >= 50 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
                 {winRatePercent !== undefined ? `${winRatePercent.toFixed(1)}%` : '-'}
               </span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[10px] font-mono uppercase text-muted-foreground">AVG P/L</span>
-              <span className={`text-sm font-mono font-bold ${averageProfitValue !== undefined ? (averageProfitValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-muted-foreground'}`}>
+              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Avg P/L</span>
+              <span className={`text-sm font-semibold tabular-nums ${averageProfitValue !== undefined ? (averageProfitValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-muted-foreground'}`}>
                 {averageProfitValue !== undefined ? formatPrice(averageProfitValue) : '-'}
               </span>
             </div>
@@ -1087,29 +1084,29 @@ const StrategyDetailPage = () => {
 
           <div className="space-y-3 mt-3">
             <div className="flex items-center justify-between flex-wrap gap-2 border-b border-border pb-2">
-              <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground"># Trading Activity</h2>
+              <h2 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Trading Activity</h2>
               
               <ToggleGroup 
                 type="single" 
                 value={tradeType} 
                 onValueChange={handleTradeTypeChange}
-                className="bg-card p-0.5 border border-border"
+                className="bg-card p-0.5 rounded-lg border border-border"
               >
-                <ToggleGroupItem value="all" aria-label="Show all trades" className="data-[state=on]:bg-primary/20 dark:data-[state=on]:bg-cyan-950 data-[state=on]:text-primary dark:data-[state=on]:text-cyan-400 data-[state=on]:border-primary dark:data-[state=on]:border-cyan-700 text-muted-foreground hover:text-foreground px-2 py-0.5 text-[10px] font-mono uppercase">
+                <ToggleGroupItem value="all" aria-label="Show all trades" className="data-[state=on]:bg-accent data-[state=on]:text-foreground data-[state=on]:font-medium text-muted-foreground hover:text-foreground rounded-md px-2 py-0.5 text-[10px]">
                   All
                 </ToggleGroupItem>
-                <ToggleGroupItem value="paper" aria-label="Show paper trades" className="data-[state=on]:bg-yellow-100 dark:data-[state=on]:bg-yellow-950 data-[state=on]:text-yellow-700 dark:data-[state=on]:text-yellow-400 data-[state=on]:border-yellow-300 dark:data-[state=on]:border-yellow-700 text-muted-foreground hover:text-foreground px-2 py-0.5 text-[10px] font-mono uppercase">
+                <ToggleGroupItem value="paper" aria-label="Show paper trades" className="data-[state=on]:bg-yellow-500/10 data-[state=on]:text-yellow-600 dark:data-[state=on]:text-yellow-400 data-[state=on]:font-medium text-muted-foreground hover:text-foreground rounded-md px-2 py-0.5 text-[10px]">
                   Paper
                 </ToggleGroupItem>
-                <ToggleGroupItem value="live" aria-label="Show live trades" className="data-[state=on]:bg-green-100 dark:data-[state=on]:bg-green-950 data-[state=on]:text-green-700 dark:data-[state=on]:text-green-400 data-[state=on]:border-green-300 dark:data-[state=on]:border-green-700 text-muted-foreground hover:text-foreground px-2 py-0.5 text-[10px] font-mono uppercase">
+                <ToggleGroupItem value="live" aria-label="Show live trades" className="data-[state=on]:bg-green-500/10 data-[state=on]:text-green-600 dark:data-[state=on]:text-green-400 data-[state=on]:font-medium text-muted-foreground hover:text-foreground rounded-md px-2 py-0.5 text-[10px]">
                   Live
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
 
             {tradesError ? (
-              <div className="bg-red-100 dark:bg-red-950/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 p-4 font-mono text-sm">
-                <span className="text-red-600 dark:text-red-500">ERROR:</span> Failed to load trades for this strategy
+              <div className="rounded-lg bg-red-100 dark:bg-red-950/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 p-4 text-sm">
+                <span className="font-medium text-red-600 dark:text-red-500">Error:</span> Failed to load trades for this strategy
               </div>
             ) : (
               <>
@@ -1119,41 +1116,41 @@ const StrategyDetailPage = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
                   {/* Chart (Main Focus) */}
                   <div className="lg:col-span-8">
-                    <Card className="p-3 bg-card/50 border border-border">
+                    <Card className="p-3">
                       <div className="mb-2 border-b border-border pb-2 flex items-center justify-between flex-wrap gap-2">
-                        <h3 className="text-[10px] font-mono uppercase tracking-wider text-primary dark:text-cyan-400"># Balance Over Time</h3>
+                        <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Balance Over Time</h3>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-0.5 bg-[#8b5cf6]"></div>
-                            <span className="text-[9px] font-mono text-muted-foreground">Strategy</span>
+                            <div className="w-3 h-0.5 bg-[#14a3bd]"></div>
+                            <span className="text-[10px] text-muted-foreground">Strategy</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <div className="w-3 h-0.5 bg-[#f59e0b] border-dashed border-t-2"></div>
-                            <span className="text-[9px] font-mono text-muted-foreground">SPY</span>
+                            <span className="text-[10px] text-muted-foreground">SPY</span>
                           </div>
                         </div>
                       </div>
                       
-                      <div ref={chartContainerRef} className="w-full h-[400px] bg-background dark:bg-[#0a0e17] border border-border" />
+                      <div ref={chartContainerRef} className="w-full h-[400px] rounded-lg" />
                     </Card>
 
                     {/* Selected Trades Section */}
                     {selectedDate && selectedDayTrades.length > 0 && (
-                      <Card className="p-3 bg-card/50 border border-border mt-2">
+                      <Card className="p-3 mt-2">
                         <div className="mb-2 border-b border-border pb-2">
                           <div className="flex items-center justify-between">
-                            <h3 className="text-[10px] font-mono uppercase tracking-wider text-primary dark:text-cyan-400">
-                              # {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Trades
+                            <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                              {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Trades
                             </h3>
                             <div className="flex items-center gap-2">
-                              <span className={`text-sm font-mono font-bold ${selectedDayProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              <span className={`text-sm font-bold tabular-nums ${selectedDayProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                 {formatPrice(selectedDayProfit)}
                               </span>
                               <button
                                 onClick={() => setSelectedDate(undefined)}
-                                className="text-[10px] font-mono text-muted-foreground hover:text-destructive dark:hover:text-red-400 transition-colors"
+                                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
                               >
-                                âœ•
+                                ✕
                               </button>
                             </div>
                           </div>
@@ -1164,20 +1161,20 @@ const StrategyDetailPage = () => {
                             <div
                               key={trade.id}
                               onClick={() => handleTradeClick(trade)}
-                              className="p-2 border border-border bg-muted/30 hover:border-primary dark:hover:border-cyan-700 hover:bg-muted/50 dark:hover:bg-gray-900 transition-all cursor-pointer"
+                              className="p-2 rounded-lg border border-border bg-muted/30 hover:bg-accent/40 hover:border-muted-foreground/40 transition-colors cursor-pointer"
                             >
                               <div className="flex justify-between items-center">
                                 <span className="font-mono font-bold text-xs text-foreground">{trade.ticker}</span>
                                 <span
-                                  className={`text-xs font-mono font-bold ${
+                                  className={`text-xs font-bold tabular-nums ${
                                     trade.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                                   }`}
                                 >
                                   {formatPrice(trade.profit)}
                                 </span>
                               </div>
-                              <div className="flex justify-between text-[9px] font-mono text-muted-foreground mt-1">
-                                <span>{formatPrice(trade.entryPrice)} â†’ {formatPrice(trade.closePrice)}</span>
+                              <div className="flex justify-between text-[10px] tabular-nums text-muted-foreground mt-1">
+                                <span>{formatPrice(trade.entryPrice)} → {formatPrice(trade.closePrice)}</span>
                                 <span>x{trade.shares}</span>
                               </div>
                             </div>
@@ -1190,32 +1187,32 @@ const StrategyDetailPage = () => {
                   {/* Right Sidebar - Calendar and Table */}
                   <div className="lg:col-span-4 space-y-3">
                     {/* Calendar */}
-                    <Card className="p-3 bg-card/50 border border-border">
+                    <Card className="p-3">
                       <div className="mb-2 border-b border-border pb-2">
-                        <h3 className="text-[10px] font-mono uppercase tracking-wider text-primary dark:text-cyan-400"># Calendar</h3>
+                        <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Calendar</h3>
                       </div>
-                      <div className="bg-muted/30 dark:bg-gray-950/50 border border-border p-2">
+                      <div className="rounded-lg border border-border/80 bg-muted/30 p-2">
                         {/* Calendar Header */}
                         <div className="flex justify-between items-center mb-2 border-b border-border pb-2">
                           <button 
                             onClick={goToPreviousMonth}
-                            className="p-0.5 hover:bg-muted border border-border hover:border-primary dark:hover:border-cyan-700 transition-colors"
+                            className="p-0.5 rounded-md hover:bg-accent transition-colors"
                           >
-                            <ChevronLeft className="h-3 w-3 text-muted-foreground hover:text-primary dark:hover:text-cyan-400" />
+                            <ChevronLeft className="h-3 w-3 text-muted-foreground" />
                           </button>
-                          <h3 className="text-[10px] font-mono uppercase tracking-wider text-primary dark:text-cyan-400">{monthYearDisplay}</h3>
+                          <h3 className="text-[11px] font-medium text-foreground">{monthYearDisplay}</h3>
                           <button 
                             onClick={goToNextMonth}
-                            className="p-0.5 hover:bg-muted border border-border hover:border-primary dark:hover:border-cyan-700 transition-colors"
+                            className="p-0.5 rounded-md hover:bg-accent transition-colors"
                           >
-                            <ChevronRight className="h-3 w-3 text-muted-foreground hover:text-primary dark:hover:text-cyan-400" />
+                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
                           </button>
                         </div>
                         
                         {/* Days of Week Header */}
                         <div className="grid grid-cols-7 gap-0.5 mb-1">
                           {daysOfWeek.map(day => (
-                            <div key={day} className="text-center text-[8px] font-mono uppercase tracking-wider text-muted-foreground py-0.5">
+                            <div key={day} className="text-center text-[8px] font-medium uppercase tracking-wider text-muted-foreground py-0.5">
                               {day.substring(0, 2)}
                             </div>
                           ))}
@@ -1229,10 +1226,10 @@ const StrategyDetailPage = () => {
                               onClick={() => handleDayClick(day)}
                               disabled={day === null}
                               className={`
-                                h-6 w-full flex items-center justify-center text-[10px] font-mono border transition-colors
-                                ${day === null ? 'text-muted-foreground/30 border-transparent' : 'text-foreground border-border hover:border-primary dark:hover:border-cyan-700'} 
-                                ${isSelected(day) ? 'border-2 border-primary dark:border-cyan-500 text-primary dark:text-cyan-400 font-bold bg-primary/10 dark:bg-cyan-950/30' : ''}
-                                ${isToday(day) ? 'border-2 border-yellow-500 text-yellow-600 dark:text-yellow-400 font-bold' : ''}
+                                h-6 w-full flex items-center justify-center text-[10px] tabular-nums rounded-md border transition-colors
+                                ${day === null ? 'text-muted-foreground/30 border-transparent' : 'text-foreground border-border hover:bg-accent'} 
+                                ${isSelected(day) ? 'border-primary bg-accent text-foreground font-semibold' : ''}
+                                ${isToday(day) ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400 font-semibold' : ''}
                                 ${getDayColor(day)}
                               `}
                             >
@@ -1244,18 +1241,18 @@ const StrategyDetailPage = () => {
                       
                       {/* Selected Day Summary */}
                       {selectedDate && (
-                        <div className="mt-2 p-2 bg-muted/30 dark:bg-gray-950/50 border border-border">
+                        <div className="mt-2 p-2 rounded-lg border border-border/80 bg-muted/30">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-mono uppercase text-muted-foreground">
+                            <span className="text-[10px] text-muted-foreground">
                               {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                             </span>
-                            <span className="text-[10px] font-mono text-primary dark:text-cyan-400">
-                              {selectedDayTrades.length} {selectedDayTrades.length === 1 ? 'TRADE' : 'TRADES'}
+                            <span className="text-[10px] text-muted-foreground tabular-nums">
+                              {selectedDayTrades.length} {selectedDayTrades.length === 1 ? 'trade' : 'trades'}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono uppercase text-muted-foreground">P/L:</span>
-                            <span className={`text-sm font-mono font-bold ${selectedDayProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">P/L</span>
+                            <span className={`text-sm font-bold tabular-nums ${selectedDayProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                               {formatPrice(selectedDayProfit)}
                             </span>
                           </div>
@@ -1264,9 +1261,9 @@ const StrategyDetailPage = () => {
                     </Card>
                     
                     {/* Table View */}
-                    <Card className="p-3 bg-card/50 border border-border">
+                    <Card className="p-3">
                       <div className="mb-2 border-b border-border pb-2">
-                        <h3 className="text-[10px] font-mono uppercase tracking-wider text-primary dark:text-cyan-400"># Recent Trades</h3>
+                        <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Recent Trades</h3>
                       </div>
                       {trades.length > 0 ? (
                         <div className="space-y-2">
@@ -1288,13 +1285,13 @@ const StrategyDetailPage = () => {
                                   setItemsPerPage(Number(e.target.value));
                                   setCurrentPage(1);
                                 }}
-                                className="px-1.5 py-0.5 border border-border bg-card text-primary dark:text-cyan-400 text-[10px] font-mono hover:border-primary dark:hover:border-cyan-700 transition-colors"
+                                className="px-1.5 py-0.5 rounded-lg border border-input bg-card text-foreground text-[10px] transition-colors"
                               >
                                 <option value={10}>10</option>
                                 <option value={25}>25</option>
                                 <option value={50}>50</option>
                               </select>
-                              <span className="text-[9px] font-mono text-muted-foreground">
+                              <span className="text-[10px] tabular-nums text-muted-foreground">
                                 {Math.min((currentPage - 1) * itemsPerPage + 1, filteredTrades.length)}-{Math.min(currentPage * itemsPerPage, filteredTrades.length)}/{filteredTrades.length}
                               </span>
                             </div>
@@ -1303,39 +1300,39 @@ const StrategyDetailPage = () => {
                               <button
                                 onClick={() => setCurrentPage(1)}
                                 disabled={!hasPrevPage}
-                                className="px-1.5 py-0.5 border border-border bg-card text-foreground hover:border-primary dark:hover:border-cyan-700 hover:text-primary dark:hover:text-cyan-400 disabled:opacity-30 font-mono text-[10px] transition-colors"
+                                className="px-1.5 py-0.5 rounded-md border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 text-[10px] transition-colors"
                               >
-                                â—„â—„
+                                «
                               </button>
                               <button
                                 onClick={() => setCurrentPage(currentPage - 1)}
                                 disabled={!hasPrevPage}
-                                className="px-1.5 py-0.5 border border-border bg-card text-foreground hover:border-primary dark:hover:border-cyan-700 hover:text-primary dark:hover:text-cyan-400 disabled:opacity-30 font-mono text-[10px] transition-colors"
+                                className="px-1.5 py-0.5 rounded-md border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 text-[10px] transition-colors"
                               >
-                                â—„
+                                ‹
                               </button>
-                              <span className="px-2 text-[10px] font-mono text-muted-foreground">{currentPage}/{totalPages}</span>
+                              <span className="px-2 text-[10px] tabular-nums text-muted-foreground">{currentPage}/{totalPages}</span>
                               <button
                                 onClick={() => setCurrentPage(currentPage + 1)}
                                 disabled={!hasNextPage}
-                                className="px-1.5 py-0.5 border border-border bg-card text-foreground hover:border-primary dark:hover:border-cyan-700 hover:text-primary dark:hover:text-cyan-400 disabled:opacity-30 font-mono text-[10px] transition-colors"
+                                className="px-1.5 py-0.5 rounded-md border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 text-[10px] transition-colors"
                               >
-                                â–º
+                                ›
                               </button>
                               <button
                                 onClick={() => setCurrentPage(totalPages)}
                                 disabled={!hasNextPage}
-                                className="px-1.5 py-0.5 border border-border bg-card text-foreground hover:border-primary dark:hover:border-cyan-700 hover:text-primary dark:hover:text-cyan-400 disabled:opacity-30 font-mono text-[10px] transition-colors"
+                                className="px-1.5 py-0.5 rounded-md border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 text-[10px] transition-colors"
                               >
-                                â–ºâ–º
+                                »
                               </button>
                             </div>
                           </div>
                         </div>
                       ) : (
-                        <div className="p-4 border border-dashed border-border text-center">
-                          <p className="text-muted-foreground font-mono text-xs">[ NO TRADES ]</p>
-                          <p className="text-[10px] text-muted-foreground/60 mt-1 font-mono">{'>> '}Awaiting execution...</p>
+                        <div className="p-4 rounded-lg border border-dashed border-border text-center">
+                          <p className="text-muted-foreground text-xs font-medium">No trades yet</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-1">Awaiting execution</p>
                         </div>
                       )}
                     </Card>

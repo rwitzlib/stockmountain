@@ -15,7 +15,7 @@ export function PriceActionOperandForm({ value, onChange }: PriceActionOperandFo
           <select
             value={value.name || 'Volume'}
             onChange={e => onChange({ ...value, type: "PriceAction", name: e.target.value })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           >
             <option value="Volume">Volume</option>
             <option value="Vwap">VWAP</option>
@@ -27,7 +27,7 @@ export function PriceActionOperandForm({ value, onChange }: PriceActionOperandFo
           <select
             value={value.modifier || 'Value'}
             onChange={e => onChange({ ...value, type: "PriceAction", modifier: e.target.value as "Value" | "Slope" })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           >
             <option value="Value">Value</option>
             <option value="Slope">Slope</option>
@@ -62,7 +62,7 @@ export function PriceActionOperandForm({ value, onChange }: PriceActionOperandFo
                 timespan: e.target.value
               }
             })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-ring focus:ring-ring"
+            className="mt-1 block w-full rounded-lg border border-input bg-card text-foreground focus:border-ring focus:ring-ring"
           >
             <option value="minute">Minute</option>
             <option value="hour">Hour</option>

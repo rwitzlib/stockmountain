@@ -50,35 +50,35 @@ export const BacktestStatistics = ({ results }: BacktestStatisticsProps) => {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-3 border border-border bg-card hover:border-primary dark:hover:border-cyan-700 transition-colors">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Total Backtests</div>
-          <div className="text-xl font-mono font-bold text-primary dark:text-cyan-400">{totalBacktests}</div>
+        <div className="rounded-xl border border-border/80 bg-card p-3">
+          <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Total Backtests</div>
+          <div className="text-xl font-semibold tabular-nums text-foreground">{totalBacktests}</div>
         </div>
-        <div className="p-3 border border-border bg-card hover:border-purple-500 dark:hover:border-purple-700 transition-colors">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Credits Used</div>
-          <div className="text-xl font-mono font-bold text-purple-600 dark:text-purple-400">{totalCreditsUsed.toFixed(0)}</div>
+        <div className="rounded-xl border border-border/80 bg-card p-3">
+          <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Credits Used</div>
+          <div className="text-xl font-semibold tabular-nums text-foreground">{totalCreditsUsed.toFixed(0)}</div>
         </div>
-        <div className="p-3 border border-border bg-card hover:border-green-500 dark:hover:border-green-700 transition-colors">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Completed</div>
-          <div className="text-xl font-mono font-bold text-green-600 dark:text-green-400">{completedBacktests}</div>
+        <div className="rounded-xl border border-border/80 bg-card p-3">
+          <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Completed</div>
+          <div className="text-xl font-semibold tabular-nums text-green-600 dark:text-green-400">{completedBacktests}</div>
         </div>
-        <div className="p-3 border border-border bg-card hover:border-yellow-500 dark:hover:border-yellow-700 transition-colors">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: In Progress</div>
-          <div className="text-xl font-mono font-bold text-yellow-600 dark:text-yellow-400">{inProgressBacktests}</div>
+        <div className="rounded-xl border border-border/80 bg-card p-3">
+          <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground mb-1">In Progress</div>
+          <div className="text-xl font-semibold tabular-nums text-yellow-600 dark:text-yellow-400">{inProgressBacktests}</div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-3 border border-border bg-card hover:border-blue-500 dark:hover:border-blue-700 transition-colors">
+        <div className="rounded-xl border border-border/80 bg-card p-3">
           <div className="flex items-center gap-1.5 mb-1">
             {avgHoldProfit >= 0 ? (
               <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
             ) : (
               <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
             )}
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">:: Avg Hold P/L</div>
+            <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground">Avg Hold P/L</div>
           </div>
-          <div className={`text-lg font-mono font-bold ${
+          <div className={`text-lg font-semibold tabular-nums ${
             avgHoldProfit >= 0 
               ? 'text-green-600 dark:text-green-400' 
               : 'text-red-600 dark:text-red-400'
@@ -87,16 +87,16 @@ export const BacktestStatistics = ({ results }: BacktestStatisticsProps) => {
           </div>
         </div>
 
-        <div className="p-3 border border-border bg-card hover:border-blue-500 dark:hover:border-blue-700 transition-colors">
+        <div className="rounded-xl border border-border/80 bg-card p-3">
           <div className="flex items-center gap-1.5 mb-1">
             {avgHighProfit >= 0 ? (
               <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
             ) : (
               <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
             )}
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">:: Avg High P/L</div>
+            <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground">Avg High P/L</div>
           </div>
-          <div className={`text-lg font-mono font-bold ${
+          <div className={`text-lg font-semibold tabular-nums ${
             avgHighProfit >= 0 
               ? 'text-green-600 dark:text-green-400' 
               : 'text-red-600 dark:text-red-400'
@@ -105,14 +105,14 @@ export const BacktestStatistics = ({ results }: BacktestStatisticsProps) => {
           </div>
         </div>
 
-        <div className="p-3 border border-border bg-card hover:border-purple-500 dark:hover:border-purple-700 transition-colors">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Avg Credits/Test</div>
-          <div className="text-lg font-mono font-bold text-purple-600 dark:text-purple-400">
+        <div className="rounded-xl border border-border/80 bg-card p-3">
+          <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Avg Credits/Test</div>
+          <div className="text-lg font-semibold tabular-nums text-foreground">
             {avgCreditsPerBacktest.toFixed(1)}
           </div>
         </div>
 
-        <div className="p-3 border border-border bg-card hover:border-green-500 dark:hover:border-green-700 transition-colors">
+        <div className="rounded-xl border border-border/80 bg-card p-3">
           <div className="flex items-center gap-1.5 mb-1">
             {successRate >= 80 ? (
               <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
@@ -121,9 +121,9 @@ export const BacktestStatistics = ({ results }: BacktestStatisticsProps) => {
             ) : (
               <XCircle className="h-3 w-3 text-red-600 dark:text-red-400" />
             )}
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">:: Success Rate</div>
+            <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground">Success Rate</div>
           </div>
-          <div className={`text-lg font-mono font-bold ${
+          <div className={`text-lg font-semibold tabular-nums ${
             successRate >= 80 
               ? 'text-green-600 dark:text-green-400' 
               : successRate >= 50
@@ -138,14 +138,14 @@ export const BacktestStatistics = ({ results }: BacktestStatisticsProps) => {
       {/* Aggregate Metrics from Stats (Hold Strategy - Realistic Performance) */}
       {resultsWithStats.length > 0 && (
         <>
-          <div className="text-xs font-mono text-muted-foreground italic px-1">
+          <div className="text-xs text-muted-foreground px-1">
             Note: Metrics below use "Hold" strategy (realistic). "High" strategy represents theoretical upper bound.
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {avgWinRatio !== null && (
-              <div className="p-3 border border-border bg-card hover:border-blue-500 dark:hover:border-blue-700 transition-colors">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Avg Win Ratio (Hold)</div>
-                <div className={`text-lg font-mono font-bold ${
+              <div className="rounded-xl border border-border/80 bg-card p-3">
+                <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Avg Win Ratio (Hold)</div>
+                <div className={`text-lg font-semibold tabular-nums ${
                   avgWinRatio >= 0.5 
                     ? 'text-green-600 dark:text-green-400' 
                     : avgWinRatio >= 0.4
@@ -158,9 +158,9 @@ export const BacktestStatistics = ({ results }: BacktestStatisticsProps) => {
             )}
 
             {avgProfitFactor !== null && (
-              <div className="p-3 border border-border bg-card hover:border-blue-500 dark:hover:border-blue-700 transition-colors">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Avg Profit Factor (Hold)</div>
-                <div className={`text-lg font-mono font-bold ${
+              <div className="rounded-xl border border-border/80 bg-card p-3">
+                <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Avg Profit Factor (Hold)</div>
+                <div className={`text-lg font-semibold tabular-nums ${
                   avgProfitFactor > 1.5 
                     ? 'text-green-600 dark:text-green-400' 
                     : avgProfitFactor > 1.0
@@ -173,18 +173,18 @@ export const BacktestStatistics = ({ results }: BacktestStatisticsProps) => {
             )}
 
             {totalTrades > 0 && (
-              <div className="p-3 border border-border bg-card hover:border-purple-500 dark:hover:border-purple-700 transition-colors">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Total Trades (Hold)</div>
-                <div className="text-lg font-mono font-bold text-purple-600 dark:text-purple-400">
+              <div className="rounded-xl border border-border/80 bg-card p-3">
+                <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Total Trades (Hold)</div>
+                <div className="text-lg font-semibold tabular-nums text-foreground">
                   {totalTrades}
                 </div>
               </div>
             )}
 
             {avgMaxDrawdown !== null && (
-              <div className="p-3 border border-border bg-card hover:border-blue-500 dark:hover:border-blue-700 transition-colors">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">:: Avg Max Drawdown (Hold)</div>
-                <div className={`text-lg font-mono font-bold ${
+              <div className="rounded-xl border border-border/80 bg-card p-3">
+                <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Avg Max Drawdown (Hold)</div>
+                <div className={`text-lg font-semibold tabular-nums ${
                   avgMaxDrawdown < 0.1 
                     ? 'text-green-600 dark:text-green-400' 
                     : avgMaxDrawdown < 0.2
@@ -200,16 +200,16 @@ export const BacktestStatistics = ({ results }: BacktestStatisticsProps) => {
       )}
 
       {bestBacktest && (
-        <div className="p-3 border border-border bg-card hover:border-amber-500 dark:hover:border-amber-700 transition-colors">
+        <div className="rounded-xl border border-border/80 bg-card p-3">
           <div className="flex items-center gap-2 mb-1">
             <Award className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">:: Best Performer</div>
+            <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground">Best Performer</div>
           </div>
           <div className="flex items-center justify-between">
-            <div className="text-sm font-mono text-muted-foreground">
-              ID: <span className="text-primary dark:text-cyan-400">{bestBacktest.id.substring(0, 8)}...</span>
+            <div className="text-sm text-muted-foreground">
+              ID: <span className="font-mono text-foreground">{bestBacktest.id.substring(0, 8)}...</span>
             </div>
-            <div className={`text-lg font-mono font-bold ${
+            <div className={`text-lg font-semibold tabular-nums ${
               (bestBacktest.holdProfit || 0) >= 0 
                 ? 'text-green-600 dark:text-green-400' 
                 : 'text-red-600 dark:text-red-400'
@@ -217,7 +217,7 @@ export const BacktestStatistics = ({ results }: BacktestStatisticsProps) => {
               {formatCurrency(bestBacktest.holdProfit || 0)}
             </div>
             {bestBacktest.highProfit && (
-              <div className="text-xs font-mono text-muted-foreground mt-1">
+              <div className="text-xs text-muted-foreground tabular-nums mt-1">
                 High (theoretical): {formatCurrency(bestBacktest.highProfit)}
               </div>
             )}

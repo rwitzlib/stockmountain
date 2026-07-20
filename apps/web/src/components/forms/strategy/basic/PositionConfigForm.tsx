@@ -12,10 +12,10 @@ interface PositionConfigFormProps {
 export function PositionConfigForm({ value, onChange }: PositionConfigFormProps) {
   return (
     <div className="space-y-3">
-      <h4 className="text-[10px] font-mono uppercase tracking-wider text-gray-500">:: Position Configuration</h4>
+      <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Position Configuration</h4>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-gray-600 mb-2">Init Balance</label>
+          <label className="block text-xs text-muted-foreground mb-2">Init Balance</label>
           <div>
             <NumberInput
               value={value.startingBalance}
@@ -32,7 +32,7 @@ export function PositionConfigForm({ value, onChange }: PositionConfigFormProps)
         </div>
 
         <div>
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-gray-600 mb-2">Position Size</label>
+          <label className="block text-xs text-muted-foreground mb-2">Position Size</label>
           <div>
             <NumberInput
               value={value.positionSize}
@@ -49,7 +49,7 @@ export function PositionConfigForm({ value, onChange }: PositionConfigFormProps)
         </div>
 
         <div>
-          <label className="block text-[10px] font-mono uppercase tracking-wider text-gray-600 mb-2">Max Positions</label>
+          <label className="block text-xs text-muted-foreground mb-2">Max Positions</label>
           <div>
             <NumberInput
               value={value.maxConcurrentPositions}

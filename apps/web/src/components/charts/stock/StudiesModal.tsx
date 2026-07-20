@@ -10,12 +10,12 @@ export function StudiesModal({ isOpen, onClose }: StudiesModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-sm">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Studies</h2>
+      <div className="bg-card rounded-xl border border-border/80 shadow-lg w-full max-w-sm">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">Studies</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-muted-foreground hover:text-foreground"
           >
             <X className="w-5 h-5" />
           </button>
@@ -27,7 +27,7 @@ export function StudiesModal({ isOpen, onClose }: StudiesModalProps) {
               console.log('Edit studies clicked');
               // Add your edit studies logic here
             }}
-            className="w-full px-4 py-3 text-left bg-white hover:bg-gray-50 border rounded-md"
+            className="w-full px-4 py-3 text-left bg-card hover:bg-accent border border-border rounded-lg text-foreground transition-colors"
           >
             Edit Studies
           </button>
@@ -37,7 +37,7 @@ export function StudiesModal({ isOpen, onClose }: StudiesModalProps) {
               console.log('Load study set clicked');
               // Add your load study set logic here
             }}
-            className="w-full px-4 py-3 text-left bg-white hover:bg-gray-50 border rounded-md"
+            className="w-full px-4 py-3 text-left bg-card hover:bg-accent border border-border rounded-lg text-foreground transition-colors"
           >
             Load Study Set
           </button>

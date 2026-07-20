@@ -27,10 +27,10 @@ export const TimeSelector = ({ onRangeChange, initialRange = '1d' }: TimeSelecto
       {timeRanges.map(({ label, value }) => (
         <button
           key={value}
-          className={`px-3 py-1 text-xs font-mono uppercase transition-all border ${
+          className={`px-3 py-1 rounded-lg text-xs transition-colors border ${
             activeRange === value
-              ? 'bg-primary/20 dark:bg-cyan-950 text-primary dark:text-cyan-400 border-primary dark:border-cyan-700'
-              : 'bg-card text-muted-foreground border-border hover:border-primary dark:hover:border-cyan-700 hover:text-primary dark:hover:text-cyan-400'
+              ? 'bg-accent text-foreground font-medium border-border'
+              : 'bg-card text-muted-foreground border-border hover:bg-accent hover:text-foreground'
           }`}
           onClick={() => handleRangeClick(value)}
         >

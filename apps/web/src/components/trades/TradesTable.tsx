@@ -41,24 +41,24 @@ export const TradesTable = ({ trades, sortConfig, onSort, compact = false }: Tra
   // Compact view shows fewer columns
   if (compact) {
     return (
-      <div className="table-container bg-card border border-border">
+      <div className="table-container rounded-xl border border-border/80 bg-card">
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-muted/50">
               <TableHead 
-                className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors py-1.5 px-2"
+                className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors py-1.5 px-2"
                 onClick={() => onSort('ticker')}
               >
                 Ticker
               </TableHead>
               <TableHead 
-                className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors py-1.5 px-2"
+                className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors py-1.5 px-2"
                 onClick={() => onSort('profit')}
               >
                 P/L
               </TableHead>
               <TableHead 
-                className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors py-1.5 px-2"
+                className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors py-1.5 px-2"
                 onClick={() => onSort('closedAt')}
               >
                 Date
@@ -69,7 +69,7 @@ export const TradesTable = ({ trades, sortConfig, onSort, compact = false }: Tra
             {trades.map((trade) => (
               <TableRow 
                 key={trade.id}
-                className="border-border hover:bg-muted/50 hover:border-primary cursor-pointer transition-all"
+                className="border-border hover:bg-accent cursor-pointer transition-colors"
                 onClick={() => handleRowClick(trade)}
               >
                 <TableCell className="font-mono font-bold text-[10px] text-foreground py-1.5 px-2">{trade.ticker || ''}</TableCell>
@@ -90,61 +90,61 @@ export const TradesTable = ({ trades, sortConfig, onSort, compact = false }: Tra
   }
 
   return (
-    <div className="table-container bg-card border border-border">
+    <div className="table-container rounded-xl border border-border/80 bg-card">
       <Table>
         <TableHeader>
           <TableRow className="border-border hover:bg-muted/50">
             <TableHead 
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('ticker')}
             >
               Ticker
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead 
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('orderStatus')}
             >
               Status
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead 
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('profit')}
             >
               P/L
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead 
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('entryPrice')}
             >
               Entry
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead 
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('closePrice')}
             >
               Exit
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead 
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('openedAt')}
             >
               Opened
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead 
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('closedAt')}
             >
               Closed
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead 
-              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
               onClick={() => onSort('shares')}
             >
               Qty
@@ -156,17 +156,13 @@ export const TradesTable = ({ trades, sortConfig, onSort, compact = false }: Tra
           {trades.map((trade) => (
             <TableRow 
               key={trade.id}
-              className="border-border hover:bg-muted/50 hover:border-primary cursor-pointer transition-all"
+              className="border-border hover:bg-accent cursor-pointer transition-colors"
               onClick={() => handleRowClick(trade)}
             >
               <TableCell className="font-mono font-bold text-xs text-foreground">{trade.ticker || ''}</TableCell>
               <TableCell>
                 {trade.orderStatus && (
-                  <span className={`px-2 py-0.5 text-[9px] font-mono uppercase border ${
-                    trade.orderStatus === 'Closed' 
-                      ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-800' 
-                      : 'bg-primary/10 dark:bg-cyan-950 text-primary dark:text-cyan-400 border-primary/30 dark:border-cyan-800'
-                  }`}>
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     {trade.orderStatus}
                   </span>
                 )}
@@ -178,11 +174,11 @@ export const TradesTable = ({ trades, sortConfig, onSort, compact = false }: Tra
               }`}>
                 {trade.profit !== null ? formatProfit(trade.profit) : ''}
               </TableCell>
-              <TableCell className="font-mono text-xs text-primary dark:text-cyan-400">{trade.entryPrice ? formatPrice(trade.entryPrice) : ''}</TableCell>
-              <TableCell className="font-mono text-xs text-primary dark:text-cyan-400">{trade.closePrice ? formatPrice(trade.closePrice) : ''}</TableCell>
+              <TableCell className="font-mono text-xs tabular-nums text-foreground">{trade.entryPrice ? formatPrice(trade.entryPrice) : ''}</TableCell>
+              <TableCell className="font-mono text-xs tabular-nums text-foreground">{trade.closePrice ? formatPrice(trade.closePrice) : ''}</TableCell>
               <TableCell className="font-mono text-xs text-muted-foreground">{formatDate(trade.openedAt)}</TableCell>
               <TableCell className="font-mono text-xs text-muted-foreground">{formatDate(trade.closedAt)}</TableCell>
-              <TableCell className="font-mono text-xs text-primary dark:text-cyan-400">{trade.shares || ''}</TableCell>
+              <TableCell className="font-mono text-xs tabular-nums text-foreground">{trade.shares || ''}</TableCell>
             </TableRow>
           ))}
         </TableBody>

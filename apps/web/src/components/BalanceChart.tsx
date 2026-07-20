@@ -60,11 +60,11 @@ export function BalanceChart({ data }: BalanceChartProps) {
   });
 
   // Theme-aware colors
-  const axisColor = isDarkMode ? '#9ca3af' : '#6b7280';
+  const axisColor = isDarkMode ? '#8b93a1' : '#6b7280';
 
   return (
-    <Card className="bg-card border border-border p-4 md:p-6">
-      <h3 className="text-xs font-mono uppercase tracking-wider text-primary dark:text-cyan-400 mb-4"># Balance History</h3>
+    <Card className="p-4 md:p-6">
+      <h3 className="text-sm font-semibold tracking-tight text-foreground mb-4">Balance History</h3>
       <div className="h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart 
@@ -74,7 +74,7 @@ export function BalanceChart({ data }: BalanceChartProps) {
             <XAxis 
               dataKey="date" 
               stroke={axisColor}
-              tick={{ fill: axisColor, fontSize: 11, fontFamily: 'monospace' }}
+              tick={{ fill: axisColor, fontSize: 11 }}
             />
             <YAxis 
               tickFormatter={(value) => formatCurrency(value)}
@@ -86,22 +86,21 @@ export function BalanceChart({ data }: BalanceChartProps) {
                 style: { 
                   textAnchor: 'middle', 
                   fill: axisColor, 
-                  fontSize: '11px', 
-                  fontFamily: 'monospace' 
+                  fontSize: '11px'
                 }
               }}
               domain={['dataMin - 500', 'dataMax + 500']}
               stroke={axisColor}
-              tick={{ fill: axisColor, fontSize: 11, fontFamily: 'monospace' }}
+              tick={{ fill: axisColor, fontSize: 11 }}
             />
             <Tooltip content={<CustomTooltip />} />
             <Line 
               type="monotone" 
               dataKey="hold" 
-              stroke="hsl(var(--primary))" 
+              stroke="var(--chart-strategy)" 
               strokeWidth={2}
               name="Hold" 
-              dot={{ fill: 'hsl(var(--primary))', r: 3 }} 
+              dot={{ fill: 'var(--chart-strategy)', r: 3 }} 
             />
             <Line 
               type="monotone" 

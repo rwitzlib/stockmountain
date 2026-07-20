@@ -152,7 +152,7 @@ export function StrategyForm({ onSubmit, isLoading, initialData }: StrategyFormP
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g., RSI Pullback Strategy"
-                className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground/70 text-sm"
+                className="w-full px-4 py-3 rounded-lg border border-input bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground/70 text-sm"
                 required
               />
             </div>
@@ -191,17 +191,17 @@ export function StrategyForm({ onSubmit, isLoading, initialData }: StrategyFormP
                 <label className="block text-sm font-medium text-foreground">Visibility</label>
                 <div className={`flex items-center justify-between gap-3 rounded-lg border p-4 transition-colors ${
                   formData.visibility === 'Public'
-                    ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800'
+                    ? 'bg-accent border-border'
                     : 'bg-muted/30 border-border'
                 }`}>
                   <div className="flex items-center gap-2">
                     {formData.visibility === 'Public' ? (
-                      <Globe className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <Globe className="w-4 h-4 text-foreground" />
                     ) : (
                       <EyeOff className="w-4 h-4 text-muted-foreground" />
                     )}
                     <span className={`text-sm font-medium ${
-                      formData.visibility === 'Public' ? 'text-blue-700 dark:text-blue-400' : 'text-muted-foreground'
+                      formData.visibility === 'Public' ? 'text-foreground' : 'text-muted-foreground'
                     }`}>
                       {formData.visibility}
                     </span>

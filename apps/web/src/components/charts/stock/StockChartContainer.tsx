@@ -281,9 +281,9 @@ export function StockChartContainer({
           <div className="flex items-center justify-center h-full pt-[15%]">
             <div className="flex flex-col items-center gap-3 text-center max-w-md mx-4">
               <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
-              <div className="font-mono text-sm">
-                <div className="text-red-600 dark:text-red-400 mb-1 font-semibold tracking-wider">
-                  :: ERROR ::
+              <div className="text-sm">
+                <div className="text-red-600 dark:text-red-400 mb-1 font-semibold">
+                  Error
                 </div>
                 <div className="text-muted-foreground text-xs leading-relaxed">
                   {error}

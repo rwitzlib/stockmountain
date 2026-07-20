@@ -181,12 +181,12 @@ export function StrategyOptimizePanel({ strategyId, onOptimizationResult }: Stra
   return (
     <Card className="p-4 bg-card/50 border border-border">
       <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
-        <h3 className="text-xs font-mono uppercase tracking-wider text-primary dark:text-cyan-400"># Trade Optimization</h3>
+        <h3 className="text-sm font-semibold tracking-tight text-foreground">Trade Optimization</h3>
         <div className="flex items-center gap-2">
           <Button
             onClick={runOptimize}
             disabled={isSubmitting}
-            className="bg-primary/20 dark:bg-cyan-950 border-primary dark:border-cyan-700 text-primary dark:text-cyan-400 hover:bg-primary/30 dark:hover:bg-cyan-900 hover:border-primary dark:hover:border-cyan-500 disabled:opacity-50 font-mono text-xs uppercase px-4 py-1.5 transition-all"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 text-xs font-medium px-4 py-1.5 transition-colors"
           >
             {isSubmitting ? 'Running...' : 'Run Optimization'}
           </Button>
@@ -195,7 +195,7 @@ export function StrategyOptimizePanel({ strategyId, onOptimizationResult }: Stra
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
         <div className="space-y-4">
-          <Card className="p-3 bg-muted/30 dark:bg-gray-950/50 border border-border">
+          <Card className="p-3">
             <FilterComposer 
               ref={filterComposerRef}
               onAddFilter={handleAddFilter} 
@@ -203,15 +203,15 @@ export function StrategyOptimizePanel({ strategyId, onOptimizationResult }: Stra
             />
           </Card>
 
-          <Card className="p-3 bg-muted/30 dark:bg-gray-950/50 border border-border space-y-3">
+          <Card className="p-3 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">:: Active Filters</div>
+              <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Active Filters</div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleClearFilters}
                 disabled={filters.length === 0 || isSubmitting}
-                className="bg-card border-border text-foreground hover:border-destructive dark:hover:border-red-700 hover:text-destructive dark:hover:text-red-400 font-mono text-xs uppercase px-3 py-1 transition-all disabled:opacity-50"
+                className="border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-red-600 dark:hover:text-red-400 text-xs px-3 py-1 transition-colors disabled:opacity-50"
               >
                 Clear All
               </Button>
@@ -227,11 +227,11 @@ export function StrategyOptimizePanel({ strategyId, onOptimizationResult }: Stra
             </div>
 
         <div className="space-y-4">
-          <Card className="p-3 bg-muted/30 dark:bg-gray-950/50 border border-border">
+          <Card className="p-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="text-[10px] font-mono uppercase text-muted-foreground">Type:</div>
+          <div className="text-xs text-muted-foreground">Type</div>
               <select
-                className="px-2 py-1 border border-border bg-card text-primary dark:text-cyan-400 text-xs font-mono uppercase hover:border-primary dark:hover:border-cyan-700 transition-colors"
+                className="px-2 py-1 rounded-lg border border-input bg-card text-foreground text-xs transition-colors"
                 value={tradeType ?? ''}
                 onChange={event => setTradeType(event.target.value || undefined)}
                 disabled={isSubmitting}
@@ -240,9 +240,9 @@ export function StrategyOptimizePanel({ strategyId, onOptimizationResult }: Stra
             <option value="Paper">Paper</option>
             <option value="Live">Live</option>
           </select>
-          <div className="text-[10px] font-mono uppercase text-muted-foreground">Status:</div>
+          <div className="text-xs text-muted-foreground">Status</div>
               <select
-                className="px-2 py-1 border border-border bg-card text-primary dark:text-cyan-400 text-xs font-mono uppercase hover:border-primary dark:hover:border-cyan-700 transition-colors"
+                className="px-2 py-1 rounded-lg border border-input bg-card text-foreground text-xs transition-colors"
                 value={tradeStatus ?? ''}
                 onChange={event => setTradeStatus(event.target.value || undefined)}
                 disabled={isSubmitting}
@@ -254,25 +254,25 @@ export function StrategyOptimizePanel({ strategyId, onOptimizationResult }: Stra
                       </div>
         </Card>
 
-          <Card className="p-3 bg-muted/30 dark:bg-gray-950/50 border border-border">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">:: Execution History</div>
+          <Card className="p-3">
+          <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-3">Execution History</div>
           {history.length === 0 ? (
-            <div className="text-xs text-muted-foreground/60 font-mono">[ No execution history ]</div>
+            <div className="text-xs text-muted-foreground/60">No execution history</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-muted/50">
-                  <TableHead className="text-[10px] font-mono uppercase text-muted-foreground">Timestamp</TableHead>
-                  <TableHead className="text-[10px] font-mono uppercase text-muted-foreground">Results</TableHead>
-                  <TableHead className="text-[10px] font-mono uppercase text-muted-foreground">Filters</TableHead>
-                  <TableHead className="w-40 text-[10px] font-mono uppercase text-muted-foreground">Actions</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Timestamp</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Results</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Filters</TableHead>
+                  <TableHead className="w-40 text-xs font-medium text-muted-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                   {history.map(entry => (
                     <TableRow key={entry.id} className="border-border hover:bg-muted/50">
-                      <TableCell className="font-mono text-xs text-foreground">{new Date(entry.timestamp).toLocaleString()}</TableCell>
-                      <TableCell className="font-mono text-xs text-primary dark:text-cyan-400">{entry.resultSummary ?? '-'}</TableCell>
+                      <TableCell className="text-xs text-foreground tabular-nums">{new Date(entry.timestamp).toLocaleString()}</TableCell>
+                      <TableCell className="text-xs text-foreground tabular-nums">{entry.resultSummary ?? '-'}</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
                         {entry.filters.map((filter, index) => (
                           <div key={`${entry.id}-${index}`}>{filter}</div>
