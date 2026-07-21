@@ -34,21 +34,33 @@ namespace MarketViewer.Api.HostedServices
         BarCacheService barCacheService,
         ILogger<CacheWarmupService> logger) : IHostedLifecycleService
     {
+        private static bool WarmupDisabled =>
+            string.Equals(Environment.GetEnvironmentVariable("CACHE_WARMUP_ENABLED"), "false", StringComparison.OrdinalIgnoreCase);
+
         public Task StartingAsync(CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }
-        
+
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            return;
+            if (WarmupDisabled)
+            {
+                logger.LogWarning("Cache warmup is disabled (CACHE_WARMUP_ENABLED=false); /scan and snapshot endpoints will have no market data.");
+                return;
+            }
+
             await PopulateTickers();
             await PopulateTickerDetailsAndMarketCache();
         }
 
         public async Task StartedAsync(CancellationToken cancellationToken)
         {
-            return;
+            if (WarmupDisabled)
+            {
+                return;
+            }
+
             var now = DateTimeOffset.Now;
 
             if (now.Second >= 5)

@@ -32,8 +32,43 @@ public class ScanHandler(
             var sp = new Stopwatch();
             sp.Start();
 
+            if (request.Filters is not { Count: > 0 })
+            {
+                return new OperationResult<ScanResponse>
+                {
+                    Status = HttpStatusCode.BadRequest,
+                    ErrorMessages = ["At least one filter is required."]
+                };
+            }
+
+            List<IExpression> filters;
+            try
+            {
+                filters = request.Filters
+                    .Select(engine.ParseExpression)
+                    .OrderBy(q => ExpressionPlanner.Analyze(q).EstimatedCost)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                return new OperationResult<ScanResponse>
+                {
+                    Status = HttpStatusCode.BadRequest,
+                    ErrorMessages = [$"Invalid filter: {ex.Message}"]
+                };
+            }
+
             var tickers = marketCache.GetTickers();
-            var filters = request.Filters.Select(engine.ParseExpression).OrderBy(q => ExpressionPlanner.Analyze(q).EstimatedCost);
+            if (tickers is null)
+            {
+                logger.LogWarning("No tickers in market cache; cache warmup has not completed or is disabled.");
+                return new OperationResult<ScanResponse>
+                {
+                    Status = HttpStatusCode.OK,
+                    Data = new ScanResponse { TimeElapsed = sp.ElapsedMilliseconds }
+                };
+            }
+
             var timestamp = request.Timestamp ?? DateTimeOffset.Now;
 
             List<Task<ScanResponse.Item>> tasks = [];
@@ -68,9 +103,9 @@ public class ScanHandler(
 
     #region Private Methods
 
-    private ScanResponse.Item ScanTicker(string ticker, IOrderedEnumerable<IExpression> fitlers, DateTimeOffset timestamp)
+    private ScanResponse.Item ScanTicker(string ticker, IReadOnlyList<IExpression> filters, DateTimeOffset timestamp)
     {
-        foreach (var filter in fitlers)
+        foreach (var filter in filters)
         {
             var timeframe = engine.ExtractTimeframe(filter) ?? new Timeframe(1, Timespan.minute);
 
@@ -98,7 +133,7 @@ public class ScanHandler(
 
         var minStocksResponse = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.minute), timestamp);
 
-        if (minStocksResponse is null || minStocksResponse.Results?.Count == 0)
+        if (minStocksResponse?.Results is not { Count: > 0 })
         {
             logger.LogWarning("Ticker {ticker} passed all filters but has no minute data at {timestamp}", ticker, timestamp);
             return null;
@@ -128,7 +163,7 @@ public class ScanHandler(
 
     private static void TryAddBarToResponse(int multiplier, Timespan timespan, Bar latestBar, StocksResponse response)
     {
-        if (latestBar is null || response is null || response.Results?.Count <= 0 || latestBar.Timestamp <= response.Results.Last().Timestamp)
+        if (latestBar is null || response?.Results is not { Count: > 0 } || latestBar.Timestamp <= response.Results.Last().Timestamp)
         {
             return;
         }

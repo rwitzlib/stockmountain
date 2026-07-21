@@ -141,3 +141,9 @@ variable "alpaca_api_secret_key" {
   sensitive   = true
   description = "Alpaca API secret key."
 }
+
+variable "cache_warmup_enabled" {
+  type        = string
+  default     = "true"
+  description = "Enable cache warmup."
+}

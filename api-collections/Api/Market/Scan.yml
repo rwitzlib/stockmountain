@@ -1,0 +1,23 @@
+info:
+  name: Scan
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: https://{{base_url}}{{port}}/api/scan
+  body:
+    type: json
+    data: |-
+      {
+        "Filters": [
+          "rsi(30,70,14,ema) > 70 [1m]"
+        ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
