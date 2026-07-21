@@ -76,7 +76,7 @@ public class StrategyRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb,
 
             var response = await dynamoDb.QueryAsync(request);
 
-            var items = response.Items.Select(MapToStrategyDto);
+            var items = (response.Items ?? []).Select(MapToStrategyDto);
             return items;
         }
         catch (Exception ex)
@@ -102,7 +102,7 @@ public class StrategyRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb,
             };
 
             var response = await dynamoDb.QueryAsync(request);
-            return response.Items.Select(MapToStrategyDto);
+            return (response.Items ?? []).Select(MapToStrategyDto);
         }
         catch (Exception ex)
         {
@@ -127,7 +127,7 @@ public class StrategyRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb,
             };
 
             var response = await dynamoDb.QueryAsync(request);
-            return response.Items.Select(MapToStrategyDto);
+            return (response.Items ?? []).Select(MapToStrategyDto);
         }
         catch (Exception ex)
         {
@@ -166,7 +166,7 @@ public class StrategyRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb,
                 };
 
                 var response = await dynamoDb.ScanAsync(request);
-                allStrategies.AddRange(response.Items.Select(MapToStrategyDto));
+                allStrategies.AddRange((response.Items ?? []).Select(MapToStrategyDto));
                 lastKey = response.LastEvaluatedKey;
             }
             while (lastKey != null && lastKey.Count > 0);

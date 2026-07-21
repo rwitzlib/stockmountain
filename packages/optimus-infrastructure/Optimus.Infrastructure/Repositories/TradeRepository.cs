@@ -99,7 +99,7 @@ public class TradeRepository(TradeConfig config, IAmazonDynamoDB dynamodb, ILogg
 
             var queryResponse = await dynamodb.QueryAsync(queryRequest);
 
-            if (queryResponse.HttpStatusCode != HttpStatusCode.OK || queryResponse.Items.Count <= 0)
+            if (queryResponse.HttpStatusCode != HttpStatusCode.OK || queryResponse.Items is not { Count: > 0 })
             {
                 return [];
             }
@@ -150,7 +150,7 @@ public class TradeRepository(TradeConfig config, IAmazonDynamoDB dynamodb, ILogg
 
             var queryResponse = await dynamodb.QueryAsync(queryRequest);
 
-            if (queryResponse.HttpStatusCode != HttpStatusCode.OK || queryResponse.Items.Count <= 0)
+            if (queryResponse.HttpStatusCode != HttpStatusCode.OK || queryResponse.Items is not { Count: > 0 })
             {
                 return [];
             }
