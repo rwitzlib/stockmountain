@@ -42,7 +42,7 @@ resource "aws_dynamodb_table" "user" {
 # state, BOT#{id}/BALANCE#{date} history, and the ACTIVE_STRATEGIES hash-refcount
 # partition. TTL on Expiry implements soft-delete (StrategyRepository.Delete).
 resource "aws_dynamodb_table" "strategy" {
-  name         = "${var.team}-${var.environment}-marketviewer-strategy-store"
+  name         = "${var.team}-${var.environment}-strategy-store"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK"
   range_key    = "SK"
@@ -103,7 +103,7 @@ resource "aws_dynamodb_table" "strategy" {
 }
 
 resource "aws_dynamodb_table" "trade" {
-  name         = "${var.team}-${var.environment}-optimus-trade-store"
+  name         = "${var.team}-${var.environment}-trade-store"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "Id"
 
@@ -144,7 +144,7 @@ resource "aws_dynamodb_table" "trade" {
 # Scan audit records: STRAT#{hash}/WINDOW#{window}, self-expiring after minutes.
 # Ephemeral by design, so no PITR.
 resource "aws_dynamodb_table" "scan" {
-  name         = "${var.team}-${var.environment}-marketviewer-scan-store"
+  name         = "${var.team}-${var.environment}-scan-store"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK"
   range_key    = "SK"
@@ -170,7 +170,7 @@ resource "aws_dynamodb_table" "scan" {
 # Idempotency records for trade execution: STRAT#{id}#TICKER#{ticker}/WINDOW#{window},
 # conditional-write dedup, self-expiring. Ephemeral by design, so no PITR.
 resource "aws_dynamodb_table" "execution_dedup" {
-  name         = "${var.team}-${var.environment}-optimus-execution-dedup-store"
+  name         = "${var.team}-${var.environment}-trade-execution-dedup-store"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK"
   range_key    = "SK"

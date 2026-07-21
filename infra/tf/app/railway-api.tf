@@ -129,6 +129,18 @@ output "api_aws_environment_variables" {
     OTEL_EXPORTER_OTLP_ENDPOINT  = var.otel_exporter_otlp_endpoint
     OTEL_EXPORTER_OTLP_PROTOCOL  = var.otel_exporter_otlp_protocol
     OTEL_RESOURCE_ATTRIBUTES     = var.otel_resource_attributes
+
+    # .NET config binding: Section__Key overrides appsettings. Resource names come
+    # from terraform so appsettings.dev.json never carries literals (local stays literal).
+    StrategyConfig__TableName   = aws_dynamodb_table.strategy.name
+    TradeConfig__TableName      = aws_dynamodb_table.trade.name
+    UserConfig__TableName       = aws_dynamodb_table.user.name
+    BacktestConfig__TableName   = aws_dynamodb_table.backtest.name
+    ScanConfig__TableName       = aws_dynamodb_table.scan.name
+    MetaConfig__MetaTableName   = aws_dynamodb_table.meta.name
+    MarketDataConfig__TableName = aws_dynamodb_table.market_data.name
+    SignalQueue__QueueUrl       = aws_sqs_queue.strategy_signals.url
+    SignalQueue__Enabled        = "true"
   }
 
   sensitive = true
