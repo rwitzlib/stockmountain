@@ -69,7 +69,6 @@ jobs:
     needs: deploy
     if: github.event_name == 'workflow_dispatch' || github.ref_name == 'master'
     runs-on: ubuntu-latest
-    # Required to read environment-scoped secrets (RAILWAY_TOKEN)
     environment: ${{ inputs.environment || 'dev' }}
     permissions:
       id-token: write
@@ -78,6 +77,8 @@ jobs:
       fail-fast: false
       matrix:
         service:
+          # - name: web
+          #   terraform_output: web_aws_environment_variables
           - name: api
             terraform_output: api_aws_environment_variables
           - name: optimus
@@ -129,4 +130,4 @@ jobs:
             exit 0
           fi
 
-          railway variables "${set_args[@]}" --service ${{ matrix.service.name }}
+          railway variables "${set_args[@]}" --service ${{ matrix.service.name }} --skip-deploys
