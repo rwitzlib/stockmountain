@@ -3,7 +3,7 @@ name: Application Deploy
 on:
   push:
     paths:
-      - .github/workflows/deploy.yml
+      - .github/workflows/app-deploy.yml
       - apps/**
       - packages/**
       - tests/**
