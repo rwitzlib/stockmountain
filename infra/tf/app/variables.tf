@@ -72,6 +72,49 @@ variable "grafana_loki_token" {
   description = "Grafana Cloud access-policy token with logs:write permission."
 }
 
+variable "grafana_api_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Grafana Cloud service-account token used to provision dashboards and alert rules. Dashboards are skipped when empty."
+}
+
+variable "grafana_url" {
+  type        = string
+  default     = "https://rwitzlib.grafana.net"
+  description = "Grafana Cloud instance URL (https://<stack>.grafana.net). Dashboards are skipped when empty."
+}
+
+variable "grafana_loki_datasource_uid" {
+  type        = string
+  default     = "grafanacloud-logs"
+  description = "UID of the Loki datasource inside the Grafana instance that receives the lambda-promtail stream."
+}
+
+variable "grafana_alert_email" {
+  type        = string
+  default     = "rob.witzlib@gmail.com"
+  description = "Email address that receives Lambda cost alerts."
+}
+
+variable "lambda_price_per_gb_second" {
+  type        = number
+  default     = 0.0000166667
+  description = "On-demand Lambda x86 price per GB-second (us-east-2)."
+}
+
+variable "lambda_price_per_request" {
+  type        = number
+  default     = 0.0000002
+  description = "On-demand Lambda price per request."
+}
+
+variable "lambda_daily_cost_alert_usd" {
+  type        = number
+  default     = 10
+  description = "Alert when estimated Lambda spend over the trailing 24h exceeds this amount (USD)."
+}
+
 variable "web_port" {
   type        = string
   default     = "5173"

@@ -33,6 +33,9 @@ WORKDIR /app
 
 RUN apk add --no-cache tzdata
 
+ARG COMMIT_SHA=unknown
+ENV COMMIT_SHA=$COMMIT_SHA
+
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 

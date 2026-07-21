@@ -34,25 +34,25 @@ jobs:
             "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-market-data-aggregator",
             "dockerfile": "apps/market-data-aggregator/Dockerfile",
             "context": ".",
-            "build-args": ""
+            "build-args": "COMMIT_SHA=${{ github.sha }}"
           },
           {
             "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-backtester",
             "dockerfile": "apps/backtester/Dockerfile",
             "context": ".",
-            "build-args": ""
+            "build-args": "COMMIT_SHA=${{ github.sha }}"
           },
           {
             "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-api",
             "dockerfile": "apps/api/Dockerfile",
             "context": ".",
-            "build-args": ""
+            "build-args": "COMMIT_SHA=${{ github.sha }}"
           },
           {
             "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-optimus",
             "dockerfile": "apps/paper-bot-runner/Optimus/Dockerfile",
             "context": ".",
-            "build-args": ""
+            "build-args": "COMMIT_SHA=${{ github.sha }}"
           }
         ]
       solution_directory: .

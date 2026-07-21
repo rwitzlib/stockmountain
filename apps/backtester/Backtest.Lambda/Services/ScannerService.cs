@@ -22,6 +22,12 @@ namespace Backtest.Lambda.Services;
 
 public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCache, IAmazonS3 s3, BacktestConfig config, ILogger<ScannerService> logger)
 {
+    /// <summary>
+    /// S3 filter-cache hits/misses from the most recent scan. Lambda runs a single
+    /// invocation per container, so per-invocation state on the singleton is safe.
+    /// </summary>
+    public (int Hits, int Misses) LastScanCacheStats { get; private set; }
+
     private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
@@ -240,6 +246,8 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
 
         var foundStrategyEntryLists = strategyEntryListsFromCache.Where(q => q.Entries.Any()).ToList();
         var missingStrategyEntryLists = strategyEntryListsFromCache.Where(q => !q.Entries.Any());
+
+        LastScanCacheStats = (foundStrategyEntryLists.Count, strategyEntryListsFromCache.Count - foundStrategyEntryLists.Count);
 
         foreach (var strategyEntryList in foundStrategyEntryLists)
         {

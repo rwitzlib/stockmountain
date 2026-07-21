@@ -8,6 +8,7 @@ namespace MarketViewer.Contracts.Requests.Market.Backtest;
 public class WorkerRequest
 {
     public string BacktestId { get; set; }
+    public string UserId { get; set; }
     public DateTimeOffset Date { get; set; }
     public StrategyPositionSettings PositionSettings { get; set; }
     public StrategyExitSettings ExitSettings { get; set; }

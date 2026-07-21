@@ -1,6 +1,6 @@
 resource "aws_cloudwatch_event_rule" "market_data_aggregator_daily" {
-  name                = "daily-market-data-aggregate"
-  description         = "gather aggregate market data from previous day and upload to S3"
+  name        = "daily-market-data-aggregate"
+  description = "gather aggregate market data from previous day and upload to S3"
   # 06:00 UTC = 1-2am ET: session data is final, and files are ready before the
   # API's daily cache re-warm at 3:30am ET (which runs before 4am pre-market).
   schedule_expression = "cron(0 6 * * ? *)"

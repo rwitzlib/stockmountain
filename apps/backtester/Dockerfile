@@ -28,6 +28,9 @@ RUN dotnet publish apps/backtester/Backtest.Lambda/Backtest.Lambda.csproj \
 
 FROM public.ecr.aws/lambda/dotnet:10
 
+ARG COMMIT_SHA=unknown
+ENV COMMIT_SHA=$COMMIT_SHA
+
 COPY --from=build /app/publish ${LAMBDA_TASK_ROOT}
 
 CMD ["Backtest.Lambda::Backtest.Lambda.WorkerFunction::FunctionHandler"]

@@ -132,7 +132,7 @@ resource "aws_lambda_permission" "lambda_promtail_cloudwatch" {
   function_name  = aws_lambda_function.lambda_promtail[0].function_name
   principal      = "logs.${var.region}.amazonaws.com"
   source_account = data.aws_caller_identity.current.account_id
-  source_arn     = "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.team}-${var.environment}-backtest-*:*"
+  source_arn     = "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.team}-${var.environment}-*:*"
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "backtest_orchestrator_grafana" {
@@ -151,6 +151,28 @@ resource "aws_cloudwatch_log_subscription_filter" "backtest_worker_grafana" {
 
   name            = "grafana-backtest-worker"
   log_group_name  = "/aws/lambda/${aws_lambda_function.backtest_worker.function_name}"
+  destination_arn = aws_lambda_function.lambda_promtail[0].arn
+  filter_pattern  = ""
+
+  depends_on = [aws_lambda_permission.lambda_promtail_cloudwatch]
+}
+
+resource "aws_cloudwatch_log_subscription_filter" "market_data_aggregator_grafana" {
+  count = var.enable_grafana_cloud_logs ? 1 : 0
+
+  name            = "grafana-market-data-aggregator"
+  log_group_name  = "/aws/lambda/${aws_lambda_function.market_data_aggregator.function_name}"
+  destination_arn = aws_lambda_function.lambda_promtail[0].arn
+  filter_pattern  = ""
+
+  depends_on = [aws_lambda_permission.lambda_promtail_cloudwatch]
+}
+
+resource "aws_cloudwatch_log_subscription_filter" "market_data_orchestrator_grafana" {
+  count = var.enable_grafana_cloud_logs ? 1 : 0
+
+  name            = "grafana-market-data-orchestrator"
+  log_group_name  = "/aws/lambda/${aws_lambda_function.market_data_orchestrator.function_name}"
   destination_arn = aws_lambda_function.lambda_promtail[0].arn
   filter_pattern  = ""
 

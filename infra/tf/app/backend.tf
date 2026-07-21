@@ -12,9 +12,18 @@ terraform {
       source  = "Mastercard/restapi"
       version = "~> 2.0"
     }
+    grafana = {
+      source  = "grafana/grafana"
+      version = "~> 3.7"
+    }
   }
 
   backend "s3" {}
+}
+
+provider "grafana" {
+  url  = var.grafana_url != "" ? var.grafana_url : "https://placeholder.grafana.net"
+  auth = var.grafana_api_key != "" ? var.grafana_api_key : "placeholder"
 }
 
 provider "aws" {

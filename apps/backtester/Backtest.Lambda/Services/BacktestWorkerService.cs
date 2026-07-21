@@ -23,11 +23,6 @@ public class BacktestWorkerService(
             .Select(day => request.Start.AddDays(day))
             .Where(day => day.DayOfWeek != DayOfWeek.Sunday && day.DayOfWeek != DayOfWeek.Saturday);
 
-        logger.LogInformation("Backtesting strategy between {start} and {end}. Total days: {count}",
-            request.Start.ToString("yyyy-MM-dd"),
-            request.End.ToString("yyyy-MM-dd"),
-            days.Count());
-
         int batchSize = int.TryParse(Environment.GetEnvironmentVariable("WORKER_BATCH_SIZE"), out var workerBatchSize) ? workerBatchSize : 100;
         var lambdaResults = new List<WorkerResponse>();
 
@@ -39,6 +34,7 @@ public class BacktestWorkerService(
                 var backtesterLambdaRequest = new WorkerRequest
                 {
                     BacktestId = request.Id,
+                    UserId = request.UserId,
                     Date = day.Date,
                     PositionSettings = request.PositionSettings,
                     EntrySettings = request.EntrySettings,

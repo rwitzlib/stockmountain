@@ -10,6 +10,7 @@ using MarketViewer.Contracts.Models.Backtest;
 using MarketViewer.Contracts.Requests.Market.Backtest;
 using MarketViewer.Contracts.Responses.Market.Backtest;
 using MarketViewer.Filters;
+using MarketViewer.Infrastructure.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -51,32 +52,47 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             ["LambdaFunction"] = context.FunctionName
         });
 
+        var wideEvent = WideEvent.Start("backtest-worker")
+            .SetRequestId(context.AwsRequestId)
+            .Set("backtest_id", request.BacktestId)
+            .Set("user_id", request.UserId)
+            .Set("backtest_date", request.Date.ToString("yyyy-MM-dd"))
+            .Set("filter_count", request.EntrySettings?.Filters?.Count ?? 0);
+
         var sp = new Stopwatch();
         sp.Start();
 
         try
         {
-            _logger.LogInformation("Starting backtest worker for {date}", request.Date.ToString("yyyy-MM-dd"));
-
             var strategyEntries = await _scannerService.GetStrategyEntries(request);
 
-            _logger.LogInformation("Found {EntryCount} entries in {ElapsedSeconds} seconds", strategyEntries.Count, sp.Elapsed.TotalSeconds);
+            var (cacheHits, cacheMisses) = _scannerService.LastScanCacheStats;
+            wideEvent.Set("entry_count", strategyEntries.Count)
+                .Set("scan_ms", sp.ElapsedMilliseconds)
+                .Set("filter_cache_hits", cacheHits)
+                .Set("filter_cache_misses", cacheMisses);
 
             if (strategyEntries.Count == 0)
             {
+                var creditsUsed = MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds;
+                wideEvent.Set("result_count", 0).Set("credits_used", creditsUsed);
                 return new WorkerResponse
                 {
                     Date = request.Date.Date,
-                    CreditsUsed = MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds,
+                    CreditsUsed = creditsUsed,
                     Results = []
                 };
             }
 
+            var scanMs = sp.ElapsedMilliseconds;
             var (backtestResults, entryErrors) = await GetBacktestResults(strategyEntries, request);
 
-            _logger.LogInformation("Finished computing backtest results in {ElapsedSeconds} seconds.", sp.Elapsed.TotalSeconds);
-
             sp.Stop();
+
+            wideEvent.Set("compute_ms", sp.ElapsedMilliseconds - scanMs)
+                .Set("result_count", backtestResults.Count)
+                .Set("dropped_signal_count", entryErrors.Count)
+                .Set("credits_used", MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds);
 
             if (backtestResults.Count == 0)
             {
@@ -120,6 +136,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         catch (Exception ex)
         {
             _logger.LogError(ex, "Backtest worker failed for {BacktestDate}", request.Date.ToString("yyyy-MM-dd"));
+            wideEvent.SetError(ex).Set("credits_used", MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds);
             return new WorkerResponse
             {
                 Date = request.Date.Date,
@@ -136,10 +153,11 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 // accumulates every date it touches (~185MB of JSON each) until setup
                 // starts failing under memory pressure. Evict everything; the next
                 // invocation reloads what it needs.
-                _logger.LogInformation("Clearing memory cache");
                 memoryCache.Compact(1.0);
                 GC.Collect();
             }
+
+            wideEvent.Emit();
         }
     }
 

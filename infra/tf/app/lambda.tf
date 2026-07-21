@@ -15,6 +15,12 @@ resource "aws_lambda_function" "market_data_aggregator" {
     command = ["MarketDataAggregator::MarketDataAggregator.AggregatorFunction::FunctionHandler"]
   }
 
+  logging_config {
+    log_format            = "JSON"
+    application_log_level = "INFO"
+    system_log_level      = "INFO"
+  }
+
   environment {
     variables = {
       MASSIVE_TOKEN                  = data.aws_secretsmanager_secret_version.massive_token.secret_string
@@ -42,6 +48,12 @@ resource "aws_lambda_function" "market_data_orchestrator" {
 
   image_config {
     command = ["MarketDataAggregator::MarketDataAggregator.OrchestratorFunction::FunctionHandler"]
+  }
+
+  logging_config {
+    log_format            = "JSON"
+    application_log_level = "INFO"
+    system_log_level      = "INFO"
   }
 
   environment {
@@ -86,7 +98,9 @@ resource "aws_lambda_function" "backtest_worker" {
   logging_config {
     log_format            = "JSON"
     application_log_level = "INFO"
-    system_log_level      = "WARN"
+    # INFO so platform.report records reach CloudWatch - they are the billing-exact
+    # source for the Grafana live-cost dashboard (plans/09-canonical-logging.md).
+    system_log_level = "INFO"
   }
 
   environment {
@@ -117,7 +131,9 @@ resource "aws_lambda_function" "backtest_orchestrator" {
   logging_config {
     log_format            = "JSON"
     application_log_level = "INFO"
-    system_log_level      = "WARN"
+    # INFO so platform.report records reach CloudWatch - they are the billing-exact
+    # source for the Grafana live-cost dashboard (plans/09-canonical-logging.md).
+    system_log_level = "INFO"
   }
 
   # environment {

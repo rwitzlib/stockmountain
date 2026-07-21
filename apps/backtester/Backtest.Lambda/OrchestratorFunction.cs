@@ -8,6 +8,7 @@ using Backtest.Lambda.Services;
 using MarketViewer.Contracts.Requests.Market.Backtest;
 using MarketViewer.Core.Services;
 using MarketViewer.Contracts.Responses.Market.Backtest;
+using MarketViewer.Infrastructure.Logging;
 using Microsoft.Extensions.Logging;
 
 namespace Backtest.Lambda;
@@ -36,17 +37,24 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
             ["LambdaFunction"] = context.FunctionName
         });
 
+        var wideEvent = WideEvent.Start("backtest-orchestrator")
+            .SetRequestId(context.AwsRequestId)
+            .Set("backtest_id", request.Id)
+            .Set("user_id", request.UserId)
+            .Set("backtest_start", request.Start.ToString("yyyy-MM-dd"))
+            .Set("backtest_end", request.End.ToString("yyyy-MM-dd"))
+            .Set("day_span", (request.End - request.Start).Days + 1)
+            .Set("filter_count", request.EntrySettings?.Filters?.Count ?? 0);
+
         try
         {
             var sp = Stopwatch.StartNew();
 
             var record = await _backtestRepository.Get(request.Id);
 
-            _logger.LogInformation("Processing backtest request with ID {RequestId}.", request.Id);
-
             if (record is null || record.Status is not BacktestStatus.Pending)
             {
-                _logger.LogInformation("Backtest record not found or already completed for request ID {RequestId}.", request.Id);
+                wideEvent.Set("backtest_status", "Failed").Set("failure_reason", "not_pending");
 
                 if (record is not null)
                 {
@@ -59,13 +67,14 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
             }
 
             var estimatedCreditCost = ((request.End - request.Start).Days + 1) * ESTIMATED_DAILY_CREDIT_COST;
+            wideEvent.Set("estimated_credit_cost", estimatedCreditCost);
 
             var user = await _userRepository.Get(record.UserId);
             if (user == null || user.Credits < estimatedCreditCost)
             {
-                _logger.LogInformation(
-                    "Insufficient credits for user {UserId} to run backtest. Estimated cost: {EstimatedCost}, Available credits: {AvailableCredits}",
-                    request.UserId, estimatedCreditCost, user?.Credits ?? 0);
+                wideEvent.Set("backtest_status", "Failed")
+                    .Set("failure_reason", "insufficient_credits")
+                    .Set("available_credits", user?.Credits ?? 0);
 
                 record.Status = BacktestStatus.Failed;
                 record.CreditsUsed = 0;
@@ -79,17 +88,17 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
 
             var entries = await _workerService.GetBacktestResultsFromLambda(request);
 
-            _logger.LogInformation(
-                "Found {EntryCount} entries for the backtest request ID {RequestId} after {ElapsedSeconds} seconds.",
-                entries.Count, request.Id, sp.Elapsed.TotalSeconds);
-
             var relevantEntries = entries
                 .Where(q => q.Date >= request.Start.Date && q.Date <= request.End.Date)
                 .ToList();
 
+            wideEvent.Set("worker_day_count", entries.Count)
+                .Set("relevant_day_count", relevantEntries.Count)
+                .Set("fan_out_ms", sp.ElapsedMilliseconds);
+
             if (relevantEntries.Count == 0)
             {
-                _logger.LogInformation("No relevant entries found for the given date range.");
+                wideEvent.Set("backtest_status", "Failed").Set("failure_reason", "no_results_in_range");
                 record.Status = BacktestStatus.Failed;
                 record.CreditsUsed = 0;
                 record.Errors = ["No results found for the given date range."];
@@ -97,15 +106,14 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
                 return;
             }
 
-            _logger.LogInformation("Found {EntryCount} relevant entries for the backtest request.", relevantEntries.Count);
-
             var workerErrors = CollectWorkerErrors(relevantEntries);
+            wideEvent.Set("worker_error_count", workerErrors?.Count ?? 0);
 
             // Failed days come back as placeholders with empty results; if nothing at all
             // produced a trade and there were errors, the run failed rather than "no signals".
             if (workerErrors is not null && relevantEntries.All(q => q.Results is null || q.Results.Count == 0))
             {
-                _logger.LogError("Backtest {RequestId} produced no results and reported errors.", request.Id);
+                wideEvent.Set("backtest_status", "Failed").Set("failure_reason", "all_days_failed");
                 record.Status = BacktestStatus.Failed;
                 record.CreditsUsed = 0;
                 record.Errors = workerErrors;
@@ -151,23 +159,26 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
                     "Backtest {RequestId} completed but credits could not be debited for user {UserId}",
                     request.Id, record.UserId);
 
+                wideEvent.Set("backtest_status", "Failed").Set("failure_reason", "credit_settlement_failed");
                 record.Status = BacktestStatus.Failed;
                 record.Errors = ["Unable to settle credits for this backtest. Please try again."];
                 await _backtestRepository.Put(record);
                 return;
             }
 
-            _logger.LogInformation(
-                "Backtest completed successfully for request ID {RequestId}. Total time taken: {ElapsedSeconds} ms. Credits used: {CreditsUsed}",
-                request.Id, sp.Elapsed.TotalSeconds, record.CreditsUsed);
-
             sp.Stop();
+
+            wideEvent.Set("backtest_status", "Completed")
+                .Set("credits_used", creditsUsed)
+                .Set("hold_profit", record.HoldProfit)
+                .Set("high_profit", record.HighProfit);
         }
         catch (Exception e)
         {
             var record = await _backtestRepository.Get(request.Id);
 
-            context.Logger.LogError(e, "An error occurred while processing the backtest request: {Message}", e.Message);
+            _logger.LogError(e, "An error occurred while processing the backtest request: {Message}", e.Message);
+            wideEvent.SetError(e).Set("backtest_status", "Failed").Set("failure_reason", "unhandled_exception");
 
             if (record is not null)
             {
@@ -175,6 +186,10 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
                 record.Errors = ["An error occurred while processing the backtest request. Please try again later."];
                 await _backtestRepository.Put(record);
             }
+        }
+        finally
+        {
+            wideEvent.Emit();
         }
     }
 

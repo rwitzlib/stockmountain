@@ -20,6 +20,9 @@ RUN dotnet publish apps/market-data-aggregator/MarketDataAggregator/MarketDataAg
 
 FROM public.ecr.aws/lambda/dotnet:10
 
+ARG COMMIT_SHA=unknown
+ENV COMMIT_SHA=$COMMIT_SHA
+
 COPY --from=build /app/publish ${LAMBDA_TASK_ROOT}
 
 CMD ["MarketDataAggregator::MarketDataAggregator.AggregatorFunction::FunctionHandler"]
