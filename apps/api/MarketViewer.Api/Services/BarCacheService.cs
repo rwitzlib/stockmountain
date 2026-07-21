@@ -21,7 +21,7 @@ public class BarCacheService(IMarketCache marketCache, ILogger<BarCacheService> 
         {
             var stocksResponse = marketCache.GetStocksResponse(ticker, timeframe, DateTimeOffset.Now);
 
-            if (stocksResponse is null || !stocksResponse.Results.Any())
+            if (stocksResponse?.Results is not { Count: > 0 })
             {
                 return null;
             }
@@ -40,10 +40,7 @@ public class BarCacheService(IMarketCache marketCache, ILogger<BarCacheService> 
                     return newCandle.Clone();
 
                 case Timespan.hour:
-                    var lastDateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(lastCandle.Timestamp);
-                    var currentDateTimeOffset = DateTimeOffset.FromUnixTimeMilliseconds(newCandle.Timestamp);
-
-                    if (lastDateTimeOffset.Hour < currentDateTimeOffset.Hour)
+                    if (newCandle.Timestamp / 3_600_000 > lastCandle.Timestamp / 3_600_000)
                     {
                         stocksResponse.Results.Add(newCandle.Clone());
                     }

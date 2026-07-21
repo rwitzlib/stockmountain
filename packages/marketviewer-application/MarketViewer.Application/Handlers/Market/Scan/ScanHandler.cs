@@ -184,7 +184,7 @@ public class ScanHandler(
                 }
                 var last = response.Results.Last();
 
-                if (last.Timestamp + (60 * 60000) < latestBar.Timestamp)
+                if (latestBar.Timestamp / 3_600_000 > last.Timestamp / 3_600_000)
                 {
                     response.Results.Add(latestBar);
                 }

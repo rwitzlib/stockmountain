@@ -38,7 +38,7 @@ public class SnapshotJob(
 
             // During warmup, buffer snapshots instead of applying them directly
             // This prevents data loss while aggregates are being populated
-            if (!warmupState.IsWarmupComplete)
+            if (!warmupState.IsReady)
             {
                 warmupState.BufferSnapshot(massiveSnapshotResponse);
                 _sp.Stop();
@@ -85,7 +85,7 @@ public class SnapshotJob(
         }
         catch (Exception ex)
         {
-            logger.LogError("Error during snapshot job: {message}", ex.Message);
+            logger.LogError(ex, "Error during snapshot job: {message}", ex.Message);
         }
     }
 }

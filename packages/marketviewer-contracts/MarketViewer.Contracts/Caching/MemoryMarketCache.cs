@@ -20,6 +20,28 @@ public class MemoryMarketCache(IMemoryCache memoryCache, IAmazonS3 s3) : IMarket
 
     private static TimeSpan ExpireIn => TimeSpan.FromHours(16);
 
+    /// <summary>
+    /// Date segment used in aggregate cache keys. The backtester caches multiple
+    /// distinct dates side by side; LiveMarketCache overrides this so the live API
+    /// cache survives the date rolling over mid-run.
+    /// </summary>
+    protected virtual string DateKey(DateTimeOffset timestamp) => timestamp.Date.ToString("yyyyMMdd");
+
+    /// <summary>
+    /// Writes an aggregate entry. The backtester relies on create-only semantics
+    /// (warm Lambdas must not re-download over existing data) with a sliding
+    /// expiration; LiveMarketCache overrides to overwrite so its daily re-warm can
+    /// replace entries wholesale.
+    /// </summary>
+    protected virtual void SetAggregateEntry<T>(string key, T value)
+    {
+        memoryCache.GetOrCreate(key, entry =>
+        {
+            entry.SetSlidingExpiration(ExpireIn);
+            return value;
+        });
+    }
+
     
     public async Task<IEnumerable<StocksResponse>> Initialize(DateTimeOffset date, Timeframe timeframe)
     {
@@ -60,16 +82,12 @@ public class MemoryMarketCache(IMemoryCache memoryCache, IAmazonS3 s3) : IMarket
 
     public IEnumerable<string> GetTickersByTimeframe(Timeframe timeframe, DateTimeOffset timestamp)
     {
-        return memoryCache.Get<IEnumerable<string>>($"Tickers/{timeframe.Multiplier}/{timeframe.Timespan}/{timestamp.Date:yyyyMMdd}");
+        return memoryCache.Get<IEnumerable<string>>($"Tickers/{timeframe.Multiplier}/{timeframe.Timespan}/{DateKey(timestamp)}");
     }
 
     public void SetTickersByTimeframe(DateTimeOffset date, Timeframe timeframe, IEnumerable<string> tickers)
     {
-        memoryCache.GetOrCreate($"Tickers/{timeframe.Multiplier}/{timeframe.Timespan}/{date.Date:yyyyMMdd}", entry =>
-        {
-            entry.SetSlidingExpiration(ExpireIn);
-            return tickers;
-        });
+        SetAggregateEntry($"Tickers/{timeframe.Multiplier}/{timeframe.Timespan}/{DateKey(date)}", tickers);
     }
 
     public StocksResponse GetStocksResponse(string ticker, Timeframe timeframe, DateTimeOffset timestamp)
@@ -78,7 +96,7 @@ public class MemoryMarketCache(IMemoryCache memoryCache, IAmazonS3 s3) : IMarket
         {
             return null;
         }
-        return memoryCache.Get<StocksResponse>($"Stocks/{ticker}/{timeframe.Multiplier}/{timeframe.Timespan}/{timestamp.Date:yyyyMMdd}");
+        return memoryCache.Get<StocksResponse>($"Stocks/{ticker}/{timeframe.Multiplier}/{timeframe.Timespan}/{DateKey(timestamp)}");
     }
 
     public void SetStocksResponse(StocksResponse stocksResponse, Timeframe timeframe, DateTimeOffset date)
@@ -88,11 +106,7 @@ public class MemoryMarketCache(IMemoryCache memoryCache, IAmazonS3 s3) : IMarket
             return;
         }
 
-        memoryCache.GetOrCreate($"Stocks/{stocksResponse.Ticker}/{timeframe.Multiplier}/{timeframe.Timespan}/{date.Date:yyyyMMdd}", entry =>
-        {
-            entry.SetSlidingExpiration(ExpireIn);
-            return stocksResponse;
-        });
+        SetAggregateEntry($"Stocks/{stocksResponse.Ticker}/{timeframe.Multiplier}/{timeframe.Timespan}/{DateKey(date)}", stocksResponse);
     }
 
     public TickerDetails GetTickerDetails(string ticker)
@@ -110,7 +124,7 @@ public class MemoryMarketCache(IMemoryCache memoryCache, IAmazonS3 s3) : IMarket
     {
         var currentBar = memoryCache.Get<Bar>(webSocketBar.Ticker);
 
-        if (currentBar is null || DateTimeOffset.FromUnixTimeMilliseconds(webSocketBar.TickStart).Minute > DateTimeOffset.FromUnixTimeMilliseconds(currentBar.Timestamp).Minute)
+        if (currentBar is null || webSocketBar.TickStart / 60_000 > currentBar.Timestamp / 60_000)
         {
             var bar = new Bar
             {

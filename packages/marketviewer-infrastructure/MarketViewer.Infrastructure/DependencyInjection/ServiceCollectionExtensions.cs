@@ -34,7 +34,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IAmazonS3>(client => new AmazonS3Client(RegionEndpoint.USEast2))
             .AddMassiveClient(token)
-            .AddSingleton<IMarketCache, MemoryMarketCache>()
+            .AddSingleton<IMarketCache, LiveMarketCache>()
             .AddSingleton<IAmazonLambda, AmazonLambdaClient>(_ => new AmazonLambdaClient(RegionEndpoint.USEast2))
             .AddSingleton<IAmazonDynamoDB, AmazonDynamoDBClient>(client => new AmazonDynamoDBClient(RegionEndpoint.USEast2))
             .AddSingleton<IMarketDataRepository, MarketDataRepository>()

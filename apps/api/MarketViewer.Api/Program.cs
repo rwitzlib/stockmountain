@@ -59,6 +59,7 @@ public class Program
         builder.Services.AddSingleton<ScannerCache>();
         builder.Services.AddSingleton<CacheWarmupState>();
         builder.Services.AddSingleton<BarCacheService>();
+        builder.Services.AddSingleton<MarketCacheWarmer>();
 
         // Signal publishing for the trading bots (scanner -> SQS hot path)
         var signalQueueConfig = builder.Configuration.GetSection("SignalQueue").Get<SignalQueueConfig>() ?? new SignalQueueConfig();
@@ -143,7 +144,8 @@ public class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
         builder.Services.AddHealthChecks()
-            .AddCheck<PingHealthCheck>("Ping", tags: ["healthcheck"]);
+            .AddCheck<PingHealthCheck>("Ping", tags: ["healthcheck"])
+            .AddCheck<CacheReadinessHealthCheck>("CacheReadiness", tags: ["readiness"]);
 
         builder.Logging.AddOpenTelemetry(logging =>
         {
@@ -197,6 +199,19 @@ public class Program
             {
                 var result = report.Entries.All(check => check.Value.Status == HealthStatus.Healthy);
                 await context.Response.WriteAsync(result ? "Healthy" : "Unhealthy");
+            }
+        });
+
+        // Readiness: 503 while the market cache is warming or failed, 200 once it
+        // holds data. Liveness (/health) stays green during warmup so the platform
+        // doesn't restart the app while it loads.
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = q => q.Tags.Contains("readiness"),
+            ResponseWriter = async (context, report) =>
+            {
+                var detail = string.Join("; ", report.Entries.Select(entry => entry.Value.Description));
+                await context.Response.WriteAsync($"{report.Status}: {detail}");
             }
         });
 

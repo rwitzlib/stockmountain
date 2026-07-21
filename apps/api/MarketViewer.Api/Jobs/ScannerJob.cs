@@ -1,4 +1,5 @@
 using Alpaca.Client;
+using MarketViewer.Api.HostedServices;
 using MarketViewer.Api.Services;
 using MarketViewer.Application.Handlers.Market.Scan;
 using MarketViewer.Contracts.Caching;
@@ -14,14 +15,15 @@ public class ScannerJob(
     ScannerCache scannerCache,
     ScanHandler scanHandler,
     SignalPublisher signalPublisher,
-    MarketCalendarService marketCalendar) : IJob
+    MarketCalendarService marketCalendar,
+    CacheWarmupState warmupState) : IJob
 {
     // No new entries in the final minutes before close.
     private static readonly TimeSpan CloseBuffer = TimeSpan.FromMinutes(2);
 
     public async Task Execute(IJobExecutionContext context)
     {
-        if (!await marketCalendar.IsMarketOpen(CloseBuffer))
+        if (!warmupState.IsReady || !await marketCalendar.IsMarketOpen(CloseBuffer))
         {
             return;
         }
