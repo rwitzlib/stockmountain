@@ -108,16 +108,23 @@ jobs:
 
           vars_json=$(terraform output -json ${{ matrix.service.terraform_output }})
 
-          # Mask every value before anything else can log it
-          echo "$vars_json" | jq -r '.[]' | while IFS= read -r value; do
+          # Mask every non-empty value before anything else can log it
+          echo "$vars_json" | jq -r '.[] | select(. != null and . != "")' | while IFS= read -r value; do
             echo "::add-mask::$value"
           done
 
           npm install --global @railway/cli
 
+          # NUL-delimited so values survive any character; empty values are dropped
+          # (an unset TF_VAR_* defaults to "" and the Railway CLI rejects `KEY=`).
           set_args=()
-          while IFS= read -r pair; do
+          while IFS= read -r -d '' pair; do
             set_args+=(--set "$pair")
-          done < <(echo "$vars_json" | jq -r 'to_entries[] | "\(.key)=\(.value)"')
+          done < <(echo "$vars_json" | jq -j 'to_entries[] | select(.value != null and .value != "") | "\(.key)=\(.value)\u0000"')
+
+          if [ ${#set_args[@]} -eq 0 ]; then
+            echo "No non-empty variables to push; skipping."
+            exit 0
+          fi
 
           railway variables "${set_args[@]}" --service ${{ matrix.service.name }}
