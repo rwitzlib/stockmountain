@@ -1,7 +1,7 @@
 name: Dev
 variables:
   - name: base_url
-    value: stockmountain.io
+    value: dev.stockmountain.io
   - name: protocol
     value: https
   - name: lambda_path

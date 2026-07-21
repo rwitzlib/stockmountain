@@ -1,4 +1,5 @@
 import { getAuthHeaders } from '../../api/authToken';
+import { API_BASE_URL } from '../../api/apiConfig';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -23,7 +24,7 @@ const CalendarPage = () => {
   const { data: tradesData } = useQuery({
     queryKey: ['trades'],
     queryFn: async () => {
-      const response = await fetch('https://stockmountain.io/api/trade?user=rob.witzlib@gmail.com', {
+      const response = await fetch(`${API_BASE_URL}/trade?user=rob.witzlib@gmail.com`, {
         headers: await getAuthHeaders(),
       });
       if (!response.ok) {

@@ -1,5 +1,6 @@
 import { StockMarketData } from '../types/tools';
 import { getAuthHeaders } from '../api/authToken';
+import { API_ORIGIN } from '../api/apiConfig';
 
 interface FetchDataParams {
   ticker: string;
@@ -19,7 +20,7 @@ export async function fetchMarketData({
   indicators = []
 }: FetchDataParams): Promise<StockMarketData> {
   try {
-    const baseUrl = import.meta.env.VITE_API_URL ?? 'https://stockmountain.io';
+    const baseUrl = API_ORIGIN;
 
     const headers = await getAuthHeaders();
 

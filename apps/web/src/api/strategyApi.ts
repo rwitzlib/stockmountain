@@ -2,7 +2,7 @@ import { getAuthHeaders } from './authToken';
 import { Strategy } from '../types/strategy';
 import type { StrategyOptimizeRequest, StrategyStateResponse, BalanceHistoryResponse } from '../types/strategy';
 
-const BASE_URL = 'https://stockmountain.io/api';
+import { API_BASE_URL as BASE_URL } from './apiConfig';
 
 
 export const strategyApi = {

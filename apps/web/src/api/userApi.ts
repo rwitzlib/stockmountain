@@ -1,5 +1,5 @@
 import { getAuthHeaders } from './authToken';
-const BASE_URL = 'https://stockmountain.io/api';
+import { API_BASE_URL as BASE_URL } from './apiConfig';
 
 
 export interface UserDetails {

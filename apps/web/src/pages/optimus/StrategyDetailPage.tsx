@@ -1,4 +1,5 @@
 import { getAuthHeaders } from '../../api/authToken';
+import { API_BASE_URL } from '../../api/apiConfig';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -78,7 +79,7 @@ const StrategyDetailPage = () => {
   const { data: tradesResponse, error: tradesError } = useQuery({
     queryKey: ['strategyTrades', strategyId],
     queryFn: async () => {
-      const response = await fetch(`https://stockmountain.io/api/trade?strategy=${strategyId}`, {
+      const response = await fetch(`${API_BASE_URL}/trade?strategy=${strategyId}`, {
         headers: await getAuthHeaders()
       });
       if (!response.ok) {

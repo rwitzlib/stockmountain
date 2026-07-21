@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { API_ORIGIN } from '../../api/apiConfig';
 
 type ApiStatusType = 'loading' | 'healthy' | 'unhealthy' | 'unknown';
 
@@ -18,7 +19,7 @@ export function ApiStatus() {
 
   const checkApiHealth = async () => {
     try {
-      const response = await fetch('https://stockmountain.io/health', {
+      const response = await fetch(`${API_ORIGIN}/health`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

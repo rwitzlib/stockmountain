@@ -6,7 +6,7 @@ export default defineConfig(() => ({
   server: {
     host: "::",
     port: 5173,
-    allowedHosts: ['stockmountain.io'],
+    allowedHosts: ['dev.stockmountain.io'],
     hmr: {
       overlay: false
     }

@@ -3,7 +3,7 @@ import { BacktestEntry, BacktestRequest } from "../types/backtest";
 import { TradingData } from "../types/types";
 import { BacktestSharePayload, BacktestShareCreateResponse } from "../types/share";
 
-const BASE_URL = 'https://stockmountain.io/api';
+import { API_BASE_URL as BASE_URL } from './apiConfig';
 
 
 export const backtestApi = {

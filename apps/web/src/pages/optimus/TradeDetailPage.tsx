@@ -1,4 +1,5 @@
 import { getAuthHeaders } from '../../api/authToken';
+import { API_BASE_URL } from '../../api/apiConfig';
 import { useRef, useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { TimeSelector } from '../../components/TimeSelector';
@@ -46,7 +47,7 @@ const TradeDetailPage = () => {
   } = useQuery({
     queryKey: ['trade', id],
     queryFn: async () => {
-      const response = await fetch(`https://stockmountain.io/api/trade/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/trade/${id}`, {
         headers: await getAuthHeaders()
       });
 
@@ -105,7 +106,7 @@ const TradeDetailPage = () => {
         startDate = start.toISOString().split('T')[0];
       }
       
-      const response = await fetch('https://stockmountain.io/api/stocks', {
+      const response = await fetch(`${API_BASE_URL}/stocks`, {
         method: 'POST',
         headers: await getAuthHeaders(),
         body: JSON.stringify({

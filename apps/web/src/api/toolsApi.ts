@@ -2,7 +2,7 @@ import { getAuthHeaders } from './authToken';
 import type { BarData as LightweightBarData } from "lightweight-charts";
 import type { BarData } from "../types/tools";
 
-const BASE_URL = 'https://stockmountain.io/api';
+import { API_BASE_URL as BASE_URL } from './apiConfig';
 
 
 export type ChartFilterTimespan = 'minute' | 'hour' | 'day' | 'week' | 'year';

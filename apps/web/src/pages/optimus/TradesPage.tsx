@@ -1,4 +1,5 @@
 import { getAuthHeaders } from '../../api/authToken';
+import { API_BASE_URL } from '../../api/apiConfig';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Trade } from '../../types/trade';
@@ -23,7 +24,7 @@ const TradesPage = () => {
   const { data: tradesData, error } = useQuery({
     queryKey: ['trades'],
     queryFn: async () => {
-      const response = await fetch('https://stockmountain.io/api/trade?user=rob.witzlib@gmail.com', {
+      const response = await fetch(`${API_BASE_URL}/trade?user=rob.witzlib@gmail.com`, {
       // const response = await fetch('http://localhost:5046/api/trade/efd517a3-5b49-42c0-abf0-7a69da2e40b9', {
         headers: await getAuthHeaders()
       });

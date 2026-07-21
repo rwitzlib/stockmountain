@@ -46,7 +46,8 @@ public class ScanQueueConsumer(
 
                 var response = await sqsClient.ReceiveMessageAsync(receiveRequest, stoppingToken);
 
-                if (response.Messages.Count == 0)
+                // AWS SDK v4 returns null (not an empty list) when no messages arrive
+                if (response.Messages is not { Count: > 0 })
                 {
                     continue;
                 }
