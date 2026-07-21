@@ -69,6 +69,8 @@ jobs:
     needs: deploy
     if: github.event_name == 'workflow_dispatch' || github.ref_name == 'master'
     runs-on: ubuntu-latest
+    # Required to read environment-scoped secrets (RAILWAY_TOKEN)
+    environment: ${{ inputs.environment || 'dev' }}
     permissions:
       id-token: write
       contents: read
