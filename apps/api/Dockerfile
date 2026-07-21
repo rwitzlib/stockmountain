@@ -10,6 +10,7 @@ COPY packages/marketviewer-filters/MarketViewer.Filters/MarketViewer.Filters.csp
 COPY packages/marketviewer-infrastructure/MarketViewer.Infrastructure/MarketViewer.Infrastructure.csproj packages/marketviewer-infrastructure/MarketViewer.Infrastructure/
 COPY packages/marketviewer-studies/MarketViewer.Studies/MarketViewer.Studies.csproj packages/marketviewer-studies/MarketViewer.Studies/
 COPY packages/massive-client/Massive.Client/Massive.Client.csproj packages/massive-client/Massive.Client/
+COPY packages/alpaca-client/Alpaca.Client/Alpaca.Client.csproj packages/alpaca-client/Alpaca.Client/
 
 RUN dotnet restore apps/api/MarketViewer.Api/MarketViewer.Api.csproj
 
@@ -21,6 +22,7 @@ COPY packages/marketviewer-filters/MarketViewer.Filters/ packages/marketviewer-f
 COPY packages/marketviewer-infrastructure/MarketViewer.Infrastructure/ packages/marketviewer-infrastructure/MarketViewer.Infrastructure/
 COPY packages/marketviewer-studies/MarketViewer.Studies/ packages/marketviewer-studies/MarketViewer.Studies/
 COPY packages/massive-client/Massive.Client/ packages/massive-client/Massive.Client/
+COPY packages/alpaca-client/Alpaca.Client/ packages/alpaca-client/Alpaca.Client/
 
 RUN dotnet publish apps/api/MarketViewer.Api/MarketViewer.Api.csproj \
     -c Release \
