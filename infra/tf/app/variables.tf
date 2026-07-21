@@ -72,10 +72,22 @@ variable "grafana_loki_token" {
   description = "Grafana Cloud access-policy token with logs:write permission."
 }
 
+variable "web_port" {
+  type        = string
+  default     = "5173"
+  description = "Port for the web service to listen on."
+}
+
 variable "api_port" {
   type        = string
   default     = "8080"
   description = "Port for the API service to listen on."
+}
+
+variable "api_url" {
+  type        = string
+  default     = "https://dev.stockmountain.io"
+  description = "URL for the API service."
 }
 
 variable "clerk_webhook_signing_secret" {

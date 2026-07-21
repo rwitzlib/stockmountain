@@ -77,8 +77,8 @@ jobs:
       fail-fast: false
       matrix:
         service:
-          # - name: web
-          #   terraform_output: web_aws_environment_variables
+          - name: web
+            terraform_output: web_aws_environment_variables
           - name: api
             terraform_output: api_aws_environment_variables
           - name: optimus
