@@ -10,7 +10,7 @@ http:
     type: json
     data: |-
       {
-        "Ticker": "ADSE",
+        "Ticker": "TSLA",
         "Multiplier": 1,
         "Timespan": "minute",
         "From": "2026-07-21",

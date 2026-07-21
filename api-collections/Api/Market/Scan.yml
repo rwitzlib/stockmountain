@@ -11,7 +11,9 @@ http:
     data: |-
       {
         "Filters": [
-          "rsi(30,70,14,ema) > 70 [1m]"
+          "rsi(30,70,14,ema) > 70 [1m]",
+          "float < 10000000",
+          "time < 10:00"
         ]
       }
   auth: inherit
