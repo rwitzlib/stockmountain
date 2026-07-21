@@ -71,3 +71,40 @@ variable "grafana_loki_token" {
   sensitive   = true
   description = "Grafana Cloud access-policy token with logs:write permission."
 }
+
+variable "api_port" {
+  type        = string
+  default     = "8080"
+  description = "Port for the API service to listen on."
+}
+
+variable "clerk_webhook_signing_secret" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Secret for signing Clerk webhooks."
+}
+
+variable "otel_exporter_otlp_headers" {
+  type        = string
+  default     = ""
+  description = "Headers for the OTLP exporter."
+}
+
+variable "otel_exporter_otlp_endpoint" {
+  type        = string
+  default     = ""
+  description = "Endpoint for the OTLP exporter."
+}
+
+variable "otel_exporter_otlp_protocol" {
+  type        = string
+  default     = ""
+  description = "Protocol for the OTLP exporter."
+}
+
+variable "otel_resource_attributes" {
+  type        = string
+  default     = ""
+  description = "Attributes for the OTLP resource."
+}

@@ -5,6 +5,7 @@ locals {
     aws_dynamodb_table.backtest.name,
     aws_dynamodb_table.market_data.name,
     aws_dynamodb_table.user.name,
+    aws_dynamodb_table.strategy.name,
     # "${var.team}-${var.environment}-marketviewer-strategy-store",
     # "${var.team}-${var.environment}-optimus-trade-store",
     # "${var.team}-${var.environment}-marketviewer-scan-store",
@@ -76,6 +77,19 @@ data "aws_iam_policy_document" "api_runtime" {
       aws_lambda_function.market_data_orchestrator.arn
     ]
   }
+
+  statement {
+    sid    = "PublishStrategySignals"
+    effect = "Allow"
+
+    actions = [
+      "sqs:SendMessage"
+    ]
+
+    resources = [
+      aws_sqs_queue.strategy_signals.arn
+    ]
+  }
 }
 
 resource "aws_iam_policy" "api" {
@@ -104,10 +118,18 @@ output "api_aws_secret_access_key" {
 
 output "api_aws_environment_variables" {
   value = {
-    AWS_ACCESS_KEY_ID     = aws_iam_access_key.api.id
-    AWS_SECRET_ACCESS_KEY = aws_iam_access_key.api.secret
-    AWS_REGION            = var.region
-    AWS_DEFAULT_REGION    = var.region
+    AWS_ACCESS_KEY_ID            = aws_iam_access_key.api.id
+    AWS_SECRET_ACCESS_KEY        = aws_iam_access_key.api.secret
+    AWS_REGION                   = var.region
+    AWS_DEFAULT_REGION           = var.region
+    PORT                         = var.api_port
+    ASPNETCORE_ENVIRONMENT       = var.environment
+    MASSIVE_TOKEN                = var.massive_token
+    CLERK_WEBHOOK_SIGNING_SECRET = var.clerk_webhook_signing_secret
+    OTEL_EXPORTER_OTLP_HEADERS   = var.otel_exporter_otlp_headers
+    OTEL_EXPORTER_OTLP_ENDPOINT  = var.otel_exporter_otlp_endpoint
+    OTEL_EXPORTER_OTLP_PROTOCOL  = var.otel_exporter_otlp_protocol
+    OTEL_RESOURCE_ATTRIBUTES     = var.otel_resource_attributes
   }
 
   sensitive = true

@@ -1,45 +1,30 @@
+using Alpaca.Client;
 using MarketViewer.Contracts.Dtos;
-using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Enums.Strategy;
 using MarketViewer.Contracts.Records;
 using MarketViewer.Contracts.Records.Strategy;
-using MarketViewer.Contracts.Requests.Market;
-using MarketViewer.Contracts.Responses.Market;
+using Massive.Client.Interfaces;
 using Optimus.Adapter;
 using Optimus.Infrastructure.Repositories;
-using Optimus.Utilities;
 using Quartz;
 
 namespace Optimus.Services;
 
+[DisallowConcurrentExecution]
 public class SellWorker(
-    UserRepository userRepository,
     StrategyRepository strategyRepository,
     StrategyStateRepository stateRepository,
     TradeRepository tradeRepository,
-    HttpClient httpClient,
+    IMassiveClient massiveClient,
+    MarketCalendarService marketCalendar,
     AdapterFactory adapterFactory,
     ILogger<SellWorker> logger) : IJob
 {
-    private static readonly TimeSpan Offset = TimeZoneInfo.FindSystemTimeZoneById("America/New_York")
-        .IsDaylightSavingTime(DateTimeOffset.Now.Date) ? TimeSpan.FromHours(-4) : TimeSpan.FromHours(-5);
-
-    private readonly DateTimeOffset MarketOpen = new(
-        DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, 9, 30, 0, Offset);
-
-    private readonly DateTimeOffset MarketClose = new(
-        DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, DateTimeOffset.Now.Day, 20, 58, 0, Offset);
+    private const int SnapshotBatchSize = 500;
 
     public async Task Execute(IJobExecutionContext context)
     {
-        // Skip weekends
-        if (DateTimeOffset.Now.DayOfWeek == DayOfWeek.Saturday || DateTimeOffset.Now.DayOfWeek == DayOfWeek.Sunday)
-        {
-            return;
-        }
-
-        // Skip outside market hours
-        if (DateTimeOffset.Now < MarketOpen || DateTimeOffset.Now > MarketClose)
+        if (!await marketCalendar.IsMarketOpen())
         {
             return;
         }
@@ -49,13 +34,30 @@ public class SellWorker(
             var strategies = await strategyRepository.ListAll();
             var enabledStrategies = strategies.Where(q => q.State == StrategyStateType.Active).ToList();
 
-            var tasks = new List<Task>();
-            foreach (var strategy in enabledStrategies)
+            if (enabledStrategies.Count == 0)
             {
-                tasks.Add(CheckAndExecuteSells(strategy));
+                return;
             }
 
-            await Task.WhenAll(tasks);
+            // Gather every open position up front so prices can be fetched in one batch
+            // instead of one request per position.
+            var openPositions = new List<(StrategyDto Strategy, TradeRecord Trade)>();
+            foreach (var strategy in enabledStrategies)
+            {
+                var trades = await tradeRepository.ListTradesByStrategy(strategy.Id, null, TradeStatus.Open);
+                openPositions.AddRange(trades.Select(trade => (strategy, trade)));
+            }
+
+            if (openPositions.Count == 0)
+            {
+                return;
+            }
+
+            var distinctTickers = openPositions.Select(p => p.Trade.Ticker).Distinct().ToList();
+            var priceMap = await GetCurrentPrices(distinctTickers);
+
+            var sellTasks = openPositions.Select(p => SellPositionIfApplicable(p.Strategy, p.Trade, priceMap));
+            await Task.WhenAll(sellTasks);
         }
         catch (Exception e)
         {
@@ -63,38 +65,63 @@ public class SellWorker(
         }
     }
 
-    private async Task CheckAndExecuteSells(StrategyDto strategy)
+    /// <summary>
+    /// Fetches current prices for all tickers in batched snapshot calls.
+    /// Tickers missing from the result (e.g. halted) are simply absent from the map.
+    /// </summary>
+    private async Task<Dictionary<string, float>> GetCurrentPrices(List<string> tickers)
     {
-        var openPositions = await tradeRepository.ListTradesByStrategy(strategy.Id, null, TradeStatus.Open);
+        var prices = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
 
-        var sellTasks = new List<Task>();
-        foreach (var position in openPositions)
+        foreach (var chunk in tickers.Chunk(SnapshotBatchSize))
         {
-            sellTasks.Add(SellPositionIfApplicable(strategy, position));
+            var response = await massiveClient.GetAllTickersSnapshot(string.Join(',', chunk));
+
+            foreach (var snapshot in response?.Tickers ?? [])
+            {
+                if (snapshot.Ticker is not null && snapshot.Minute?.Close > 0)
+                {
+                    prices[snapshot.Ticker] = snapshot.Minute.Close;
+                }
+            }
         }
 
-        await Task.WhenAll(sellTasks);
+        if (prices.Count < tickers.Count)
+        {
+            logger.LogWarning("Missing prices for {MissingCount}/{TotalCount} open tickers",
+                tickers.Count - prices.Count, tickers.Count);
+        }
+
+        return prices;
     }
 
-    private async Task SellPositionIfApplicable(StrategyDto strategy, TradeRecord trade)
+    private async Task SellPositionIfApplicable(StrategyDto strategy, TradeRecord trade, Dictionary<string, float> priceMap)
     {
-        var adapter = adapterFactory.GetAdaptor(strategy.Integration);
+        float? currentPrice = priceMap.TryGetValue(trade.Ticker, out var price) ? price : null;
 
-        if (await ShouldSell(strategy, trade))
+        // TODO: Evaluate ExitSettings.ConditionalExit (scan-based exits) here once supported.
+        var exitReason = ExitEvaluator.Evaluate(strategy, trade, currentPrice, DateTimeOffset.Now);
+
+        if (exitReason is null)
         {
-            var sellResult = await adapter.Sell(trade);
-
-            if (!sellResult.IsSuccess)
-            {
-                logger.LogWarning(
-                    "Sell failed for strategy {StrategyId}, ticker {Ticker}: {Reason}",
-                    strategy.Id, trade.Ticker, sellResult.FailureReason);
-                return;
-            }
-
-            // Update strategy state after successful sell
-            await UpdateStateOnClose(strategy, trade, sellResult);
+            return;
         }
+
+        logger.LogInformation("{ExitReason} hit for {Ticker} (strategy {StrategyId})",
+            exitReason, trade.Ticker, strategy.Id);
+
+        var adapter = adapterFactory.GetAdaptor(strategy.Integration);
+        var sellResult = await adapter.Sell(trade);
+
+        if (!sellResult.IsSuccess)
+        {
+            logger.LogWarning(
+                "Sell failed for strategy {StrategyId}, ticker {Ticker}: {Reason}",
+                strategy.Id, trade.Ticker, sellResult.FailureReason);
+            return;
+        }
+
+        await UpdateStateOnClose(strategy, trade, sellResult);
     }
 
     /// <summary>
@@ -172,7 +199,7 @@ public class SellWorker(
             var newCashBalance = previousState.CashBalance + closeValue;
             var newTotalEntryCost = previousState.TotalEntryCost - closedEntryCost;
             var newOpenPositionsCount = previousState.OpenPositionsCount - 1;
-            
+
             // PositionValue = TotalEntryCost + UnrealizedPnl
             // UnrealizedPnl will be updated separately by the P/L refresh job
             var newPositionValue = newTotalEntryCost + previousState.UnrealizedPnl;
@@ -213,88 +240,6 @@ public class SellWorker(
             logger.LogError(ex,
                 "Error writing balance history for strategy {StrategyId}",
                 strategyId);
-        }
-    }
-
-    private async Task<bool> ShouldSell(StrategyDto strategy, TradeRecord trade)
-    {
-        // Check timed exit
-        var projectedExitDate = DateUtilities.GetEndDate(
-            DateTimeOffset.Parse(trade.OpenedAt),
-            strategy.ExitSettings.TimedExit.Timeframe);
-
-        if (projectedExitDate <= DateTimeOffset.Now)
-        {
-            logger.LogInformation("Timed exit hit for {Ticker}", trade.Ticker);
-            return true;
-        }
-
-        // Check stop loss / take profit
-        return await CheckStopLossOrTakeProfit(strategy, trade);
-    }
-
-    private async Task<bool> CheckStopLossOrTakeProfit(StrategyDto strategy, TradeRecord position)
-    {
-        try
-        {
-            var stocksResponse = await httpClient.PostAsJsonAsync("api/stocks", new StocksRequest
-            {
-                Ticker = position.Ticker,
-                Multiplier = 1,
-                Timespan = Timespan.minute,
-                From = DateTimeOffset.Now.AddDays(-1),
-                To = DateTimeOffset.Now
-            });
-
-            if (!stocksResponse.IsSuccessStatusCode)
-            {
-                logger.LogError("Error getting price for {Ticker}", position.Ticker);
-                return false;
-            }
-
-            var response = await stocksResponse.Content.ReadFromJsonAsync<StocksResponse>();
-
-            if (response?.Results == null || !response.Results.Any() || position == null)
-            {
-                return false;
-            }
-
-            var currentPrice = response.Results.Last().Close;
-            var currentPosition = currentPrice * position.Shares;
-
-            var stopLossHit = strategy.ExitSettings.StopLoss.Type switch
-            {
-                ExitValueType.flat => currentPosition - position.EntryPosition <= strategy.ExitSettings.StopLoss.Value,
-                ExitValueType.percent => (currentPosition - position.EntryPosition) / position.EntryPosition * 100 <= strategy.ExitSettings.StopLoss.Value,
-                _ => false
-            };
-
-            var profitTargetHit = strategy.ExitSettings.TakeProfit.Type switch
-            {
-                ExitValueType.flat => currentPosition - position.EntryPosition >= strategy.ExitSettings.TakeProfit.Value,
-                ExitValueType.percent => (currentPosition - position.EntryPosition) / position.EntryPosition * 100 >= strategy.ExitSettings.TakeProfit.Value,
-                _ => false
-            };
-
-            if (stopLossHit)
-            {
-                logger.LogInformation("Stop Loss hit for {Ticker}", position.Ticker);
-                return true;
-            }
-
-            if (profitTargetHit)
-            {
-                logger.LogInformation("Take Profit hit for {Ticker}", position.Ticker);
-                return true;
-            }
-
-            return false;
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Error checking stop loss/take profit for {Ticker}: {Message}",
-                position.Ticker, e.Message);
-            return false;
         }
     }
 }

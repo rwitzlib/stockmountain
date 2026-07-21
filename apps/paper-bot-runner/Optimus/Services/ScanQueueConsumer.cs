@@ -1,6 +1,7 @@
 using Amazon.SQS;
 using Amazon.SQS.Model;
 using MarketViewer.Contracts.Enums.Strategy;
+using MarketViewer.Contracts.Messages;
 using Optimus.Infrastructure.Config;
 using Optimus.Infrastructure.Repositories;
 using Optimus.Models;
@@ -73,7 +74,16 @@ public class ScanQueueConsumer(
     {
         try
         {
-            // Parse EventBridge Pipes DynamoDB stream record format
+            var signal = TryParseSignal(message.Body);
+
+            if (signal is not null)
+            {
+                await ProcessSignal(signal, message);
+                return;
+            }
+
+            // Legacy EventBridge Pipes DynamoDB stream envelope — remove once the direct
+            // publisher is the only producer.
             var streamRecord = JsonSerializer.Deserialize<DynamoDbStreamRecord>(message.Body, JsonOptions);
 
             if (streamRecord?.DynamoDb?.Keys == null)
@@ -132,41 +142,8 @@ public class ScanQueueConsumer(
             logger.LogInformation("Found {TickerCount} tickers for hash {StrategyHash}",
                 tickers.Count, strategyHash);
 
-            // 2. Query all strategies with this hash (via GSI)
-            var strategies = await strategyRepository.ListByStrategyHash(strategyHash);
-            var enabledStrategies = strategies.Where(s => s.State == StrategyStateType.Active).ToList();
+            await ExecuteForHash(strategyHash, tickers, window);
 
-            if (enabledStrategies.Count == 0)
-            {
-                logger.LogInformation("No enabled strategies found for hash {StrategyHash}", strategyHash);
-                await DeleteMessage(message);
-                return;
-            }
-
-            logger.LogInformation("Found {StrategyCount} enabled strategies for hash {StrategyHash}",
-                enabledStrategies.Count, strategyHash);
-
-            // 3. Execute trades for each strategy/ticker combination
-            var executionTasks = new List<Task<bool>>();
-            foreach (var strategy in enabledStrategies)
-            {
-                foreach (var ticker in tickers)
-                {
-                    executionTasks.Add(tradeExecutionService.ExecuteBuyIfNotDuplicate(
-                        strategy,
-                        ticker,
-                        window));
-                }
-            }
-
-            var results = await Task.WhenAll(executionTasks);
-            var successCount = results.Count(r => r);
-
-            logger.LogInformation(
-                "Processed scan event: {SuccessCount}/{TotalCount} executions for hash {StrategyHash}",
-                successCount, executionTasks.Count, strategyHash);
-
-            // 4. Delete message after successful processing
             await DeleteMessage(message);
         }
         catch (Exception ex)
@@ -174,6 +151,75 @@ public class ScanQueueConsumer(
             logger.LogError(ex, "Error processing SQS message: {MessageId}", message.MessageId);
             // Don't delete - let visibility timeout expire for retry
         }
+    }
+
+    private static StrategySignalMessage TryParseSignal(string body)
+    {
+        try
+        {
+            var signal = JsonSerializer.Deserialize<StrategySignalMessage>(body, JsonOptions);
+
+            if (string.IsNullOrEmpty(signal?.StrategyHash) || signal.Tickers is not { Count: > 0 } || signal.Window <= 0)
+            {
+                return null;
+            }
+
+            return signal;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private async Task ProcessSignal(StrategySignalMessage signal, Message message)
+    {
+        var latencyMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - signal.SignalAtUnixMs;
+
+        logger.LogInformation(
+            "Processing signal for hash {StrategyHash}, window {Window}, {TickerCount} tickers, signal-to-consume latency {LatencyMs}ms",
+            signal.StrategyHash, signal.Window, signal.Tickers.Count, latencyMs);
+
+        await ExecuteForHash(signal.StrategyHash, signal.Tickers, signal.Window);
+
+        await DeleteMessage(message);
+    }
+
+    /// <summary>
+    /// Fans a signal out to every active strategy sharing the hash and executes buys.
+    /// </summary>
+    private async Task ExecuteForHash(string strategyHash, List<string> tickers, long window)
+    {
+        var strategies = await strategyRepository.ListByStrategyHash(strategyHash);
+        var enabledStrategies = strategies.Where(s => s.State == StrategyStateType.Active).ToList();
+
+        if (enabledStrategies.Count == 0)
+        {
+            logger.LogInformation("No enabled strategies found for hash {StrategyHash}", strategyHash);
+            return;
+        }
+
+        logger.LogInformation("Found {StrategyCount} enabled strategies for hash {StrategyHash}",
+            enabledStrategies.Count, strategyHash);
+
+        var executionTasks = new List<Task<bool>>();
+        foreach (var strategy in enabledStrategies)
+        {
+            foreach (var ticker in tickers)
+            {
+                executionTasks.Add(tradeExecutionService.ExecuteBuyIfNotDuplicate(
+                    strategy,
+                    ticker,
+                    window));
+            }
+        }
+
+        var results = await Task.WhenAll(executionTasks);
+        var successCount = results.Count(r => r);
+
+        logger.LogInformation(
+            "Processed scan event: {SuccessCount}/{TotalCount} executions for hash {StrategyHash}",
+            successCount, executionTasks.Count, strategyHash);
     }
 
     private async Task DeleteMessage(Message message)

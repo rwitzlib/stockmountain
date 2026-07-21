@@ -15,7 +15,9 @@
   <Folder Name="/apps/paper-bot-runner/">
     <Project Path="apps/paper-bot-runner/Optimus/Optimus.csproj" />
   </Folder>
-  <Folder Name="/packages/" />
+  <Folder Name="/packages/">
+    <Project Path="packages/alpaca-client/Alpaca.Client/Alpaca.Client.csproj" />
+  </Folder>
   <Folder Name="/packages/massive-client/">
     <Project Path="packages/massive-client/Massive.Client/Massive.Client.csproj" />
   </Folder>

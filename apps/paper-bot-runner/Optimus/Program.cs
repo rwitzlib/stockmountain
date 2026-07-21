@@ -1,3 +1,4 @@
+using Alpaca.Client.DependencyInjection;
 using Amazon;
 using Amazon.DynamoDBv2;
 using Amazon.SimpleNotificationService;
@@ -61,6 +62,7 @@ internal class Program
         builder.Services.RegisterInfrastructure(builder.Configuration);
         builder.Services.RegisterAdapters(builder.Configuration);
         builder.Services.RegisterSchwabClients();
+        builder.Services.RegisterAlpacaClients(builder.Configuration);
 
         builder.Services.AddControllers()
             .AddJsonOptions(options =>
@@ -112,12 +114,14 @@ internal class Program
                     .WithCronSchedule("0 0/5 9-20 ? * MON-FRI", x => x
                         .InTimeZone(TimeZoneInfo.FindSystemTimeZoneById("America/New_York"))));
 
+                // Coarse outer window; MarketCalendarService inside the job is the
+                // authoritative gate (holidays, half-days, exact open/close).
                 var sellWorkerJobKey = new JobKey("SellWorkerJob");
                 q.AddJob<SellWorker>(opts => opts.WithIdentity(sellWorkerJobKey));
                 q.AddTrigger(opts => opts
                     .ForJob(sellWorkerJobKey)
                     .WithIdentity("SellWorkerTrigger")
-                    .WithCronSchedule("0 0/1 9-20 ? * MON-FRI", x => x
+                    .WithCronSchedule("0/10 * 9-16 ? * MON-FRI", x => x
                         .InTimeZone(TimeZoneInfo.FindSystemTimeZoneById("America/New_York"))));
             })
             .AddQuartzHostedService(opt =>

@@ -1,3 +1,6 @@
+using Alpaca.Client.DependencyInjection;
+using Amazon;
+using Amazon.SQS;
 using MarketViewer.Api.Authorization;
 using MarketViewer.Api.Config;
 using MarketViewer.Api.Healthcheck;
@@ -56,6 +59,14 @@ public class Program
         builder.Services.AddSingleton<ScannerCache>();
         builder.Services.AddSingleton<CacheWarmupState>();
         builder.Services.AddSingleton<BarCacheService>();
+
+        // Signal publishing for the trading bots (scanner -> SQS hot path)
+        var signalQueueConfig = builder.Configuration.GetSection("SignalQueue").Get<SignalQueueConfig>() ?? new SignalQueueConfig();
+        signalQueueConfig.QueueUrl = Environment.GetEnvironmentVariable("SIGNAL_QUEUE_URL") ?? signalQueueConfig.QueueUrl;
+        builder.Services.AddSingleton(signalQueueConfig);
+        builder.Services.AddSingleton<IAmazonSQS>(_ => new AmazonSQSClient(RegionEndpoint.USEast2));
+        builder.Services.AddSingleton<SignalPublisher>();
+        builder.Services.RegisterAlpacaClients(builder.Configuration);
         builder.Services.Configure<ClerkWebhookConfig>(builder.Configuration.GetSection("ClerkWebhook"));
         builder.Services.PostConfigure<ClerkWebhookConfig>(options =>
         {
