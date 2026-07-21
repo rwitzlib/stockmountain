@@ -34,14 +34,16 @@ public class IndicatorExpressionEngine
     /// <param name="stockData">The stock data to evaluate against</param>
     /// <param name="timeframe">The timeframe for the evaluation</param>
     /// <param name="parameters">Optional parameters</param>
+    /// <param name="evaluationTime">The clock for this evaluation (scan time or simulated backtest time); drives the "time" field</param>
     /// <returns>True if the expression evaluates to true</returns>
-    public bool EvaluateExpression(IExpression expression, StocksResponse stockData, Timeframe timeframe, Dictionary<string, object>? parameters = null)
+    public bool EvaluateExpression(IExpression expression, StocksResponse stockData, Timeframe timeframe, Dictionary<string, object>? parameters = null, DateTimeOffset? evaluationTime = null)
     {
         var context = new ExpressionContext
         {
             StockData = stockData,
             Timeframe = timeframe,
-            Parameters = parameters
+            Parameters = parameters,
+            EvaluationTime = evaluationTime
         };
 
         var result = expression.Evaluate(context);
@@ -65,10 +67,10 @@ public class IndicatorExpressionEngine
     /// <param name="timeframe">The timeframe for the evaluation</param>
     /// <param name="parameters">Optional parameters</param>
     /// <returns>True if the expression evaluates to true</returns>
-    public bool EvaluateScript(string script, StocksResponse stockData, Timeframe timeframe, Dictionary<string, object>? parameters = null)
+    public bool EvaluateScript(string script, StocksResponse stockData, Timeframe timeframe, Dictionary<string, object>? parameters = null, DateTimeOffset? evaluationTime = null)
     {
         var expression = ParseExpression(script);
-        return EvaluateExpression(expression, stockData, timeframe, parameters);
+        return EvaluateExpression(expression, stockData, timeframe, parameters, evaluationTime);
     }
 
     /// <summary>

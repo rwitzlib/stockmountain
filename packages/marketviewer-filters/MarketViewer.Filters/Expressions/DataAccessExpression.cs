@@ -25,6 +25,11 @@ public class DataAccessExpression(string fieldName) : IExpression
             return EvaluateScalar(context);
         }
 
+        if (_fieldName == "time")
+        {
+            return EvaluateTime(context);
+        }
+
         var data = context.StockData.Results;
 
         var series = new List<IIndicatorResult>();
@@ -38,18 +43,38 @@ public class DataAccessExpression(string fieldName) : IExpression
     }
 
     /// <summary>
+    /// "time" is the evaluation clock — the scan time for live scans, the simulated
+    /// minute for backtests — not a per-bar attribute. A thin ticker whose last bar
+    /// is stale must not keep satisfying a gate like "time &lt; 10:00" after the
+    /// cutoff has passed. Falls back to the last bar's timestamp when no evaluation
+    /// time was provided.
+    /// </summary>
+    private static List<IIndicatorResult> EvaluateTime(ExpressionContext context)
+    {
+        var timestamp = context.EvaluationTime?.ToUnixTimeMilliseconds()
+            ?? context.StockData.Results?.LastOrDefault()?.Timestamp;
+
+        return timestamp is long value ? [CreateTimeResult(value)] : [];
+    }
+
+    private static TimeIndicatorResult CreateTimeResult(long timestamp)
+    {
+        var eastern = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeMilliseconds(timestamp), EasternTimeZone);
+        return new TimeIndicatorResult
+        {
+            Timestamp = timestamp,
+            Value = eastern.Hour * 60 + eastern.Minute
+        };
+    }
+
+    /// <summary>
     /// Builds the series result for a single bar. Shared with incremental session evaluation.
     /// </summary>
     public IIndicatorResult CreateBarResult(Bar bar)
     {
         if (_fieldName == "time")
         {
-            var eastern = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeMilliseconds(bar.Timestamp), EasternTimeZone);
-            return new TimeIndicatorResult
-            {
-                Timestamp = bar.Timestamp,
-                Value = eastern.Hour * 60 + eastern.Minute
-            };
+            return CreateTimeResult(bar.Timestamp);
         }
 
         var value = _fieldName switch

@@ -123,7 +123,7 @@ public class ScanHandler(
             // TODO: add if statement to conditionally include latest bar
             TryAddBarToResponse(timeframe.Multiplier, timeframe.Timespan, latestBar, clonedResponse);
 
-            var passesFilter = engine.EvaluateExpression(filter, clonedResponse, timeframe);
+            var passesFilter = engine.EvaluateExpression(filter, clonedResponse, timeframe, evaluationTime: timestamp);
 
             if (!passesFilter)
             {

@@ -101,16 +101,60 @@ public class TimeFilterUnitTests
     }
 
     [Theory]
-    [InlineData(RangeEvaluationMode.All, 3, false)] // 9:29 candle is outside the window
-    [InlineData(RangeEvaluationMode.Any, 3, true)]
-    public void Time_Respects_Candle_Range_Modes(RangeEvaluationMode mode, int range, bool expected)
+    [InlineData(RangeEvaluationMode.All, 3)]
+    [InlineData(RangeEvaluationMode.Any, 3)]
+    public void Time_Is_The_Evaluation_Clock_Regardless_Of_Range_Modes(RangeEvaluationMode mode, int range)
     {
+        // time is a single evaluation-clock value, not per-bar history, so range
+        // modifiers have nothing extra to aggregate over: only the clock matters.
         var stockData = CreateStockData((9, 29), (9, 30), (9, 31));
         var script = $"time >= 9:30 [1m, {range}, {mode.ToString().ToLowerInvariant()}]";
 
         var result = _engine.EvaluateScript(script, stockData, _timeframe);
 
+        Assert.True(result);
+    }
+
+    [Theory]
+    [InlineData(10, 5, false)] // clock past the cutoff: stale last bar must not pass
+    [InlineData(9, 55, true)]
+    public void EvaluationTime_Overrides_Stale_Last_Bar(int clockHour, int clockMinute, bool expected)
+    {
+        // Thinly traded ticker whose last bar printed at 9:50.
+        var stockData = CreateStockData((9, 49), (9, 50));
+        var evaluationTime = SessionDate.AddHours(clockHour).AddMinutes(clockMinute);
+
+        var result = _engine.EvaluateScript("time < 10:00", stockData, _timeframe, evaluationTime: evaluationTime);
+
         Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void Session_Clock_Advances_Without_New_Bars()
+    {
+        // The stale-ticker scenario: no new bars arrive, but the clock moves past
+        // the cutoff. A cached first evaluation must not keep the gate open.
+        var stockData = CreateStockData((9, 49), (9, 50));
+        var session = _engine.Compile("time < 10:00");
+
+        var beforeCutoff = session.Evaluate(stockData, _timeframe, evaluationTime: SessionDate.AddHours(9).AddMinutes(55));
+        var afterCutoff = session.EvaluateIncremental(stockData, _timeframe, evaluationTime: SessionDate.AddHours(10).AddMinutes(5));
+
+        Assert.True(beforeCutoff);
+        Assert.False(afterCutoff);
+    }
+
+    [Fact]
+    public void Session_Clock_Advances_For_Field_Access_Without_New_Bars()
+    {
+        var stockData = CreateStockData((9, 49), (9, 50));
+        var session = _engine.Compile("time.hour = 9");
+
+        var beforeCutoff = session.Evaluate(stockData, _timeframe, evaluationTime: SessionDate.AddHours(9).AddMinutes(55));
+        var afterCutoff = session.EvaluateIncremental(stockData, _timeframe, evaluationTime: SessionDate.AddHours(10).AddMinutes(5));
+
+        Assert.True(beforeCutoff);
+        Assert.False(afterCutoff);
     }
 
     [Theory]

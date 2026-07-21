@@ -160,7 +160,7 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
 
                     stocksResponse.UpdateLatestCandle(timeframe, nextCandle);
 
-                    var passesFilter = session.EvaluateIncremental(stocksResponse, timeframe);
+                    var passesFilter = session.EvaluateIncremental(stocksResponse, timeframe, evaluationTime: marketOpen.AddMinutes(i));
 
                     if (!passesFilter)
                     {

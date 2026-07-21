@@ -59,7 +59,8 @@ public class TimeframeRangeExpression : IExpression
             Timeframe = _timeframe ?? context.Timeframe,
             Parameters = context.Parameters,
             CandleRange = _range ?? context.CandleRange,
-            RangeEvaluationMode = _evaluationMode ?? context.RangeEvaluationMode
+            RangeEvaluationMode = _evaluationMode ?? context.RangeEvaluationMode,
+            EvaluationTime = context.EvaluationTime
         };
 
         return _innerExpression.Evaluate(modifiedContext);

@@ -27,6 +27,14 @@ public class ExpressionContext
     public Dictionary<string, object>? Parameters { get; init; }
 
     /// <summary>
+    /// The clock for this evaluation: the scan time for live scans, the simulated
+    /// minute for backtests. Drives the "time" field so a time gate compares against
+    /// when the evaluation runs, not when the ticker last traded. When null, "time"
+    /// falls back to the last bar's timestamp.
+    /// </summary>
+    public DateTimeOffset? EvaluationTime { get; init; }
+
+    /// <summary>
     /// Optional candle range for historical evaluation (e.g., check last N candles)
     /// </summary>
     public int? CandleRange { get; init; }

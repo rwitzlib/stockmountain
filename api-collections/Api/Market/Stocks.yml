@@ -10,11 +10,11 @@ http:
     type: json
     data: |-
       {
-        "Ticker": "TSLA",
+        "Ticker": "ADSE",
         "Multiplier": 1,
         "Timespan": "minute",
-        "From": "2026-07-06",
-        "To": "2026-07-06"
+        "From": "2026-07-21",
+        "To": "2026-07-21"
       }
   auth: inherit
 

@@ -40,17 +40,17 @@ public class FilterSession
         _lastTimestamp = 0;
     }
 
-    public bool Evaluate(StocksResponse stockData, Timeframe timeframe, Dictionary<string, object>? parameters = null)
+    public bool Evaluate(StocksResponse stockData, Timeframe timeframe, Dictionary<string, object>? parameters = null, DateTimeOffset? evaluationTime = null)
     {
         Reset();
-        var ctx = new ExpressionContext { StockData = stockData, Timeframe = timeframe, Parameters = parameters };
+        var ctx = new ExpressionContext { StockData = stockData, Timeframe = timeframe, Parameters = parameters, EvaluationTime = evaluationTime };
         var value = EvaluateNode(_root, ctx, incremental: false);
         _lastDataCount = stockData.Results.Count;
         _lastTimestamp = stockData.Results.LastOrDefault()?.Timestamp ?? 0;
         return ToBool(value);
     }
 
-    public bool EvaluateIncremental(StocksResponse stockData, Timeframe timeframe, Dictionary<string, object>? parameters = null)
+    public bool EvaluateIncremental(StocksResponse stockData, Timeframe timeframe, Dictionary<string, object>? parameters = null, DateTimeOffset? evaluationTime = null)
     {
         var count = stockData.Results.Count;
         var lastTs = count > 0 ? stockData.Results[^1].Timestamp : 0;
@@ -59,10 +59,10 @@ public class FilterSession
         bool canAppend = count >= _lastDataCount && lastTs >= _lastTimestamp;
         if (!canAppend)
         {
-            return Evaluate(stockData, timeframe, parameters);
+            return Evaluate(stockData, timeframe, parameters, evaluationTime);
         }
 
-        var ctx = new ExpressionContext { StockData = stockData, Timeframe = timeframe, Parameters = parameters };
+        var ctx = new ExpressionContext { StockData = stockData, Timeframe = timeframe, Parameters = parameters, EvaluationTime = evaluationTime };
         var value = EvaluateNode(_root, ctx, incremental: true);
 
         _lastDataCount = count;
@@ -93,7 +93,8 @@ public class FilterSession
                     Timeframe = tf.GetTimeframe() ?? ctx.Timeframe,
                     Parameters = ctx.Parameters,
                     CandleRange = tf.GetRange() ?? ctx.CandleRange,
-                    RangeEvaluationMode = tf.GetRangeEvaluationMode() ?? ctx.RangeEvaluationMode
+                    RangeEvaluationMode = tf.GetRangeEvaluationMode() ?? ctx.RangeEvaluationMode,
+                    EvaluationTime = ctx.EvaluationTime
                 };
                 return EvaluateNode(tf.GetInnerExpression(), modified, incremental);
 
@@ -141,6 +142,16 @@ public class FilterSession
             return scalar;
         }
 
+        // "time" is the evaluation clock — a single element that changes every
+        // evaluation. Append-caching it would freeze the clock at its first value,
+        // so a stale ticker would keep passing a time gate forever.
+        if (expr.GetFieldName() == "time")
+        {
+            var timeResult = expr.Evaluate(ctx);
+            _cache[key] = new NodeCache { Result = timeResult, DataCount = ctx.StockData.Results.Count, LastTimestamp = ctx.StockData.Results.LastOrDefault()?.Timestamp ?? 0 };
+            return timeResult;
+        }
+
         var data = ctx.StockData.Results;
         if (!_cache.TryGetValue(key, out var entry) || !incremental || entry.Result is not List<IIndicatorResult> prevSeries)
         {
@@ -171,6 +182,16 @@ public class FilterSession
 
     private object EvaluateFieldAccess(IExpression key, FieldAccessExpression field, ExpressionContext ctx, bool incremental)
     {
+        // time.hour / time.minute derive from the evaluation clock; the append path
+        // below would return the first evaluation's value forever (both series stay
+        // at one element, so nothing ever appends). Always evaluate fresh.
+        if (field.GetTargetExpression() is DataAccessExpression timeTarget && timeTarget.GetFieldName() == "time")
+        {
+            var timeFieldResult = field.Evaluate(ctx);
+            _cache[key] = new NodeCache { Result = timeFieldResult, DataCount = ctx.StockData.Results.Count, LastTimestamp = ctx.StockData.Results.LastOrDefault()?.Timestamp ?? 0 };
+            return timeFieldResult;
+        }
+
         var targetObj = EvaluateNode(field.GetTargetExpression(), ctx, incremental);
 
         if (!_cache.TryGetValue(key, out var entry) || !incremental)

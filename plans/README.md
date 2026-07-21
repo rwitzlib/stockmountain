@@ -29,5 +29,8 @@ field is optional end-to-end and the web UI must render sensibly when it is abse
 | # | Plan | Adds | Primary files touched |
 |---|------|------|----------------------|
 | 7 | [07-share-backtest.md](07-share-backtest.md) | public share links for backtests | BacktestController, new ShareController, BacktestRepository, contracts, s3.tf, share dialog + public SPA route |
+| 8 | [08-automated-trading.md](08-automated-trading.md) | automated trading via optimus: signal producer, exit engine, Alpaca adapter, watchdog, backtest→strategy flow | paper-bot-runner (optimus), optimus-adapter, optimus-infrastructure, new alpaca-client, apps/api jobs, infra |
 
-Plan 7 is independent of the enrichment plans.
+Plan 7 is independent of the enrichment plans. Plan 8 is a multi-phase roadmap (phases 0–5),
+not a single hand-off unit — implement it phase by phase; its "Decisions already made"
+section records design-review outcomes and should not be re-litigated by implementers.
