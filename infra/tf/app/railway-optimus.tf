@@ -22,8 +22,6 @@ data "aws_iam_policy_document" "optimus_runtime" {
     ]
   }
 
-  # The strategy/trade/scan/dedup/meta tables are not Terraform-managed (see the
-  # commented names in railway-api.tf), so grant by name prefix rather than ARN refs.
   statement {
     sid    = "ReadWriteOptimusTables"
     effect = "Allow"
@@ -37,9 +35,16 @@ data "aws_iam_policy_document" "optimus_runtime" {
       "dynamodb:UpdateItem"
     ]
 
-    resources = [
-      "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${var.team}-${var.environment}-*"
-    ]
+    resources = flatten([
+      for table in [
+        aws_dynamodb_table.strategy,
+        aws_dynamodb_table.trade,
+        aws_dynamodb_table.scan,
+        aws_dynamodb_table.execution_dedup,
+        aws_dynamodb_table.meta,
+        aws_dynamodb_table.user
+      ] : [table.arn, "${table.arn}/index/*"]
+    ])
   }
 }
 

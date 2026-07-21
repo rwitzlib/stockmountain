@@ -121,7 +121,4 @@ jobs:
             set_args+=(--set "$pair")
           done < <(echo "$vars_json" | jq -r 'to_entries[] | "\(.key)=\(.value)"')
 
-          # Project token is environment-scoped. --skip-deploys avoids a second deploy:
-          # Railway's GitHub integration already redeploys the service on push, and the
-          # new variables are picked up by that deploy.
-          railway variables "${set_args[@]}" --service ${{ matrix.service.name }} --skip-deploys
+          railway variables "${set_args[@]}" --service ${{ matrix.service.name }}

@@ -108,3 +108,24 @@ variable "otel_resource_attributes" {
   default     = ""
   description = "Attributes for the OTLP resource."
 }
+
+variable "massive_token" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Massive API token."
+}
+
+variable "alpaca_api_key_id" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Alpaca API key ID."
+}
+
+variable "alpaca_api_secret_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Alpaca API secret key."
+}

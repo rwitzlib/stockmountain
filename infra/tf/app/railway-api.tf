@@ -6,11 +6,10 @@ locals {
     aws_dynamodb_table.market_data.name,
     aws_dynamodb_table.user.name,
     aws_dynamodb_table.strategy.name,
-    # "${var.team}-${var.environment}-marketviewer-strategy-store",
-    # "${var.team}-${var.environment}-optimus-trade-store",
-    # "${var.team}-${var.environment}-marketviewer-scan-store",
+    aws_dynamodb_table.trade.name,
+    aws_dynamodb_table.scan.name,
+    aws_dynamodb_table.meta.name,
     # "${var.team}-${var.environment}-security-master-store",
-    # "${var.team}-${var.environment}-meta-store"
   ]
 
   api_dynamodb_table_arns = [
