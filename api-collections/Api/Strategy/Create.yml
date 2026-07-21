@@ -1,0 +1,62 @@
+info:
+  name: Create
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: https://{{base_url}}{{port}}/api/Strategy
+  body:
+    type: json
+    data: |-
+      {
+        "name": "RSI High Entry",
+        "state": "Active",
+        "visibility": "Private",
+        "type": "Paper",
+        "integration": "Default",
+        "positionSettings": {
+          "startingBalance": 100000,
+          "maxConcurrentPositions": 100,
+          "allowSimultaneous": false,
+          "model": {
+            "type": "Fixed",
+            "size": 10000
+          }
+        },
+        "exitSettings": {
+          "stopLoss": {
+            "candleType": "CurrentCandle",
+            "priceActionType": "close",
+            "type": "percent",
+            "value": 2.5
+          },
+          "takeProfit": {
+            "candleType": "CurrentCandle",
+            "priceActionType": "close",
+            "type": "percent",
+            "value": 15
+          },
+          "timedExit": {
+            "avoidOvernight": true,
+            "timeframe": {
+              "multiplier": 30,
+              "timespan": "minute"
+            }
+          }
+        },
+        "entrySettings": {
+          "filters": [
+            "rsi(30,70,14,ema) > 70 [1m]",
+            "time < 10:00",
+            "float < 10000000"
+          ]
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

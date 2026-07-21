@@ -1,47 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  Strategy, 
-  StrategyStateType, 
-  VisibilityType, 
-  TradeType, 
-  IntegrationType 
-} from '../../types/strategy';
+import { Strategy, Exit, IntegrationType, Timeframe, TradeType } from '../../types/strategy';
 import { PositionSettingsForm } from '../../components/forms/strategy/PositionSettingsForm';
 import { ExitSettingsForm } from '../../components/forms/strategy/ExitSettingsForm';
 import { EntrySettingsForm } from '../../components/forms/strategy/EntrySettingsForm';
+import { RailRow } from '../../components/backtest/BacktestReport';
 import { Switch } from '../../components/ui/switch';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { strategyApi } from '../../api/strategyApi';
 import { toast } from '../../hooks/use-toast';
 import { useUser } from '@clerk/react';
-import { 
-  ChevronLeft, 
-  Settings2, 
-  DoorOpen, 
-  Filter, 
-  Loader2,
-  Zap,
-  Globe,
-  EyeOff,
-  Save,
-  CheckCircle2,
-  AlertCircle
-} from 'lucide-react';
-
-const TRADE_TYPES: { value: TradeType; label: string; icon: React.ReactNode; description: string }[] = [
-  { value: 'Paper', label: 'Paper Trading', icon: <span className="text-2xl">📝</span>, description: 'Test strategies with simulated trades' },
-  { value: 'Live', label: 'Live Trading', icon: <Zap className="w-6 h-6 text-amber-500" />, description: 'Execute real trades with your broker' },
-];
-
-const INTEGRATION_TYPES: { value: IntegrationType; label: string; description: string }[] = [
-  { value: 'Default', label: 'Default', description: 'Internal paper trading engine' },
-  { value: 'Schwab', label: 'Charles Schwab', description: 'Connect your Schwab account' },
-  { value: 'Fidelity', label: 'Fidelity', description: 'Connect your Fidelity account' },
-  { value: 'ETrade', label: 'E*Trade', description: 'Connect your E*Trade account' },
-];
+import { ArrowLeft, AlertCircle, Loader2, Save } from 'lucide-react';
 
 const defaultFormData: Strategy = {
   name: '',
@@ -64,41 +35,114 @@ const defaultFormData: Strategy = {
   },
 };
 
-type SectionId = 'general' | 'position' | 'exit' | 'entry';
-
-interface Section {
-  id: SectionId;
+/**
+ * Execution tiers per plan 08: internal paper answers "does the strategy work",
+ * Alpaca paper answers "does the integration work", Alpaca live is real money.
+ * The Alpaca tiers unlock when the Phase 3 adapter ships.
+ */
+interface ExecutionTier {
+  id: string;
   label: string;
-  icon: React.ReactNode;
   description: string;
+  type: TradeType;
+  integration: IntegrationType;
+  available: boolean;
 }
 
-const SECTIONS: Section[] = [
-  { id: 'general', label: 'General', icon: <Settings2 className="w-5 h-5" />, description: 'Basic strategy configuration' },
-  { id: 'position', label: 'Position Sizing', icon: <span className="text-lg">💰</span>, description: 'How to size and manage positions' },
-  { id: 'exit', label: 'Exit Rules', icon: <DoorOpen className="w-5 h-5" />, description: 'When and how to exit positions' },
-  { id: 'entry', label: 'Entry Conditions', icon: <Filter className="w-5 h-5" />, description: 'Criteria for entering trades' },
+const EXECUTION_TIERS: ExecutionTier[] = [
+  {
+    id: 'internal-paper',
+    label: 'Internal paper',
+    description: 'Deterministic simulation. Fills at last minute close — same semantics as the backtester.',
+    type: 'Paper',
+    integration: 'Default',
+    available: true,
+  },
+  {
+    id: 'alpaca-paper',
+    label: 'Alpaca paper',
+    description: 'Dress rehearsal: the live integration path against Alpaca’s paper account.',
+    type: 'Paper',
+    integration: 'Default',
+    available: false,
+  },
+  {
+    id: 'alpaca-live',
+    label: 'Alpaca live',
+    description: 'Real money. Market orders with a broker-side disaster backstop.',
+    type: 'Live',
+    integration: 'Default',
+    available: false,
+  },
 ];
+
+function mergeIntoDefaults(partial: Partial<Strategy>): Strategy {
+  return {
+    ...defaultFormData,
+    ...partial,
+    positionSettings: {
+      ...defaultFormData.positionSettings,
+      ...partial.positionSettings,
+      model: {
+        ...defaultFormData.positionSettings.model,
+        ...partial.positionSettings?.model,
+      },
+    },
+    exitSettings: {
+      ...defaultFormData.exitSettings,
+      ...partial.exitSettings,
+    },
+    entrySettings: {
+      ...defaultFormData.entrySettings,
+      ...partial.entrySettings,
+      filters: partial.entrySettings?.filters || [],
+    },
+  };
+}
+
+const formatExit = (exit: Exit | undefined) => {
+  if (!exit) return 'Not set';
+  const amount = exit.type === 'percent' ? `${exit.value}%` : `$${exit.value}`;
+  return `${exit.priceActionType} ${amount}`;
+};
+
+const formatTimeframe = (timeframe: Timeframe | undefined) => {
+  if (!timeframe) return 'Not set';
+  return `${timeframe.multiplier} ${timeframe.timespan}${timeframe.multiplier > 1 ? 's' : ''}`;
+};
+
+function SectionHeading({ index, label, title, hint }: { index: string; label: string; title: string; hint?: string }) {
+  return (
+    <div className="mb-4">
+      <div className="mb-1 flex items-baseline gap-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+        <span className="font-mono">{index}</span>
+        <span>{label}</span>
+      </div>
+      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+      {hint && <p className="mt-0.5 text-[13px] text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
 
 const StrategyEditorPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const { strategyId } = useParams<{ strategyId: string }>();
-  
+
   const isEditMode = !!strategyId;
-  const [activeSection, setActiveSection] = useState<SectionId>('general');
   const [formData, setFormData] = useState<Strategy>(defaultFormData);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const initializedFromNavState = useRef(false);
   const { isLoaded, isSignedIn } = useUser();
 
   // Redirect once Clerk has loaded and the user is definitely signed out
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
       toast({
-        title: "Authentication Required",
-        description: "Please log in to create or edit strategies",
-        variant: "destructive",
+        title: 'Authentication Required',
+        description: 'Please log in to create or edit strategies',
+        variant: 'destructive',
       });
       navigate('/optimus');
     }
@@ -111,83 +155,42 @@ const StrategyEditorPage = () => {
     enabled: isEditMode && !!isSignedIn,
   });
 
-  // Initialize form with existing strategy data or from navigation state
+  // Initialize form with existing strategy data or from navigation state (e.g. backtest handoff)
   useEffect(() => {
     if (existingStrategy) {
-      setFormData({
-        ...defaultFormData,
-        ...existingStrategy,
-        positionSettings: {
-          ...defaultFormData.positionSettings,
-          ...existingStrategy.positionSettings,
-          model: {
-            ...defaultFormData.positionSettings.model,
-            ...existingStrategy.positionSettings?.model,
-          },
-        },
-        exitSettings: {
-          ...defaultFormData.exitSettings,
-          ...existingStrategy.exitSettings,
-        },
-        entrySettings: {
-          ...defaultFormData.entrySettings,
-          ...existingStrategy.entrySettings,
-          filters: existingStrategy.entrySettings?.filters || [],
-        },
-      });
-    } else if (location.state?.initialData) {
-      // Handle initial data from navigation (e.g., from backtest)
-      const initialData = location.state.initialData;
-      setFormData({
-        ...defaultFormData,
-        ...initialData,
-        positionSettings: {
-          ...defaultFormData.positionSettings,
-          ...initialData.positionSettings,
-          model: {
-            ...defaultFormData.positionSettings.model,
-            ...initialData.positionSettings?.model,
-          },
-        },
-        exitSettings: {
-          ...defaultFormData.exitSettings,
-          ...initialData.exitSettings,
-        },
-        entrySettings: {
-          ...defaultFormData.entrySettings,
-          ...initialData.entrySettings,
-          filters: initialData.entrySettings?.filters || [],
-        },
-      });
+      setFormData(mergeIntoDefaults(existingStrategy));
+      setHasUnsavedChanges(false);
+    } else if (location.state?.initialData && !initializedFromNavState.current) {
+      initializedFromNavState.current = true;
+      setFormData(mergeIntoDefaults(location.state.initialData));
+      setHasUnsavedChanges(true);
     }
   }, [existingStrategy, location.state]);
 
-  // Track unsaved changes
-  useEffect(() => {
+  const update = (patch: Partial<Strategy>) => {
+    setFormData((prev) => ({ ...prev, ...patch }));
     setHasUnsavedChanges(true);
-  }, [formData]);
+  };
 
-  // Create mutation
   const createMutation = useMutation({
     mutationFn: strategyApi.createStrategy,
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['myStrategies'] });
       toast({
-        title: "Strategy Created",
+        title: 'Strategy Created',
         description: `"${formData.name}" has been created successfully`,
       });
       navigate(`/optimus/strategy/${response.id}`);
     },
-    onError: (error) => {
+    onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to create strategy. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to create strategy. Please try again.',
+        variant: 'destructive',
       });
     },
   });
 
-  // Update mutation
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<Strategy> }) =>
       strategyApi.updateStrategy(id, data),
@@ -196,27 +199,39 @@ const StrategyEditorPage = () => {
       queryClient.invalidateQueries({ queryKey: ['myStrategies'] });
       setHasUnsavedChanges(false);
       toast({
-        title: "Strategy Updated",
+        title: 'Strategy Updated',
         description: `"${formData.name}" has been saved successfully`,
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to update strategy. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to update strategy. Please try again.',
+        variant: 'destructive',
       });
     },
   });
 
+  const filters = formData.entrySettings.filters;
+
   const handleSubmit = () => {
     if (!formData.name.trim()) {
       toast({
-        title: "Validation Error",
-        description: "Please enter a strategy name",
-        variant: "destructive",
+        title: 'Name required',
+        description: 'Give the strategy a name before saving.',
+        variant: 'destructive',
       });
-      setActiveSection('general');
+      return;
+    }
+
+    // An active strategy with no filters would be evaluated against the whole
+    // market by the scanner — never let one out the door.
+    if (formData.state === 'Active' && filters.length === 0) {
+      toast({
+        title: 'No entry conditions',
+        description: 'An active strategy needs at least one entry filter. Add one or set it to inactive.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -227,437 +242,291 @@ const StrategyEditorPage = () => {
     }
   };
 
-  const isLoading = createMutation.isPending || updateMutation.isPending;
+  const isSaving = createMutation.isPending || updateMutation.isPending;
   const isValid = formData.name.trim().length > 0;
 
-  // Get section completion status
-  const getSectionStatus = (sectionId: SectionId): 'complete' | 'incomplete' | 'empty' => {
-    switch (sectionId) {
-      case 'general':
-        return formData.name.trim() ? 'complete' : 'incomplete';
-      case 'position':
-        return formData.positionSettings.startingBalance > 0 ? 'complete' : 'incomplete';
-      case 'exit':
-        return (formData.exitSettings.stopLoss || formData.exitSettings.takeProfit || formData.exitSettings.timedExit) 
-          ? 'complete' : 'empty';
-      case 'entry':
-        return formData.entrySettings.filters.length > 0 ? 'complete' : 'empty';
-      default:
-        return 'empty';
-    }
-  };
+  const selectedTier =
+    EXECUTION_TIERS.find((t) => t.available && t.type === formData.type && t.integration === formData.integration) ??
+    EXECUTION_TIERS[0];
+
+  const { positionSettings, exitSettings } = formData;
 
   if (isEditMode && isLoadingStrategy) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground text-sm">Loading strategy...</p>
+      <div className="min-h-screen bg-background p-4 pt-20 text-foreground md:p-8 md:pt-8">
+        <div className="mx-auto max-w-[1240px]">
+          <Card className="p-8 text-center">
+            <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Loading</div>
+            <div className="text-base">Fetching strategy…</div>
+          </Card>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(-1)}
-                className="hover:bg-accent hover:text-foreground"
+    <div className="min-h-screen bg-background p-4 pt-20 text-foreground md:p-8 md:pt-8">
+      <div className="mx-auto max-w-[1240px]">
+        {/* ---------- Masthead ---------- */}
+        <header className="mb-6 flex flex-wrap items-end gap-4 border-b-2 border-foreground/80 pb-5">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1.5 flex items-center gap-3">
+              <Link
+                to="/optimus/dashboard"
+                className="inline-flex items-center gap-1 text-xs uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
               >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">
-                  {isEditMode ? 'Edit Strategy' : 'Create New Strategy'}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {isEditMode ? `Editing "${existingStrategy?.name || formData.name}"` : 'Configure your automated trading strategy'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Strategies
+              </Link>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                  formData.state === 'Active'
+                    ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                {isEditMode ? formData.state : 'Draft'}
+              </span>
+              {isEditMode && strategyId && (
+                <span className="font-mono text-[11px] text-muted-foreground">{strategyId.slice(0, 8)}</span>
+              )}
               {hasUnsavedChanges && (
-                <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  Unsaved changes
+                <span className="flex items-center gap-1 text-[11px] uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="h-3 w-3" />
+                  Unsaved
                 </span>
               )}
-              <Button
-                onClick={handleSubmit}
-                disabled={isLoading || !isValid}
-                className="bg-primary hover:bg-primary/90"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    {isEditMode ? 'Save Changes' : 'Create Strategy'}
-                  </>
-                )}
-              </Button>
             </div>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => update({ name: e.target.value })}
+              placeholder="Untitled strategy"
+              autoFocus={!isEditMode}
+              className="w-full max-w-2xl border-b border-transparent bg-transparent text-2xl font-semibold tracking-tight outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-border md:text-3xl"
+            />
+            <p className="mt-1 text-[13px] text-muted-foreground tabular-nums">
+              {selectedTier.label} · {filters.length} entry filter{filters.length !== 1 && 's'} · $
+              {positionSettings.startingBalance.toLocaleString()} starting balance
+            </p>
           </div>
-        </div>
-      </div>
+          <div className="ml-auto flex gap-2 pb-1">
+            <Button size="sm" onClick={handleSubmit} disabled={isSaving || !isValid}>
+              {isSaving ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-1.5 h-4 w-4" />
+              )}
+              {isEditMode ? 'Save changes' : 'Create strategy'}
+            </Button>
+          </div>
+        </header>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Sidebar Navigation */}
-          <div className="lg:col-span-3">
-            <Card className="p-4 sticky top-24">
-              <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-4">
-                Configuration Sections
-              </h3>
-              <nav className="space-y-1">
-                {SECTIONS.map((section) => {
-                  const status = getSectionStatus(section.id);
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          {/* ---------- Main column ---------- */}
+          <div className="flex min-w-0 flex-col gap-6">
+            <Card className="p-5">
+              <SectionHeading
+                index="01"
+                label="Entry"
+                title="Entry conditions"
+                hint="Evaluated against live market data every 15 seconds while the market is open."
+              />
+              <EntrySettingsForm
+                value={formData.entrySettings}
+                onChange={(entrySettings) => update({ entrySettings })}
+              />
+            </Card>
+
+            <Card className="p-5">
+              <SectionHeading
+                index="02"
+                label="Exit"
+                title="Exit rules"
+                hint="Checked every few seconds per open position. Same-bar ties resolve to the stop, matching the backtester."
+              />
+              <ExitSettingsForm
+                value={formData.exitSettings}
+                onChange={(exitSettings) => update({ exitSettings })}
+              />
+            </Card>
+
+            <Card className="p-5">
+              <SectionHeading
+                index="03"
+                label="Position"
+                title="Position sizing"
+                hint="Capital, sizing model, concurrency, and re-entry cooldown."
+              />
+              <PositionSettingsForm
+                value={formData.positionSettings}
+                onChange={(positionSettings) => update({ positionSettings })}
+              />
+            </Card>
+
+            <Card className="p-5">
+              <SectionHeading
+                index="04"
+                label="Execution"
+                title="Where this strategy runs"
+                hint="Prove it on internal paper first — same fill semantics as the backtest you just ran."
+              />
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {EXECUTION_TIERS.map((tier) => {
+                  const isSelected = tier.id === selectedTier.id;
                   return (
                     <button
-                      key={section.id}
-                      onClick={() => setActiveSection(section.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                        activeSection === section.id
-                          ? 'bg-accent text-foreground font-medium'
-                          : 'hover:bg-accent hover:text-foreground'
+                      key={tier.id}
+                      type="button"
+                      disabled={!tier.available}
+                      onClick={() => update({ type: tier.type, integration: tier.integration })}
+                      className={`relative rounded-lg border p-4 text-left transition-colors ${
+                        isSelected
+                          ? 'border-primary bg-primary/5'
+                          : tier.available
+                            ? 'border-border hover:border-muted-foreground/50'
+                            : 'cursor-not-allowed border-border/60 opacity-55'
                       }`}
                     >
-                      <div className={`${activeSection === section.id ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {section.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-foreground">
-                            {section.label}
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className={`text-sm font-semibold ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                          {tier.label}
+                        </span>
+                        {!tier.available && (
+                          <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                            Soon
                           </span>
-                          {status === 'complete' && (
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          )}
-                          {status === 'incomplete' && (
-                            <AlertCircle className="w-4 h-4 text-amber-500" />
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {section.description}
-                        </p>
+                        )}
                       </div>
+                      <p className="text-xs leading-relaxed text-muted-foreground">{tier.description}</p>
                     </button>
                   );
                 })}
-              </nav>
-
-              {/* Quick Summary */}
-              <div className="mt-6 pt-4 border-t border-border">
-                <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-3">
-                  Summary
-                </h4>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Mode</span>
-                    <span className={formData.type === 'Live' ? 'text-amber-500' : 'text-primary'}>
-                      {formData.type}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Status</span>
-                    <span className={formData.state === 'Active' ? 'text-green-500' : 'text-muted-foreground'}>
-                      {formData.state}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Balance</span>
-                    <span className="text-foreground">
-                      ${formData.positionSettings.startingBalance.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Entry Filters</span>
-                    <span className="text-foreground">
-                      {formData.entrySettings.filters.length}
-                    </span>
-                  </div>
-                </div>
               </div>
-            </Card>
-          </div>
 
-          {/* Main Form Area */}
-          <div className="lg:col-span-9">
-            <Card className="p-6">
-              {/* General Section */}
-              {activeSection === 'general' && (
-                <div className="space-y-8">
+              <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground mb-1">General Configuration</h2>
-                    <p className="text-sm text-muted-foreground">Basic settings for your trading strategy</p>
-                  </div>
-
-                  {/* Strategy Name */}
-                  <div className="space-y-2">
-                    <label htmlFor="name" className="block text-sm font-medium text-foreground">
-                      Strategy Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="e.g., RSI Pullback Strategy"
-                      className="w-full px-4 py-3 rounded-lg border border-input bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground/70"
-                      autoFocus
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Choose a descriptive name to identify this strategy
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          formData.state === 'Active' ? 'animate-pulse bg-green-500' : 'bg-muted-foreground/50'
+                        }`}
+                      />
+                      <span className="text-sm font-medium">
+                        {formData.state === 'Active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formData.state === 'Active'
+                        ? 'Scanned every 15s during market hours; signals execute within seconds.'
+                        : 'Saved but not scanned. Activate when you’re ready.'}
                     </p>
                   </div>
-
-                  {/* Status & Visibility */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Status */}
-                    <div className="space-y-3">
-                      <label className="block text-sm font-medium text-foreground">Strategy Status</label>
-                      <div className={`flex items-center justify-between gap-4 p-4 rounded-lg border-2 transition-colors ${
-                        formData.state === 'Active' 
-                          ? 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-700' 
-                          : 'bg-muted/30 border-border'
-                      }`}>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full ${
-                              formData.state === 'Active' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'
-                            }`} />
-                            <span className={`font-medium ${
-                              formData.state === 'Active' ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'
-                            }`}>
-                              {formData.state === 'Active' ? 'Active' : 'Inactive'}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formData.state === 'Active' 
-                              ? 'Strategy will execute trades automatically' 
-                              : 'Strategy will not execute any trades'}
-                          </p>
-                        </div>
-                        <Switch
-                          checked={formData.state === 'Active'}
-                          onCheckedChange={(checked) => 
-                            setFormData({ ...formData, state: checked ? 'Active' : 'Inactive' })
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    {/* Visibility */}
-                    <div className="space-y-3">
-                      <label className="block text-sm font-medium text-foreground">Visibility</label>
-                      <div className={`flex items-center justify-between gap-4 p-4 rounded-lg border-2 transition-colors ${
-                        formData.visibility === 'Public'
-                          ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700'
-                          : 'bg-muted/30 border-border'
-                      }`}>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            {formData.visibility === 'Public' ? (
-                              <Globe className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                            ) : (
-                              <EyeOff className="w-4 h-4 text-muted-foreground" />
-                            )}
-                            <span className={`font-medium ${
-                              formData.visibility === 'Public' ? 'text-blue-700 dark:text-blue-400' : 'text-muted-foreground'
-                            }`}>
-                              {formData.visibility}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formData.visibility === 'Public' 
-                              ? 'Others can view this strategy' 
-                              : 'Only you can see this strategy'}
-                          </p>
-                        </div>
-                        <Switch
-                          checked={formData.visibility === 'Public'}
-                          onCheckedChange={(checked) =>
-                            setFormData({ ...formData, visibility: checked ? 'Public' : 'Private' })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Trade Type */}
-                  <div className="space-y-3">
-                    <label className="block text-sm font-medium text-foreground">Trading Mode</label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {TRADE_TYPES.map((tradeType) => (
-                        <button
-                          key={tradeType.value}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, type: tradeType.value })}
-                          className={`p-5 rounded-lg border-2 text-left transition-all ${
-                            formData.type === tradeType.value
-                              ? tradeType.value === 'Live'
-                                ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30'
-                                : 'border-primary bg-primary/5 dark:bg-primary/10'
-                              : 'border-border hover:border-muted-foreground/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 mb-2">
-                            {tradeType.icon}
-                            <span className={`text-lg font-semibold ${
-                              formData.type === tradeType.value
-                                ? tradeType.value === 'Live'
-                                  ? 'text-amber-700 dark:text-amber-400'
-                                  : 'text-primary'
-                                : 'text-foreground'
-                            }`}>
-                              {tradeType.label}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{tradeType.description}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Integration */}
-                  <div className="space-y-3">
-                    <label className="block text-sm font-medium text-foreground">Broker Integration</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {INTEGRATION_TYPES.map((integration) => (
-                        <button
-                          key={integration.value}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, integration: integration.value })}
-                          className={`p-4 rounded-lg border-2 text-center transition-all ${
-                            formData.integration === integration.value
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border bg-muted/30 text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground'
-                          }`}
-                        >
-                          <div className="font-medium text-sm mb-1">{integration.label}</div>
-                          <div className="text-xs text-muted-foreground">{integration.description}</div>
-                        </button>
-                      ))}
-                    </div>
-                    {formData.type === 'Live' && formData.integration === 'Default' && (
-                      <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                        <p className="text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4" />
-                          Select a broker integration for live trading
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Position Section */}
-              {activeSection === 'position' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground mb-1">Position Sizing</h2>
-                    <p className="text-sm text-muted-foreground">Configure how positions are sized and managed</p>
-                  </div>
-                  <PositionSettingsForm
-                    value={formData.positionSettings}
-                    onChange={(positionSettings) => setFormData({ ...formData, positionSettings })}
+                  <Switch
+                    checked={formData.state === 'Active'}
+                    onCheckedChange={(checked) => update({ state: checked ? 'Active' : 'Inactive' })}
                   />
                 </div>
-              )}
 
-              {/* Exit Section */}
-              {activeSection === 'exit' && (
-                <div className="space-y-6">
+                <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground mb-1">Exit Rules</h2>
-                    <p className="text-sm text-muted-foreground">Define when and how positions should be closed</p>
+                    <span className="text-sm font-medium">{formData.visibility}</span>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formData.visibility === 'Public'
+                        ? 'Others can view this strategy and its results.'
+                        : 'Only you can see this strategy.'}
+                    </p>
                   </div>
-                  <ExitSettingsForm
-                    value={formData.exitSettings}
-                    onChange={(exitSettings) => setFormData({ ...formData, exitSettings })}
+                  <Switch
+                    checked={formData.visibility === 'Public'}
+                    onCheckedChange={(checked) => update({ visibility: checked ? 'Public' : 'Private' })}
                   />
                 </div>
-              )}
+              </div>
+            </Card>
+          </div>
 
-              {/* Entry Section */}
-              {activeSection === 'entry' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground mb-1">Entry Conditions</h2>
-                    <p className="text-sm text-muted-foreground">Define the criteria for entering trades</p>
-                  </div>
-                  <EntrySettingsForm
-                    value={formData.entrySettings}
-                    onChange={(entrySettings) => setFormData({ ...formData, entrySettings })}
-                  />
+          {/* ---------- Config rail (mirrors the backtest report rail) ---------- */}
+          <aside className="flex flex-col gap-4 self-start lg:sticky lg:top-4">
+            <Card className="p-4">
+              <h3 className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+                Entry filters
+              </h3>
+              {filters.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {filters.map((filter, index) => (
+                    <code
+                      key={`${filter}-${index}`}
+                      className="rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5 font-mono text-xs"
+                    >
+                      {filter}
+                    </code>
+                  ))}
                 </div>
+              ) : (
+                <p className="text-[13px] text-muted-foreground">
+                  None yet — an active strategy needs at least one.
+                </p>
               )}
             </Card>
 
-            {/* Bottom Actions (visible on all sections) */}
-            <div className="mt-6 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {activeSection !== 'general' && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const currentIndex = SECTIONS.findIndex(s => s.id === activeSection);
-                      if (currentIndex > 0) {
-                        setActiveSection(SECTIONS[currentIndex - 1].id);
-                      }
-                    }}
-                  >
-                    Previous
-                  </Button>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                {activeSection !== 'entry' && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const currentIndex = SECTIONS.findIndex(s => s.id === activeSection);
-                      if (currentIndex < SECTIONS.length - 1) {
-                        setActiveSection(SECTIONS[currentIndex + 1].id);
-                      }
-                    }}
-                  >
-                    Next Section
-                  </Button>
-                )}
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isLoading || !isValid}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      {isEditMode ? 'Save Changes' : 'Create Strategy'}
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
+            <Card className="p-4">
+              <h3 className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+                Position
+              </h3>
+              <RailRow
+                label="Starting balance"
+                value={`$${positionSettings.startingBalance.toLocaleString()}`}
+              />
+              <RailRow
+                label="Position size"
+                value={
+                  positionSettings.model.type === 'Percentage'
+                    ? `${positionSettings.model.size}% of balance`
+                    : `$${positionSettings.model.size.toLocaleString()} fixed`
+                }
+              />
+              <RailRow label="Max concurrent" value={String(positionSettings.maxConcurrentPositions)} />
+              <RailRow
+                label="Simultaneous entries"
+                value={positionSettings.allowSimultaneous ? 'Allowed' : 'Not allowed'}
+              />
+              <RailRow label="Cooldown" value={formatTimeframe(positionSettings.cooldown)} />
+            </Card>
+
+            <Card className="p-4">
+              <h3 className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+                Exits
+              </h3>
+              <RailRow
+                label="Stop loss"
+                value={formatExit(exitSettings.stopLoss)}
+                valueColor={exitSettings.stopLoss ? 'var(--chart-loss)' : undefined}
+              />
+              <RailRow
+                label="Take profit"
+                value={formatExit(exitSettings.takeProfit)}
+                valueColor={exitSettings.takeProfit ? 'var(--chart-gain)' : undefined}
+              />
+              <RailRow label="Timed exit" value={formatTimeframe(exitSettings.timedExit?.timeframe)} />
+              <RailRow
+                label="Overnight"
+                value={exitSettings.timedExit ? (exitSettings.timedExit.avoidOvernight ? 'Avoided' : 'Allowed') : '—'}
+              />
+            </Card>
+
+            <Card className="p-4">
+              <h3 className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+                Execution
+              </h3>
+              <RailRow label="Tier" value={selectedTier.label} />
+              <RailRow label="State" value={formData.state} />
+              <RailRow label="Visibility" value={formData.visibility} />
+            </Card>
+          </aside>
         </div>
       </div>
     </div>
@@ -665,4 +534,3 @@ const StrategyEditorPage = () => {
 };
 
 export default StrategyEditorPage;
-

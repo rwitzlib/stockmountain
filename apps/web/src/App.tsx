@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { SignIn, SignUp } from '@clerk/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -13,7 +13,6 @@ import CalendarPage from './pages/optimus/CalendarPage';
 import TradesPage from './pages/optimus/TradesPage';
 import TradeDetail from './pages/optimus/TradeDetailPage';
 import StrategyDetailPage from './pages/optimus/StrategyDetailPage';
-import StrategySettingsPage from './pages/optimus/StrategySettingsPage';
 import StrategyEditorPage from './pages/optimus/StrategyEditorPage';
 import StrategyOptimizePage from './pages/optimus/StrategyOptimizePage';
 import { Toaster } from './components/ui/toaster';
@@ -90,7 +89,11 @@ export function App() {
                 <Route path="strategy/:strategyId" element={<StrategyDetailPage />} />
                 <Route path="strategy/:strategyId/edit" element={<StrategyEditorPage />} />
                 <Route path="strategy/:strategyId/optimize" element={<StrategyOptimizePage />} />
-                <Route path="strategy/:strategyId/settings" element={<StrategySettingsPage />} />
+                {/* Legacy settings URL — the editor is the single edit surface now */}
+                <Route
+                  path="strategy/:strategyId/settings"
+                  element={<Navigate to="../edit" relative="path" replace />}
+                />
                 <Route path="calendar" element={<CalendarPage />} />
                 <Route path="trades" element={<TradesPage />} />
                 <Route path="trade/:id" element={<TradeDetail />} />

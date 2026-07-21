@@ -216,16 +216,7 @@ const StrategyDetailPage = () => {
     ? tradesResponse.averageProfit
     : undefined;
 
-  // Use new structure if available, fallback to legacy structure
-  const positionSettings = strategy?.positionSettings || (strategy?.positionInfo ? {
-    startingBalance: strategy.positionInfo.startingBalance,
-    allowSimultaneous: (strategy.positionInfo.maxConcurrentPositions || 1) > 1,
-    maxConcurrentPositions: strategy.positionInfo.maxConcurrentPositions || 1,
-    model: {
-      type: 'Fixed' as const,
-      size: strategy.positionInfo.positionSize || 100
-    }
-  } : {
+  const positionSettings = strategy?.positionSettings ?? {
     startingBalance: 1000,
     allowSimultaneous: false,
     maxConcurrentPositions: 1,
@@ -233,25 +224,7 @@ const StrategyDetailPage = () => {
       type: 'Fixed' as const,
       size: 100
     }
-  });
-
-  const exitSettings = strategy?.exitSettings || (strategy?.exitInfo ? {
-    stopLoss: strategy.exitInfo.stopLoss ? {
-      candleType: 'PreviousCandle',
-      type: strategy.exitInfo.stopLoss.type,
-      value: strategy.exitInfo.stopLoss.value,
-      priceActionType: strategy.exitInfo.stopLoss.priceActionType
-    } : undefined,
-    takeProfit: strategy.exitInfo.profitTarget ? {
-      candleType: 'PreviousCandle',
-      type: strategy.exitInfo.profitTarget.type,
-      value: strategy.exitInfo.profitTarget.value,
-      priceActionType: strategy.exitInfo.profitTarget.priceActionType
-    } : undefined,
-    timedExit: strategy.exitInfo.timeframe ? {
-      timeframe: strategy.exitInfo.timeframe
-    } : undefined
-  } : {});
+  };
 
   // Determine the correct back navigation path
   const getBackNavigationPath = () => {
@@ -874,22 +847,6 @@ const StrategyDetailPage = () => {
     );
   }
 
-  // Legacy exit for backward compatibility (used for display)
-  const exit = strategy?.exitInfo || {
-    stopLoss: exitSettings.stopLoss ? {
-      priceActionType: exitSettings.stopLoss.priceActionType as 'open' | 'close' | 'high' | 'low',
-      type: exitSettings.stopLoss.type,
-      value: exitSettings.stopLoss.value
-    } : undefined,
-    profitTarget: exitSettings.takeProfit ? {
-      priceActionType: exitSettings.takeProfit.priceActionType as 'open' | 'close' | 'high' | 'low',
-      type: exitSettings.takeProfit.type,
-      value: exitSettings.takeProfit.value
-    } : undefined,
-    timeframe: exitSettings.timedExit?.timeframe,
-    other: undefined,
-  };
-
   return (
     <div className="min-h-screen bg-background p-3 md:p-6 pt-20 md:pt-6">
       <div className="w-full space-y-4">
@@ -932,18 +889,18 @@ const StrategyDetailPage = () => {
                 
                 {/* Status Badge */}
                 <div className="flex items-center gap-3">
-                  <Badge 
-                    variant={strategy.state === 'active' ? 'default' : 'secondary'}
+                  <Badge
+                    variant={strategy.state === 'Active' ? 'default' : 'secondary'}
                     className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border-transparent ${
-                      strategy.state === 'active' 
-                        ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
-                        : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                      strategy.state === 'Active'
+                        ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                        : 'bg-muted text-muted-foreground'
                     }`}
                   >
                     <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                      strategy.state === 'active' ? 'bg-green-600 dark:bg-green-400 animate-pulse' : 'bg-red-600 dark:bg-red-400'
+                      strategy.state === 'Active' ? 'bg-green-600 dark:bg-green-400 animate-pulse' : 'bg-muted-foreground'
                     }`} />
-                    {strategy.state === 'active' ? 'Active' : 'Offline'}
+                    {strategy.state || 'Inactive'}
                   </Badge>
                 </div>
               </div>
@@ -981,15 +938,15 @@ const StrategyDetailPage = () => {
               <span className="text-xs">Optimize</span>
             </Button>
 
-            {/* Settings Button */}
+            {/* Edit Button */}
             <Button
               variant="outline"
               size="sm"
               className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              onClick={() => navigate(`/optimus/strategy/${strategyId}/settings`)}
+              onClick={() => navigate(`/optimus/strategy/${strategyId}/edit`)}
             >
               <Settings className="h-3 w-3 mr-1.5" />
-              <span className="text-xs">Settings</span>
+              <span className="text-xs">Edit</span>
             </Button>
 
             <AlertDialog>

@@ -120,13 +120,31 @@ public class TradeListHandler(
                     Data = response
                 };
             }
+            else if (authContext.IsAuthenticated && authContext.UserId is not null)
+            {
+                // No explicit filter: list the caller's own trades. Identity comes from the
+                // Clerk token via AuthContext, so clients never pass their own user id.
+                logger.LogDebug("Listing own trades for user {UserId}", authContext.UserId);
+
+                var trades = await tradeRepository.ListTradesByUser(authContext.UserId, request.Type, request.Status);
+
+                var response = BuildTradeResponse(trades ?? []);
+
+                logger.LogInformation("Found {Count} trades for user {UserId}", response.Trades.Count(), authContext.UserId);
+
+                return new OperationResult<TradeResponse>
+                {
+                    Status = HttpStatusCode.OK,
+                    Data = response
+                };
+            }
             else
             {
-                logger.LogWarning("Invalid trade list request: no user or strategy specified");
+                logger.LogWarning("Invalid trade list request: unauthenticated and no user or strategy specified");
                 return new OperationResult<TradeResponse>
                 {
                     Status = HttpStatusCode.BadRequest,
-                    ErrorMessages = ["Invalid request. Please provide a user or strategy."]
+                    ErrorMessages = ["Log in, or provide a user or strategy to list trades for."]
                 };
             }
         }

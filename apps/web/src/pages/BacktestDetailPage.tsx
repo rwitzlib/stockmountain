@@ -6,7 +6,15 @@ import { ShareDialog } from '../components/backtest/ShareDialog';
 import { backtestApi } from '../api/backtestApi';
 import { TradingData } from '../types/types';
 import { BacktestEntry, BacktestRequest } from '../types/backtest';
-import { ScanArgument, Strategy } from '../types/strategy';
+import {
+  Exit,
+  ExitCandleType,
+  PositionType,
+  PriceActionType,
+  ScanArgument,
+  Strategy,
+  Timespan,
+} from '../types/strategy';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { ArrowLeft, RefreshCw, Copy, Bot, Share2 } from 'lucide-react';
@@ -294,25 +302,53 @@ export function BacktestDetailPage() {
     return `${hours}h ${minutes}m ${secs}s`;
   };
 
+  // Dumb 1:1 copy of the backtest config onto the strategy contract (plan 08 phase 5):
+  // any divergence between what was backtested and what goes live is a bug factory.
   const mapBacktestToStrategy = (backtestEntry: BacktestEntry): Strategy => {
     const requestData = getRequestData(backtestEntry);
+    const { positionInfo, exitInfo } = requestData;
+
+    const toExit = (config: StopConfigView | undefined): Exit | undefined =>
+      config?.value == null
+        ? undefined
+        : {
+            candleType: (config.candleType as ExitCandleType) ?? 'CurrentCandle',
+            priceActionType: (config.priceActionType as PriceActionType) ?? 'close',
+            type: config.type === 'flat' || config.type === 'value' ? 'flat' : 'percent',
+            value: config.value,
+          };
 
     return {
-      id: '',
-      name: `Strategy from Backtest ${backtestEntry.id.slice(0, 8)}`,
-      type: 'Paper' as const,
-      integration: 'Default' as const,
-      state: 'inactive' as const,
-      visibility: 'private' as const,
-      positionInfo: requestData.positionInfo,
-      exitInfo: {
-        stopLoss: requestData.exitInfo.stopLoss,
-        profitTarget: requestData.exitInfo.profitTarget,
-        timeframe: requestData.exitInfo.timeframe,
+      name: `Backtest ${backtestEntry.id.slice(0, 8)}`,
+      state: 'Inactive',
+      visibility: 'Private',
+      type: 'Paper',
+      integration: 'Default',
+      positionSettings: {
+        startingBalance: positionInfo.startingBalance ?? 10000,
+        maxConcurrentPositions: positionInfo.maxConcurrentPositions ?? 1,
+        allowSimultaneous:
+          positionInfo.allowSimultaneous ?? (positionInfo.maxConcurrentPositions ?? 1) > 1,
+        model: {
+          type: (positionInfo.modelType as PositionType) ?? 'Fixed',
+          size: positionInfo.positionSize ?? 1000,
+        },
       },
-      argument: requestData.argument || {
-        operator: 'AND',
-        filters: [],
+      exitSettings: {
+        stopLoss: toExit(exitInfo.stopLoss),
+        takeProfit: toExit(exitInfo.profitTarget),
+        timedExit: exitInfo.timeframe
+          ? {
+              avoidOvernight: exitInfo.avoidOvernight ?? true,
+              timeframe: {
+                multiplier: exitInfo.timeframe.multiplier ?? 1,
+                timespan: (exitInfo.timeframe.timespan as Timespan) ?? 'minute',
+              },
+            }
+          : undefined,
+      },
+      entrySettings: {
+        filters: requestData.filters || [],
       },
     };
   };
