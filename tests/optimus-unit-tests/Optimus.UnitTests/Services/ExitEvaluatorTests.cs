@@ -80,12 +80,43 @@ public class ExitEvaluatorTests
     [Fact]
     public void Evaluate_ReturnsStopLoss_WhenBothStopAndTakeProfitHit()
     {
-        // Degenerate thresholds where any price satisfies both: the stop must win the tie.
-        var strategy = BuildStrategy(stopLossValue: 100f, takeProfitValue: -100f);
+        // Zero thresholds are hit by an unchanged price on both sides: the stop must win the tie.
+        var strategy = BuildStrategy(stopLossValue: 0f, takeProfitValue: 0f);
 
         var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 100f, OpenedAt.AddMinutes(5));
 
         Assert.Equal(ExitReason.StopLoss, result);
+    }
+
+    [Fact]
+    public void Evaluate_ReturnsNull_WhenStopLossValueIsPositiveAndPriceUnchanged()
+    {
+        // Stop loss entered as a positive magnitude (e.g. "2.5%") must not fire on a flat price.
+        var strategy = BuildStrategy(stopLossValue: 2.5f);
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 100f, OpenedAt.AddMinutes(5));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void Evaluate_ReturnsStopLoss_WhenStopLossValueIsPositiveAndDropExceedsMagnitude()
+    {
+        var strategy = BuildStrategy(stopLossValue: 5f);
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 94f, OpenedAt.AddMinutes(5));
+
+        Assert.Equal(ExitReason.StopLoss, result);
+    }
+
+    [Fact]
+    public void Evaluate_ReturnsTakeProfit_WhenTakeProfitValueIsNegativeAndGainExceedsMagnitude()
+    {
+        var strategy = BuildStrategy(takeProfitValue: -10f);
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 111f, OpenedAt.AddMinutes(5));
+
+        Assert.Equal(ExitReason.TakeProfit, result);
     }
 
     [Fact]

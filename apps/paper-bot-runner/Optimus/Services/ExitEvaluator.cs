@@ -75,6 +75,10 @@ public static class ExitEvaluator
             return false;
         }
 
-        return isStop ? change <= exit.Value : change >= exit.Value;
+        // A stop loss is always a loss and a take profit always a gain, regardless of the
+        // sign the user entered — same normalization as the backtester's CheckStopLoss/CheckTakeProfit.
+        var threshold = isStop ? -Math.Abs(exit.Value) : Math.Abs(exit.Value);
+
+        return isStop ? change <= threshold : change >= threshold;
     }
 }
