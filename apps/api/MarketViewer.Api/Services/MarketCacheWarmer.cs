@@ -166,10 +166,7 @@ public class MarketCacheWarmer(
             Key = MarketDataStorageContract.TickerDetailsKey
         };
         using var s3Response = await s3Client.GetObjectAsync(request);
-        using var streamReader = new StreamReader(s3Response.ResponseStream);
-        var json = await streamReader.ReadToEndAsync();
-
-        var tickerDetailsList = JsonSerializer.Deserialize<List<TickerDetails>>(json) ?? [];
+        var tickerDetailsList = await JsonSerializer.DeserializeAsync<List<TickerDetails>>(s3Response.ResponseStream) ?? [];
 
         foreach (var tickerDetails in tickerDetailsList)
         {
@@ -251,10 +248,10 @@ public class MarketCacheWarmer(
                 BucketName = _bucketName,
                 Key = key
             });
-            using var streamReader = new StreamReader(s3Response.ResponseStream);
-            var json = await streamReader.ReadToEndAsync();
 
-            var responses = JsonSerializer.Deserialize<List<StocksResponse>>(json, SerializerOptions);
+            // Deserialize straight from the S3 stream; materializing the file as a
+            // string first doubles it (UTF-16) on the Large Object Heap.
+            var responses = await JsonSerializer.DeserializeAsync<List<StocksResponse>>(s3Response.ResponseStream, SerializerOptions);
 
             sp.Stop();
             logger.LogInformation("Loaded aggregate file {key}: {count} tickers in {elapsed}ms.", key, responses?.Count ?? 0, sp.ElapsedMilliseconds);
@@ -434,8 +431,11 @@ public class MarketCacheWarmer(
             var tickers = marketCache.GetTickers();
             foreach (var ticker in tickers)
             {
-                var minute = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.minute), DateTimeOffset.Now)?.Clone();
-                var hour = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.hour), DateTimeOffset.Now)?.Clone();
+                // No response-level Clone here: it deep-copies every cached bar for
+                // every ticker only to extract two bars below. Cloning just those
+                // two keeps the snapshot isolated from the live cache.
+                var minute = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.minute), DateTimeOffset.Now);
+                var hour = marketCache.GetStocksResponse(ticker, new Timeframe(1, Timespan.hour), DateTimeOffset.Now);
 
                 if (minute is null || hour is null)
                 {

@@ -52,11 +52,10 @@ public class MemoryMarketCache(IMemoryCache memoryCache, IAmazonS3 s3) : IMarket
         };
 
         using var s3Response = await s3.GetObjectAsync(s3Request);
-        using var streamReader = new StreamReader(s3Response.ResponseStream);
 
-        var json = await streamReader.ReadToEndAsync();
-
-        var stocksResponses = JsonSerializer.Deserialize<IEnumerable<StocksResponse>>(json, Options);
+        // Deserialize straight from the S3 stream; materializing the file as a
+        // string first doubles it (UTF-16) on the Large Object Heap.
+        var stocksResponses = await JsonSerializer.DeserializeAsync<List<StocksResponse>>(s3Response.ResponseStream, Options);
 
         var tickers = stocksResponses.Select(stocksResponse => stocksResponse.Ticker);
 
