@@ -13,6 +13,8 @@ output "api_aws_environment_variables" {
     OTEL_EXPORTER_OTLP_PROTOCOL  = var.otel_exporter_otlp_protocol
     OTEL_RESOURCE_ATTRIBUTES     = var.otel_resource_attributes
     CACHE_WARMUP_ENABLED         = var.cache_warmup_enabled
+    ALPACA_API_KEY_ID            = var.alpaca_api_key_id
+    ALPACA_API_SECRET_KEY        = var.alpaca_api_secret_key
 
     # .NET config binding: Section__Key overrides appsettings. Resource names come
     # from terraform so appsettings.dev.json never carries literals (local stays literal).

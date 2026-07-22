@@ -1,6 +1,5 @@
 using MarketViewer.Contracts.Dtos;
 using MarketViewer.Contracts.Enums;
-using MarketViewer.Contracts.Enums.Strategy;
 using MarketViewer.Contracts.Records.Strategy;
 using Optimus.Adapter;
 using Optimus.Infrastructure.Repositories;
@@ -10,7 +9,6 @@ namespace Optimus.Services;
 public class TradeExecutionService(
     ExecutionDedupRepository dedupRepository,
     StrategyStateRepository stateRepository,
-    UserRepository userRepository,
     AdapterFactory adaptorFactory,
     ILogger<TradeExecutionService> logger)
 {
@@ -32,35 +30,7 @@ public class TradeExecutionService(
             return false;
         }
 
-        // 2. Get user and validate role
-        var user = await userRepository.Get(strategy.UserId);
-        if (user == null)
-        {
-            logger.LogWarning("User not found for strategy {StrategyId}, userId {UserId}", strategy.Id, strategy.UserId);
-            return false;
-        }
-
-        if (user.Role < UserRole.Advanced && !user.IsAdmin)
-        {
-            logger.LogWarning("User {UserId} has insufficient role for strategy execution", strategy.UserId);
-            return false;
-        }
-
-        // 3. Get token for the integration type
-        var token = strategy.Integration switch
-        {
-            IntegrationType.Default => user.Tokens.TryGetValue(IntegrationType.Default, out var t) ? t : null,
-            _ => null
-        };
-
-        if (string.IsNullOrEmpty(token))
-        {
-            logger.LogInformation("No token found for strategy {StrategyId} and integration {Integration}",
-                strategy.Id, strategy.Integration);
-            return false;
-        }
-
-        // 4. Ensure state exists (lazy initialization)
+        // 2. Ensure state exists (lazy initialization)
         var startingBalance = (decimal)strategy.PositionSettings.StartingBalance;
         var state = await stateRepository.GetOrCreateState(strategy.Id, startingBalance);
 
@@ -70,7 +40,7 @@ public class TradeExecutionService(
             return false;
         }
 
-        // 5. Check cooldown (this is the only eligibility check that can be done before reservation)
+        // 3. Check cooldown (this is the only eligibility check that can be done before reservation)
         var cooldownResult = CheckCooldown(strategy, ticker, state);
         if (!cooldownResult.IsEligible)
         {
@@ -80,7 +50,7 @@ public class TradeExecutionService(
             return false;
         }
 
-        // 6. ATOMIC: Reserve position slot (checks funds, max positions, and ticker not already open)
+        // 4. ATOMIC: Reserve position slot (checks funds, max positions, and ticker not already open)
         // This is the critical section - all eligibility checks and state mutation happen atomically
         var positionCost = (decimal)strategy.PositionSettings.Model.Size;
         var settings = strategy.PositionSettings;
@@ -104,7 +74,7 @@ public class TradeExecutionService(
             "Position reserved for strategy {StrategyId}, ticker {Ticker}, version {Version}",
             strategy.Id, ticker, reservationResult.NewVersion);
 
-        // 7. Execute buy via adapter
+        // 5. Execute buy via adapter
         var adapter = adaptorFactory.GetAdaptor(strategy.Integration);
 
         try
@@ -131,7 +101,7 @@ public class TradeExecutionService(
                 "Successfully executed buy for strategy {StrategyId}, ticker {Ticker}, tradeId {TradeId}, actualCost {ActualCost}",
                 strategy.Id, ticker, buyResult.TradeId, buyResult.ActualEntryCost);
 
-            // 8. Adjust cash balance if actual cost differs from reserved amount
+            // 6. Adjust cash balance if actual cost differs from reserved amount
             // This handles the case where shares * price != position.Size (which is almost always)
             if (buyResult.ActualEntryCost != positionCost)
             {

@@ -1,21 +1,17 @@
-﻿using MarketViewer.Contracts.Responses.Market;
 using MarketViewer.Contracts.Dtos;
 using MarketViewer.Contracts.Records;
-using Amazon.SimpleNotificationService;
 using MarketViewer.Contracts.Enums.Strategy;
-using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Contracts.Enums;
+using Massive.Client.Interfaces;
 using Optimus.Adapter.Interfaces;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.Net.Http.Json;
 using Optimus.Infrastructure.Repositories;
 
 namespace Optimus.Adapter;
 
 public class DefaultAdapter(
     TradeRepository tradeRepository,
-    HttpClient httpClient,
+    IMassiveClient massiveClient,
     ILogger<DefaultAdapter> logger) : IAdapter
 {
 
@@ -23,31 +19,14 @@ public class DefaultAdapter(
     {
         try
         {
-            var stocksResponse = await httpClient.PostAsJsonAsync("api/stocks", new StocksRequest
-            {
-                Ticker = ticker,
-                Multiplier = 1,
-                Timespan = Timespan.minute,
-                From = DateTimeOffset.Now.Date,
-                To = DateTimeOffset.Now.Date,
-                Limit = 5
-            });
+            var currentPrice = await GetSnapshotPrice(ticker);
 
-            if (!stocksResponse.IsSuccessStatusCode)
-            {
-                logger.LogError("Error getting price for {ticker}.", ticker);
-                return BuyResult.Failed($"Failed to get price for {ticker}");
-            }
-
-            var response = await stocksResponse.Content.ReadFromJsonAsync<StocksResponse>();
-
-            if (response?.Results == null || response.Results.Count == 0)
+            if (currentPrice is null)
             {
                 logger.LogWarning("No price data returned for {ticker}.", ticker);
                 return BuyResult.Failed($"No price data available for {ticker}");
             }
 
-            var currentPrice = response.Results.Last().Close;
             var shares = strategy.PositionSettings.Model.Type switch
             {
                 PositionType.Fixed => (int)(strategy.PositionSettings.Model.Size / currentPrice),
@@ -61,7 +40,7 @@ public class DefaultAdapter(
                 return BuyResult.Failed($"Could not afford any shares of {ticker} at ${currentPrice}");
             }
 
-            var actualEntryCost = shares * currentPrice;
+            var actualEntryCost = shares * currentPrice.Value;
             var tradeId = Guid.NewGuid().ToString();
 
             var record = new TradeRecord
@@ -73,7 +52,7 @@ public class DefaultAdapter(
                 Type = TradeType.Paper,
                 OrderStatus = TradeStatus.Open,
                 OpenedAt = DateTimeOffset.Now.ToString(),
-                EntryPrice = currentPrice,
+                EntryPrice = currentPrice.Value,
                 EntryPosition = actualEntryCost,
                 Shares = shares
             };
@@ -103,35 +82,18 @@ public class DefaultAdapter(
     {
         try
         {
-            var stocksResponse = await httpClient.PostAsJsonAsync("api/stocks", new StocksRequest
-            {
-                Ticker = trade.Ticker,
-                Multiplier = 1,
-                Timespan = Timespan.minute,
-                From = DateTimeOffset.Now.Date,
-                To = DateTimeOffset.Now.Date,
-                Limit = 5
-            });
+            var closePrice = await GetSnapshotPrice(trade.Ticker);
 
-            if (!stocksResponse.IsSuccessStatusCode)
-            {
-                logger.LogError("Error getting price for {ticker}.", trade.Ticker);
-                return SellResult.Failed($"Failed to get price for {trade.Ticker}");
-            }
-
-            var response = await stocksResponse.Content.ReadFromJsonAsync<StocksResponse>();
-
-            if (response?.Results == null || response.Results.Count == 0)
+            if (closePrice is null)
             {
                 logger.LogWarning("No price data returned for {ticker}.", trade.Ticker);
                 return SellResult.Failed($"No price data available for {trade.Ticker}");
             }
 
-            var closePrice = response.Results.Last().Close;
-            var closePosition = closePrice * trade.Shares;
+            var closePosition = closePrice.Value * trade.Shares;
             var profit = closePosition - trade.EntryPosition;
 
-            trade.ClosePrice = closePrice;
+            trade.ClosePrice = closePrice.Value;
             trade.ClosePosition = closePosition;
             trade.Profit = profit;
             trade.OrderStatus = TradeStatus.Closed;
@@ -161,5 +123,20 @@ public class DefaultAdapter(
     public float GetPrice(string ticker)
     {
         throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Fetches the latest minute-bar close from the Massive snapshot API.
+    /// Returns null when the ticker is missing from the snapshot (e.g. halted) or has no price yet.
+    /// </summary>
+    private async Task<float?> GetSnapshotPrice(string ticker)
+    {
+        var response = await massiveClient.GetAllTickersSnapshot(ticker);
+
+        var minuteClose = response?.Tickers?
+            .FirstOrDefault(s => string.Equals(s.Ticker, ticker, StringComparison.OrdinalIgnoreCase))?
+            .Minute?.Close;
+
+        return minuteClose > 0 ? minuteClose : null;
     }
 }

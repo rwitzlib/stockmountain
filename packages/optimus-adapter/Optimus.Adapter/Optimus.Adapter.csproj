@@ -6,6 +6,7 @@
   <ItemGroup>
     <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.3.8" />
     <ProjectReference Include="..\..\marketviewer-contracts\MarketViewer.Contracts\MarketViewer.Contracts.csproj" />
+    <ProjectReference Include="..\..\massive-client\Massive.Client\Massive.Client.csproj" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\optimus-infrastructure\Optimus.Infrastructure\Optimus.Infrastructure.csproj" />

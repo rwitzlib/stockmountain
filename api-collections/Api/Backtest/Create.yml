@@ -10,7 +10,7 @@ http:
     type: json
     data: |-
       {
-        "Start": "2025-01-01",
+        "Start": "2026-01-01",
         "End": "2026-06-30",
         "PositionSettings": {
           "StartingBalance": 100000,
@@ -28,7 +28,8 @@ http:
           "Filters": [
             "rsi(30,70,14,ema) > 70 [1m]",
             "time < 10:00",
-            "float < 10000000"
+            "float < 10000000",
+            "close > 2.00 [1m]"
           ]
         },
         "ExitSettings": {

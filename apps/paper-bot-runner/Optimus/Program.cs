@@ -45,11 +45,6 @@ internal class Program
                 Environment.GetEnvironmentVariable("MASSIVE_TOKEN")
                 ?? builder.Configuration.GetSection("Tokens").GetValue<string>("MassiveApi"));
 
-        builder.Services.AddHttpClient<UnrealizedPnlService>(client =>
-        {
-            client.BaseAddress = new Uri(builder.Configuration.GetSection("Urls").GetValue<string>("MarketViewer"));
-        });
-
         // Hosted services
         builder.Services.AddHostedService<CacheWarmupService>();
         builder.Services.AddHostedService<ScanQueueConsumer>();
@@ -60,7 +55,7 @@ internal class Program
             .AddSingleton<IAmazonSQS>(client => new AmazonSQSClient(RegionEndpoint.USEast2));
 
         builder.Services.RegisterInfrastructure(builder.Configuration);
-        builder.Services.RegisterAdapters(builder.Configuration);
+        builder.Services.RegisterAdapters();
         builder.Services.RegisterSchwabClients();
         builder.Services.RegisterAlpacaClients(builder.Configuration);
 

@@ -2,8 +2,7 @@ using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Enums.Strategy;
 using MarketViewer.Contracts.Records;
 using MarketViewer.Contracts.Records.Strategy;
-using MarketViewer.Contracts.Requests.Market;
-using MarketViewer.Contracts.Responses.Market;
+using Massive.Client.Interfaces;
 using Optimus.Infrastructure.Repositories;
 
 namespace Optimus.Services;
@@ -15,9 +14,11 @@ namespace Optimus.Services;
 public class UnrealizedPnlService(
     StrategyStateRepository stateRepository,
     TradeRepository tradeRepository,
-    HttpClient httpClient,
+    IMassiveClient massiveClient,
     ILogger<UnrealizedPnlService> logger)
 {
+    private const int SnapshotBatchSize = 500;
+
     /// <summary>
     /// Refreshes the unrealized P/L for a single strategy.
     /// Fetches current prices for all open positions and updates the state.
@@ -65,9 +66,9 @@ public class UnrealizedPnlService(
                 return state;
             }
 
-            // 4. Fetch current prices for all unique tickers in parallel
+            // 4. Fetch current prices for all unique tickers in batched snapshot calls
             var uniqueTickers = tradeList.Select(t => t.Ticker).Distinct().ToList();
-            var priceMap = await GetCurrentPricesParallel(uniqueTickers);
+            var priceMap = await GetCurrentPrices(uniqueTickers);
 
             // 5. Calculate unrealized P/L for each position
             decimal totalUnrealizedPnl = 0;
@@ -156,9 +157,9 @@ public class UnrealizedPnlService(
                 };
             }
 
-            // Fetch current prices for all unique tickers in parallel
+            // Fetch current prices for all unique tickers in batched snapshot calls
             var uniqueTickers = tradeList.Select(t => t.Ticker).Distinct().ToList();
-            var priceMap = await GetCurrentPricesParallel(uniqueTickers);
+            var priceMap = await GetCurrentPrices(uniqueTickers);
 
             var positions = new List<PositionPnlResult>();
             decimal totalPnl = 0;
@@ -203,64 +204,27 @@ public class UnrealizedPnlService(
     }
 
     /// <summary>
-    /// Gets current prices for multiple tickers in parallel.
-    /// Returns a dictionary of ticker to price for successful fetches.
+    /// Gets current prices for multiple tickers in batched Massive snapshot calls.
+    /// Tickers missing from the result (e.g. halted) are simply absent from the map.
     /// </summary>
-    private async Task<Dictionary<string, decimal>> GetCurrentPricesParallel(IEnumerable<string> tickers)
+    private async Task<Dictionary<string, decimal>> GetCurrentPrices(IEnumerable<string> tickers)
     {
-        var tickerList = tickers.ToList();
-        var tasks = tickerList.Select(async ticker =>
+        var prices = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var chunk in tickers.Chunk(SnapshotBatchSize))
         {
-            var price = await GetCurrentPrice(ticker);
-            return (Ticker: ticker, Price: price);
-        });
+            var response = await massiveClient.GetAllTickersSnapshot(string.Join(',', chunk));
 
-        var results = await Task.WhenAll(tasks);
-
-        return results
-            .Where(r => r.Price.HasValue)
-            .ToDictionary(r => r.Ticker, r => r.Price!.Value);
-    }
-
-    /// <summary>
-    /// Gets the current price for a ticker from the market data service.
-    /// </summary>
-    private async Task<decimal?> GetCurrentPrice(string ticker)
-    {
-        try
-        {
-            var stocksResponse = await httpClient.PostAsJsonAsync("api/stocks", new StocksRequest
+            foreach (var snapshot in response?.Tickers ?? [])
             {
-                Ticker = ticker,
-                Multiplier = 1,
-                Timespan = Timespan.minute,
-                From = DateTimeOffset.Now.Date,
-                To = DateTimeOffset.Now.Date,
-                Limit = 5
-            });
-
-            if (!stocksResponse.IsSuccessStatusCode)
-            {
-                logger.LogWarning("Failed to get price for {Ticker}: {StatusCode}",
-                    ticker, stocksResponse.StatusCode);
-                return null;
+                if (snapshot.Ticker is not null && snapshot.Minute?.Close > 0)
+                {
+                    prices[snapshot.Ticker] = (decimal)snapshot.Minute.Close;
+                }
             }
-
-            var response = await stocksResponse.Content.ReadFromJsonAsync<StocksResponse>();
-
-            if (response?.Results == null || response.Results.Count == 0)
-            {
-                logger.LogWarning("No price data returned for {Ticker}", ticker);
-                return null;
-            }
-
-            return (decimal)response.Results.Last().Close;
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error getting price for {Ticker}", ticker);
-            return null;
-        }
+
+        return prices;
     }
 }
 
