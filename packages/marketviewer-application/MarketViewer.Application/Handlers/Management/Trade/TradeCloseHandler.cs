@@ -1,3 +1,4 @@
+using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Enums.Strategy;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Requests.Management.Trade;
@@ -72,7 +73,8 @@ public class TradeCloseHandler(
                 Shares = existingTrade.Shares,
                 ClosePrice = request.ClosePrice,
                 ClosePosition = request.ClosePosition,
-                Profit = request.Profit
+                Profit = request.Profit,
+                ExitReason = BacktestExitReason.manual
             };
 
             logger.LogDebug("Closing trade with details: {@CloseDetails}", new

@@ -1,4 +1,5 @@
-﻿using MarketViewer.Contracts.Enums.Strategy;
+﻿using MarketViewer.Contracts.Enums.Backtest;
+using MarketViewer.Contracts.Enums.Strategy;
 using System.Diagnostics.CodeAnalysis;
 
 namespace MarketViewer.Contracts.Records;
@@ -20,4 +21,7 @@ public class TradeRecord
     public float EntryPosition { get; set; }
     public float ClosePosition { get; set; }
     public float Profit { get; set; }
+
+    /// <summary>Why the position was closed. Null while open and on records predating the field.</summary>
+    public BacktestExitReason? ExitReason { get; set; }
 }

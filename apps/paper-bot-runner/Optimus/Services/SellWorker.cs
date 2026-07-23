@@ -110,6 +110,9 @@ public class SellWorker(
         logger.LogInformation("{ExitReason} hit for {Ticker} (strategy {StrategyId})",
             exitReason, trade.Ticker, strategy.Id);
 
+        // The adapter persists this record on close, so the reason rides along with the fill.
+        trade.ExitReason = exitReason;
+
         var adapter = adapterFactory.GetAdaptor(strategy.Integration);
         var sellResult = await adapter.Sell(trade);
 

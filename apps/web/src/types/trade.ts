@@ -12,4 +12,6 @@ export interface Trade {
   entryPosition: number;
   closePosition: number;
   profit: number;
+  /** Why the position was closed; absent while open and on trades predating the field */
+  exitReason?: string;
 }

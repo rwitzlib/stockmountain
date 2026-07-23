@@ -18,5 +18,8 @@ public enum BacktestExitReason
     endOfData,
 
     /// <summary>The "high" (max potential) portfolio's natural exit at the max-VWAP candle.</summary>
-    soldAtHigh
+    soldAtHigh,
+
+    /// <summary>Closed by hand through the trade API rather than by strategy rules. Live trading only.</summary>
+    manual
 }

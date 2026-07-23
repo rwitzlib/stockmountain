@@ -1,21 +1,16 @@
 using MarketViewer.Contracts.Dtos;
 using MarketViewer.Contracts.Enums;
+using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Records;
 using Optimus.Infrastructure.Utilities;
 
 namespace Optimus.Services;
 
-public enum ExitReason
-{
-    TimedExit,
-    StopLoss,
-    TakeProfit
-}
-
 /// <summary>
 /// Pure exit decision logic for an open position. Evaluation order is timed exit, then
 /// stop loss, then take profit — a same-tick tie goes to the stop, matching the
-/// backtester's same-bar semantics.
+/// backtester's same-bar semantics. Reasons use the shared BacktestExitReason vocabulary
+/// so live trades and backtest results report exits identically.
 /// </summary>
 public static class ExitEvaluator
 {
@@ -24,7 +19,7 @@ public static class ExitEvaluator
     /// <paramref name="currentPrice"/> may be null (e.g. halted ticker); the timed exit
     /// still applies, price-based exits are skipped.
     /// </summary>
-    public static ExitReason? Evaluate(StrategyDto strategy, TradeRecord trade, float? currentPrice, DateTimeOffset now)
+    public static BacktestExitReason? Evaluate(StrategyDto strategy, TradeRecord trade, float? currentPrice, DateTimeOffset now)
     {
         var timedExit = strategy.ExitSettings?.TimedExit;
         if (timedExit?.Timeframe is not null)
@@ -32,7 +27,7 @@ public static class ExitEvaluator
             var projectedExitDate = DateUtilities.GetEndDate(DateTimeOffset.Parse(trade.OpenedAt), timedExit.Timeframe);
             if (projectedExitDate <= now)
             {
-                return ExitReason.TimedExit;
+                return BacktestExitReason.timedExit;
             }
         }
 
@@ -45,12 +40,12 @@ public static class ExitEvaluator
 
         if (IsThresholdHit(strategy.ExitSettings?.StopLoss, currentPosition, trade.EntryPosition, isStop: true))
         {
-            return ExitReason.StopLoss;
+            return BacktestExitReason.stopLoss;
         }
 
         if (IsThresholdHit(strategy.ExitSettings?.TakeProfit, currentPosition, trade.EntryPosition, isStop: false))
         {
-            return ExitReason.TakeProfit;
+            return BacktestExitReason.takeProfit;
         }
 
         return null;

@@ -3,6 +3,7 @@ using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Records;
+using MarketViewer.Contracts.Enums.Backtest;
 using Optimus.Services;
 
 namespace Optimus.UnitTests.Services;
@@ -58,7 +59,7 @@ public class ExitEvaluatorTests
 
         var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 101f, OpenedAt.AddMinutes(31));
 
-        Assert.Equal(ExitReason.TimedExit, result);
+        Assert.Equal(BacktestExitReason.timedExit, result);
     }
 
     [Fact]
@@ -66,7 +67,7 @@ public class ExitEvaluatorTests
     {
         var result = ExitEvaluator.Evaluate(BuildStrategy(), BuildTrade(), 94f, OpenedAt.AddMinutes(5));
 
-        Assert.Equal(ExitReason.StopLoss, result);
+        Assert.Equal(BacktestExitReason.stopLoss, result);
     }
 
     [Fact]
@@ -74,7 +75,7 @@ public class ExitEvaluatorTests
     {
         var result = ExitEvaluator.Evaluate(BuildStrategy(), BuildTrade(), 111f, OpenedAt.AddMinutes(5));
 
-        Assert.Equal(ExitReason.TakeProfit, result);
+        Assert.Equal(BacktestExitReason.takeProfit, result);
     }
 
     [Fact]
@@ -85,7 +86,7 @@ public class ExitEvaluatorTests
 
         var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 100f, OpenedAt.AddMinutes(5));
 
-        Assert.Equal(ExitReason.StopLoss, result);
+        Assert.Equal(BacktestExitReason.stopLoss, result);
     }
 
     [Fact]
@@ -106,7 +107,7 @@ public class ExitEvaluatorTests
 
         var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 94f, OpenedAt.AddMinutes(5));
 
-        Assert.Equal(ExitReason.StopLoss, result);
+        Assert.Equal(BacktestExitReason.stopLoss, result);
     }
 
     [Fact]
@@ -116,7 +117,7 @@ public class ExitEvaluatorTests
 
         var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 111f, OpenedAt.AddMinutes(5));
 
-        Assert.Equal(ExitReason.TakeProfit, result);
+        Assert.Equal(BacktestExitReason.takeProfit, result);
     }
 
     [Fact]
@@ -127,7 +128,7 @@ public class ExitEvaluatorTests
 
         var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 90f, OpenedAt.AddMinutes(5));
 
-        Assert.Equal(ExitReason.StopLoss, result);
+        Assert.Equal(BacktestExitReason.stopLoss, result);
     }
 
     [Fact]
@@ -145,6 +146,6 @@ public class ExitEvaluatorTests
 
         var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), null, OpenedAt.AddMinutes(31));
 
-        Assert.Equal(ExitReason.TimedExit, result);
+        Assert.Equal(BacktestExitReason.timedExit, result);
     }
 }

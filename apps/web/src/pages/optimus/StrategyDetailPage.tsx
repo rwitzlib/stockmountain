@@ -1,25 +1,22 @@
 import { getAuthHeaders } from '../../api/authToken';
 import { API_BASE_URL } from '../../api/apiConfig';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Trade } from '../../types/trade';
-import { TradeStatistics } from '../../components/trades/TradeStatistics';
-import { TradesTable } from '../../components/trades/TradesTable';
+import { Exit, Timeframe } from '../../types/strategy';
 import { Button } from '../../components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../../components/ui/alert-dialog';
-import { ToggleGroup, ToggleGroupItem } from '../../components/ui/toggle-group';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
-import { ArrowLeft, Trash2, ChevronLeft, ChevronRight, MoreVertical, Copy, Settings, Beaker } from 'lucide-react';
+import { ArrowLeft, Trash2, MoreVertical, Copy, Settings, Beaker } from 'lucide-react';
 import { toast } from '../../hooks/use-toast';
 import { strategyApi } from '../../api/strategyApi';
 import { Badge } from '../../components/ui/badge';
 import { Card } from '../../components/ui/card';
-import { formatPrice } from '../../utils/chartUtils';
-import { createChart, LineSeries, ColorType, LineStyle, type IChartApi, type ISeriesApi } from 'lightweight-charts';
-import type { LogicalRange } from 'lightweight-charts';
+import { BacktestReport, BenchmarkBar, RailRow } from '../../components/backtest/BacktestReport';
+import { buildLiveTradingData } from '../../utils/liveTradingData';
+import { formatCurrency } from '../../utils/formatters';
 import { fetchMarketData } from '../../services/massive';
-import { StockMarketData } from '../../types/tools';
 import { StrategyStatePanel } from '../../components/strategy/StrategyStatePanel';
 import { BalanceHistoryChart } from '../../components/strategy/BalanceHistoryChart';
 
@@ -33,40 +30,34 @@ type TradeResponse = {
   trades: Trade[];
 };
 
+function formatExitConfig(config: Exit | undefined): string {
+  if (!config) return 'Not set';
+  const priceAction = config.priceActionType ? `${config.priceActionType} ` : '';
+  return config.type === 'percent' ? `${priceAction}${config.value}%` : `${priceAction}$${config.value}`;
+}
+
+function formatTimeframe(timeframe: Timeframe | undefined): string {
+  if (!timeframe) return 'Not set';
+  return `${timeframe.multiplier} ${timeframe.timespan}${timeframe.multiplier > 1 ? 's' : ''}`;
+}
+
+function formatOpenedAt(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'America/New_York',
+      });
+}
+
 const StrategyDetailPage = () => {
   const { strategyId } = useParams<{ strategyId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const [sortConfig, setSortConfig] = useState<{
-    key: keyof Trade | null;
-    direction: 'asc' | 'desc';
-  }>({
-    key: 'openedAt',
-    direction: 'desc'
-  });
-
-  const [tradeType, setTradeType] = useState<string>('all');
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const spySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const baselineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const hasUserInteractedRef = useRef(false);
-  const lastVisibleLogicalRangeRef = useRef<LogicalRange | null>(null);
-  const hasInitialFitRef = useRef(false);
-  const tradeMapRef = useRef<Map<number, Date>>(new Map());
-  const dateTradeMapRef = useRef<Map<string, Trade[]>>(new Map());
-  const [spyData, setSpyData] = useState<StockMarketData | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(() => 
-    document.documentElement.classList.contains('dark')
-  );
-  
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Fetch trading bot details
   const { data: strategy, isLoading: isLoadingStrategy } = useQuery({
@@ -100,71 +91,60 @@ const StrategyDetailPage = () => {
     refetchInterval: 30000,
   });
 
-  // Fetch SPY data for comparison
+  const trades = useMemo(() => tradesResponse?.trades ?? [], [tradesResponse]);
+  const openTrades = useMemo(() => trades.filter((t) => !t.closedAt), [trades]);
+
+  const positionSettings = strategy?.positionSettings ?? {
+    startingBalance: 1000,
+    allowSimultaneous: false,
+    maxConcurrentPositions: 1,
+    model: {
+      type: 'Fixed' as const,
+      size: 100
+    }
+  };
+  const startingBalance = positionSettings.startingBalance;
+
+  // Reshape closed live trades into the backtest result contract for BacktestReport
+  const tradingData = useMemo(
+    () => buildLiveTradingData(trades, startingBalance),
+    [trades, startingBalance]
+  );
+
+  // Fetch SPY daily closes across the traded range for the benchmark overlay
   const { data: spyDataResponse } = useQuery({
-    queryKey: ['spyData', strategyId, tradesResponse?.trades],
+    queryKey: ['spyData', strategyId, tradingData?.hold.equity.length],
     queryFn: async () => {
-      if (!tradesResponse?.trades || tradesResponse.trades.length === 0) {
-        return null;
-      }
-
-      // Find date range from trades
-      const sortedTrades = [...tradesResponse.trades]
-        .filter(trade => trade.closedAt)
-        .sort((a, b) => new Date(a.closedAt).getTime() - new Date(b.closedAt).getTime());
-
-      if (sortedTrades.length === 0) {
-        return null;
-      }
-
-      const firstTradeDate = new Date(sortedTrades[0].openedAt);
-      const lastTradeDate = new Date(sortedTrades[sortedTrades.length - 1].closedAt);
-      
-      // Start on the first trade date, end with last trade or today
-      const startDate = new Date(firstTradeDate);
-      startDate.setHours(0, 0, 0, 0);
-      
-      const endDate = new Date(Math.max(lastTradeDate.getTime(), Date.now()));
-      endDate.setHours(23, 59, 59, 999);
-
-      const fromDate = startDate.toISOString().split('T')[0];
-      const toDate = endDate.toISOString().split('T')[0];
+      const firstDay = tradingData!.hold.equity[0].date;
+      const toDate = new Date().toISOString().split('T')[0];
 
       try {
-        const data = await fetchMarketData({
+        return await fetchMarketData({
           ticker: 'SPY',
           multiplier: 1,
           timespan: 'day',
-          from: fromDate,
-          to: toDate
+          from: firstDay,
+          to: toDate,
         });
-        return data;
       } catch (error) {
         console.error('Error fetching SPY data:', error);
         return null;
       }
     },
-    enabled: !!strategyId && !!tradesResponse?.trades && tradesResponse.trades.length > 0,
+    enabled: !!strategyId && !!tradingData && tradingData.hold.equity.length > 0,
   });
 
-  useEffect(() => {
-    if (spyDataResponse) {
-      setSpyData(spyDataResponse);
-    }
+  // BacktestReport aligns/scales the benchmark; here we only reshape bars to day+close.
+  const benchmarkBars = useMemo<BenchmarkBar[] | null>(() => {
+    if (!spyDataResponse?.results?.length) return null;
+
+    return [...spyDataResponse.results]
+      .sort((a, b) => a.t - b.t)
+      .map((bar) => ({
+        day: new Date(bar.t).toISOString().slice(0, 10),
+        close: bar.c,
+      }));
   }, [spyDataResponse]);
-
-  // Detect theme changes
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'));
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-    return () => observer.disconnect();
-  }, []);
-
 
   const deleteStrategyMutation = useMutation({
     mutationFn: strategyApi.deleteStrategy,
@@ -185,7 +165,6 @@ const StrategyDetailPage = () => {
     }
   });
 
-
   const handleDeleteStrategy = () => {
     if (strategyId) {
       deleteStrategyMutation.mutate(strategyId);
@@ -194,7 +173,7 @@ const StrategyDetailPage = () => {
 
   const handleCloneStrategy = () => {
     if (!strategy) return;
-    
+
     // Navigate to the new strategy editor with clone data
     navigate('/optimus/strategy/new', {
       state: {
@@ -208,627 +187,28 @@ const StrategyDetailPage = () => {
     });
   };
 
-  const trades = tradesResponse?.trades || [];
-  const winRatePercent = typeof tradesResponse?.winRate === 'number'
-    ? (tradesResponse.winRate > 1 ? tradesResponse.winRate : tradesResponse.winRate * 100)
-    : undefined;
-  const averageProfitValue = typeof tradesResponse?.averageProfit === 'number'
-    ? tradesResponse.averageProfit
-    : undefined;
-
-  const positionSettings = strategy?.positionSettings ?? {
-    startingBalance: 1000,
-    allowSimultaneous: false,
-    maxConcurrentPositions: 1,
-    model: {
-      type: 'Fixed' as const,
-      size: 100
-    }
-  };
-
   // Determine the correct back navigation path
   const getBackNavigationPath = () => {
-    // Check if we have state indicating where we came from
     if (location.state?.from) {
       return location.state.from;
     }
 
-    // Check referrer to determine origin
     const referrer = document.referrer;
     if (referrer.includes('/optimus/public-dashboard')) {
       return '/optimus/public-dashboard';
-    } else if (referrer.includes('/optimus/dashboard')) {
-      return '/optimus/dashboard';
     }
 
-    // Default fallback
     return '/optimus/dashboard';
   };
 
-  const filteredTrades = trades.filter((trade: Trade) => {
-    if (tradeType === 'all') return true;
-    return trade.type.toLowerCase() === tradeType;
-  });
-
-  const sortData = (key: keyof Trade) => {
-    const direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
-    setSortConfig({ key, direction });
-  };
-
-  const getSortedData = () => {
-    if (!sortConfig.key) return filteredTrades;
-
-    return [...filteredTrades].sort((a, b) => {
-      if (a[sortConfig.key!] === null) return 1;
-      if (b[sortConfig.key!] === null) return -1;
-
-      let aValue = a[sortConfig.key!];
-      let bValue = b[sortConfig.key!];
-
-      if (sortConfig.key === 'openedAt' || sortConfig.key === 'closedAt') {
-        aValue = new Date(aValue as string).getTime();
-        bValue = new Date(bValue as string).getTime();
-      }
-
-      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-  };
-
-  // Get paginated data for table view
-  const getPaginatedData = () => {
-    const sortedData = getSortedData();
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return sortedData.slice(startIndex, endIndex);
-  };
-
-  // Pagination helpers
-  const totalPages = Math.ceil(filteredTrades.length / itemsPerPage);
-  const hasNextPage = currentPage < totalPages;
-  const hasPrevPage = currentPage > 1;
-
-  // Reset page when filters change
-  const handleTradeTypeChange = (value: string) => {
-    setTradeType(value || 'all');
-    setCurrentPage(1); // Reset to first page when filter changes
-  };
-
-  // Calendar helper functions
-  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth();
-
-  const calendarData = (() => {
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const lastDay = new Date(currentYear, currentMonth + 1, 0);
-    const firstDayOfWeek = firstDay.getDay();
-    const daysInMonth = lastDay.getDate();
-    
-    const days = Array(firstDayOfWeek).fill(null).concat(
-      Array.from({ length: daysInMonth }, (_, i) => i + 1)
-    );
-    
-    const rows = [];
-    let cells = [];
-    
-    days.forEach((day, i) => {
-      if (i > 0 && i % 7 === 0) {
-        rows.push(cells);
-        cells = [];
-      }
-      cells.push(day);
-    });
-    
-    while (cells.length < 7) {
-      cells.push(null);
-    }
-    rows.push(cells);
-    
-    return rows;
-  })();
-
-  const getDayProfit = (date: Date) => {
-    return filteredTrades.reduce((total, trade) => {
-      const tradeDate = new Date(trade.closedAt);
-      if (
-        tradeDate.getDate() === date.getDate() &&
-        tradeDate.getMonth() === date.getMonth() &&
-        tradeDate.getFullYear() === date.getFullYear()
-      ) {
-        return total + (trade.profit || 0);
-      }
-      return total;
-    }, 0);
-  };
-
-  const getDayTrades = (date: Date): Trade[] => {
-    return filteredTrades.filter(trade => {
-      const tradeDate = new Date(trade.closedAt);
-      return (
-        tradeDate.getDate() === date.getDate() &&
-        tradeDate.getMonth() === date.getMonth() &&
-        tradeDate.getFullYear() === date.getFullYear()
-      );
-    });
-  };
-
-  const getDayColor = (day: number | null) => {
-    if (day === null) return '';
-    
-    const date = new Date(currentYear, currentMonth, day);
-    const profit = getDayProfit(date);
-    
-    if (profit > 0) return 'bg-green-100/50 dark:bg-green-950/50 hover:bg-green-200 dark:hover:bg-green-950 border-green-300 dark:border-green-800 text-green-700 dark:text-green-400';
-    if (profit < 0) return 'bg-red-100/50 dark:bg-red-950/50 hover:bg-red-200 dark:hover:bg-red-950 border-red-300 dark:border-red-800 text-red-700 dark:text-red-400';
-    return 'hover:bg-muted';
-  };
-
-  const isSelected = (day: number | null) => {
-    if (!day || !selectedDate) return false;
-    
-    return (
-      selectedDate.getDate() === day &&
-      selectedDate.getMonth() === currentMonth &&
-      selectedDate.getFullYear() === currentYear
-    );
-  };
-
-  const isToday = (day: number | null) => {
-    if (day === null) return false;
-    
-    const today = new Date();
-    return (
-      today.getDate() === day &&
-      today.getMonth() === currentMonth &&
-      today.getFullYear() === currentYear
-    );
-  };
-
-  const handleDayClick = (day: number | null) => {
-    if (day === null) return;
-    const selectedDate = new Date(currentYear, currentMonth, day);
-    setSelectedDate(selectedDate);
-  };
-
-  const goToPreviousMonth = () => {
-    setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
-  };
-
-  const goToNextMonth = () => {
-    setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
-  };
-
-  const monthYearDisplay = currentDate.toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric'
-  });
-
-  const selectedDayTrades = selectedDate ? getDayTrades(selectedDate) : [];
-  const selectedDayProfit = selectedDate ? getDayProfit(selectedDate) : 0;
-
-  const handleTradeClick = (trade: Trade) => {
-    navigate(`/optimus/trade/${trade.id}`, { state: { trade } });
-  };
-
-  // Calculate cumulative balance data for chart (aggregated by day)
-  const getCumulativeBalanceData = useCallback(() => {
-    if (!strategy || filteredTrades.length === 0) {
-      return { balanceData: [], tradeMap: new Map(), dateTradeMap: new Map() };
-    }
-
-    const startingBalance = positionSettings.startingBalance;
-    let cumulativeBalance = startingBalance;
-    
-    // Filter and sort trades by closed date
-    const sortedTrades = [...filteredTrades]
-      .filter(trade => trade.closedAt && trade.profit !== undefined)
-      .sort((a, b) => new Date(a.closedAt).getTime() - new Date(b.closedAt).getTime());
-
-    if (sortedTrades.length === 0) {
-      return { balanceData: [], tradeMap: new Map(), dateTradeMap: new Map() };
-    }
-
-    // Group trades by day
-    const tradesByDay = new Map<string, Trade[]>();
-    sortedTrades.forEach(trade => {
-      const tradeDate = new Date(trade.closedAt);
-      const dayKey = `${tradeDate.getFullYear()}-${tradeDate.getMonth()}-${tradeDate.getDate()}`;
-      if (!tradesByDay.has(dayKey)) {
-        tradesByDay.set(dayKey, []);
-      }
-      tradesByDay.get(dayKey)!.push(trade);
-    });
-
-    // Create data points for each day
-    const balanceData = [];
-    const tradeMap = new Map<number, Date>();
-    const dateTradeMap = new Map<string, Trade[]>();
-
-    // Get sorted day keys
-    const sortedDayKeys = Array.from(tradesByDay.keys()).sort((a, b) => {
-      const [yearA, monthA, dayA] = a.split('-').map(Number);
-      const [yearB, monthB, dayB] = b.split('-').map(Number);
-      return new Date(yearA, monthA, dayA).getTime() - new Date(yearB, monthB, dayB).getTime();
-    });
-
-    // Add starting balance point on the first trade date (at start of day)
-    if (sortedDayKeys.length > 0) {
-      const firstDayKey = sortedDayKeys[0];
-      const [year, month, day] = firstDayKey.split('-').map(Number);
-      const firstDayDate = new Date(year, month, day);
-      firstDayDate.setHours(0, 0, 0, 0);
-      const firstDayTimestamp = Math.floor(firstDayDate.getTime() / 1000);
-      
-      balanceData.push({
-        time: firstDayTimestamp,
-        value: startingBalance
-      });
-      tradeMap.set(firstDayTimestamp, firstDayDate);
-      dateTradeMap.set(firstDayKey, []);
-    }
-
-    // Process each day, adding end-of-day balance points
-    sortedDayKeys.forEach(dayKey => {
-      const [year, month, day] = dayKey.split('-').map(Number);
-      const dayDate = new Date(year, month, day);
-      dayDate.setHours(16, 0, 0, 0); // Use 4 PM (market close) for daily data points
-      const dayTimestamp = Math.floor(dayDate.getTime() / 1000);
-
-      const dayTrades = tradesByDay.get(dayKey)!;
-      const dayProfit = dayTrades.reduce((sum, trade) => sum + trade.profit, 0);
-      cumulativeBalance += dayProfit;
-
-      balanceData.push({
-        time: dayTimestamp,
-        value: cumulativeBalance
-      });
-      tradeMap.set(dayTimestamp, dayDate);
-      dateTradeMap.set(dayKey, dayTrades);
-    });
-
-
-    return { balanceData, tradeMap, dateTradeMap };
-  }, [strategy, filteredTrades, positionSettings]);
-
-  // Calculate SPY performance data
-  const getSpyPerformanceData = useCallback(() => {
-    if (!spyData || !spyData.results || spyData.results.length === 0 || !strategy || filteredTrades.length === 0) {
-      return [];
-    }
-
-    const startingBalance = positionSettings.startingBalance;
-    
-    // Sort SPY data by timestamp
-    const sortedSpyBars = [...spyData.results].sort((a, b) => a.t - b.t);
-    
-    if (sortedSpyBars.length === 0) {
-      return [];
-    }
-
-    // Find the first trade date to match the strategy's starting point
-    const sortedTrades = [...filteredTrades]
-      .filter(trade => trade.closedAt)
-      .sort((a, b) => new Date(a.closedAt).getTime() - new Date(b.closedAt).getTime());
-    
-    if (sortedTrades.length === 0) {
-      return [];
-    }
-
-    const firstTradeDate = new Date(sortedTrades[0].openedAt);
-    firstTradeDate.setHours(0, 0, 0, 0);
-    const firstTradeTimestamp = Math.floor(firstTradeDate.getTime() / 1000);
-
-    // Get the first SPY bar that corresponds to the first trade date or later
-    // Use the first bar's close price to calculate initial shares
-    const firstBar = sortedSpyBars[0];
-    const initialPrice = firstBar.c;
-    const initialShares = startingBalance / initialPrice;
-
-    // Create SPY performance data points, starting with the starting balance on the first trade date
-    const spyDataPoints = [];
-    
-    // Add starting point at the beginning of the first trade date
-    spyDataPoints.push({
-      time: firstTradeTimestamp,
-      value: startingBalance
-    });
-
-    // Add data points for each SPY bar
-    // Convert bar timestamps and compare dates (not exact timestamps, since bars might be at different times of day)
-    sortedSpyBars.forEach(bar => {
-      const portfolioValue = initialShares * bar.c;
-      const barTimestamp = Math.floor(bar.t / 1000); // Convert milliseconds to seconds
-      
-      // Convert to date for comparison (ignore time of day)
-      const barDate = new Date(barTimestamp * 1000);
-      barDate.setHours(0, 0, 0, 0);
-      const barDateTimestamp = Math.floor(barDate.getTime() / 1000);
-      
-      // Only add if the bar date is on or after the first trade date
-      if (barDateTimestamp >= firstTradeTimestamp) {
-        spyDataPoints.push({
-          time: barTimestamp, // Use original timestamp for proper alignment
-          value: portfolioValue
-        });
-      }
-    });
-
-    return spyDataPoints;
-  }, [spyData, strategy, filteredTrades, positionSettings]);
-
-  // Theme helpers
-  const applyTheme = () => {
-    if (!chartRef.current || !lineSeriesRef.current) return;
-    const colors = isDarkMode ? {
-      background: 'transparent',
-      text: '#8b93a1',
-      grid: 'rgba(148,163,184,0.08)',
-      crosshair: '#6b7280',
-      line: '#14a3bd',
-      markerBorder: '#14a3bd',
-      markerBg: '#1C2026',
-    } : {
-      background: '#ffffff',
-      text: '#1f2937',
-      grid: '#e5e7eb',
-      crosshair: '#9ca3af',
-      line: '#14a3bd',
-      markerBorder: '#14a3bd',
-      markerBg: '#ffffff',
-    };
-    chartRef.current.applyOptions({
-      layout: {
-        background: { type: ColorType.Solid, color: colors.background },
-        textColor: colors.text,
-      },
-      grid: {
-        vertLines: { color: colors.grid },
-        horzLines: { color: colors.grid },
-      },
-      crosshair: {
-        mode: 0,
-        vertLine: { color: colors.crosshair },
-        horzLine: { color: colors.crosshair },
-      },
-    });
-    lineSeriesRef.current.applyOptions({
-      color: colors.line,
-      crosshairMarkerBorderColor: colors.markerBorder,
-      crosshairMarkerBackgroundColor: colors.markerBg,
-    });
-    
-    // Update SPY series colors
-    if (spySeriesRef.current) {
-      spySeriesRef.current.applyOptions({
-        crosshairMarkerBorderColor: isDarkMode ? '#ffffff' : '#1f2937',
-      });
-    }
-    
-    // Update baseline series color
-    if (baselineSeriesRef.current) {
-      baselineSeriesRef.current.applyOptions({
-        color: isDarkMode ? '#6b7280' : '#9ca3af',
-      });
-    }
-  };
-
-  // Create chart when trades become available (container might not exist initially)
-  useEffect(() => {
-    if (!chartContainerRef.current || !strategy) return;
-    if (chartRef.current) return; // already created
-    // Allow chart creation even if there are no trades yet (for SPY comparison)
-    
-    const initialIsDark = document.documentElement.classList.contains('dark');
-    const initialColors = initialIsDark ? {
-      background: 'transparent',
-      text: '#8b93a1',
-      grid: 'rgba(148,163,184,0.08)',
-      crosshair: '#6b7280',
-      border: 'rgba(148,163,184,0.15)',
-    } : {
-      background: '#ffffff',
-      text: '#1f2937',
-      grid: '#e5e7eb',
-      crosshair: '#9ca3af',
-      border: '#d1d5db',
-    };
-    
-    const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
-      height: chartContainerRef.current.clientHeight || 400,
-      layout: {
-        background: { type: ColorType.Solid, color: initialColors.background },
-        textColor: initialColors.text,
-      },
-      crosshair: { mode: 0, vertLine: { color: initialColors.crosshair }, horzLine: { color: initialColors.crosshair } },
-      grid: { vertLines: { color: initialColors.grid }, horzLines: { color: initialColors.grid } },
-      timeScale: { timeVisible: true, secondsVisible: false, lockVisibleTimeRangeOnResize: true },
-      rightPriceScale: { borderColor: initialColors.border },
-      autoSize: true,
-    });
-    chartRef.current = chart;
-
-    const line = chart.addSeries(LineSeries, {
-      color: '#14a3bd',
-      lineWidth: 3,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 6,
-      crosshairMarkerBorderColor: '#ffffff',
-      crosshairMarkerBackgroundColor: '#14a3bd',
-      title: 'Strategy',
-    });
-    lineSeriesRef.current = line;
-
-    // Add SPY comparison series
-    const spyLine = chart.addSeries(LineSeries, {
-      color: '#f59e0b', // Keep orange for SPY (works in both themes)
-      lineWidth: 2,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 5,
-      crosshairMarkerBorderColor: initialIsDark ? '#ffffff' : '#1f2937',
-      crosshairMarkerBackgroundColor: '#f59e0b',
-      lineStyle: LineStyle.Dashed,
-      title: 'SPY Buy & Hold',
-    });
-    spySeriesRef.current = spyLine;
-
-    // Add baseline series for starting balance (dotted line)
-    const baseline = chart.addSeries(LineSeries, {
-      color: initialIsDark ? '#6b7280' : '#9ca3af',
-      lineWidth: 1,
-      lineStyle: LineStyle.Dotted,
-      crosshairMarkerVisible: false,
-    });
-    baselineSeriesRef.current = baseline;
-
-    // Track user pan/zoom
-    const ts = chart.timeScale();
-    ts.subscribeVisibleTimeRangeChange(() => {
-      hasUserInteractedRef.current = true;
-      const logical = ts.getVisibleLogicalRange();
-      if (logical) lastVisibleLogicalRangeRef.current = logical as LogicalRange;
-    });
-
-    // Handle chart click
-    const handleChartClick = (event: MouseEvent) => {
-      if (!chartRef.current) return;
-      const time = chartRef.current.timeScale().coordinateToTime(event.offsetX);
-      if (!time) {
-        setSelectedDate(undefined);
-        return;
-      }
-      const timestamp = Number(time);
-      const date = tradeMapRef.current.get(timestamp);
-      if (date) {
-        setSelectedDate(date);
-      } else {
-        // Find closest date
-        let closestTimestamp: number | null = null;
-        let minDiff = Infinity;
-        for (const [ts] of tradeMapRef.current) {
-          const diff = Math.abs(ts - timestamp);
-          if (diff < minDiff) { minDiff = diff; closestTimestamp = ts; }
-        }
-        if (closestTimestamp && minDiff <= 86400) {
-          setSelectedDate(tradeMapRef.current.get(closestTimestamp)!);
-        } else {
-          setSelectedDate(undefined);
-        }
-      }
-    };
-    chartContainerRef.current.addEventListener('click', handleChartClick);
-
-    // Handle resize
-    const handleResize = () => {
-      if (!chartContainerRef.current || !chartRef.current) return;
-      const ts = chartRef.current.timeScale();
-      const logical = ts.getVisibleLogicalRange();
-      chartRef.current.applyOptions({
-        width: chartContainerRef.current.clientWidth,
-        height: chartContainerRef.current.clientHeight,
-      });
-      if (logical) ts.setVisibleLogicalRange(logical as LogicalRange);
-    };
-    window.addEventListener('resize', handleResize);
-
-      applyTheme();
-
-    // Reapply theme when dark mode changes
-    const themeObserver = new MutationObserver(() => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'));
-      applyTheme();
-    });
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-
-    return () => {
-      themeObserver.disconnect();
-      window.removeEventListener('resize', handleResize);
-      if (chartContainerRef.current) chartContainerRef.current.removeEventListener('click', handleChartClick);
-      if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
-      lineSeriesRef.current = null;
-      spySeriesRef.current = null;
-      baselineSeriesRef.current = null;
-      hasInitialFitRef.current = false;
-      hasUserInteractedRef.current = false;
-    };
-  }, [strategy, filteredTrades.length]);
-
-  // Update data when trades change; preserve range
-  useEffect(() => {
-    if (!chartRef.current || !lineSeriesRef.current || !baselineSeriesRef.current || !strategy) return;
-    
-    const { balanceData, tradeMap, dateTradeMap } = getCumulativeBalanceData();
-    const spyDataPoints = getSpyPerformanceData();
-    
-    // Allow update if we have either balance data or SPY data
-    if (balanceData.length === 0 && spyDataPoints.length === 0) {
-      // Clear all data if we have nothing to show
-      if (lineSeriesRef.current) lineSeriesRef.current.setData([]);
-      if (spySeriesRef.current) spySeriesRef.current.setData([]);
-      if (baselineSeriesRef.current) baselineSeriesRef.current.setData([]);
-      return;
-    }
-
-      const startingBalance = positionSettings.startingBalance;
-
-    // Preserve logical range if user interacted
-    const ts = chartRef.current.timeScale();
-    const savedLogical = hasUserInteractedRef.current ? (ts.getVisibleLogicalRange() as LogicalRange | null) : null;
-
-    try {
-      // Update strategy balance data if available
-      if (balanceData.length > 0) {
-        lineSeriesRef.current.setData(balanceData);
-        tradeMapRef.current = tradeMap;
-        dateTradeMapRef.current = dateTradeMap;
-      } else {
-        // Clear strategy data if no trades
-        lineSeriesRef.current.setData([]);
-      }
-
-      // Update SPY data if available
-      if (spySeriesRef.current) {
-        if (spyDataPoints.length > 0) {
-          spySeriesRef.current.setData(spyDataPoints);
-        } else {
-          spySeriesRef.current.setData([]);
-        }
-      }
-
-      // Create baseline data spanning the entire time range
-      // Use the data that exists (prefer balance data, fallback to SPY)
-      const timeRangeData = balanceData.length > 0 ? balanceData : spyDataPoints;
-      const baselineData = timeRangeData.length > 0 
-        ? [
-            { time: timeRangeData[0].time, value: startingBalance },
-            { time: timeRangeData[timeRangeData.length - 1].time, value: startingBalance }
-          ]
-        : [];
-      baselineSeriesRef.current.setData(baselineData);
-
-      if (savedLogical) {
-        ts.setVisibleLogicalRange(savedLogical);
-      } else if (!hasInitialFitRef.current) {
-        ts.fitContent();
-        hasInitialFitRef.current = true;
-      }
-    } catch (error) {
-      console.error('Error setting chart data:', error);
-    }
-  }, [getCumulativeBalanceData, getSpyPerformanceData, strategy, positionSettings, isDarkMode]);
-
   if (isLoadingStrategy) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-8 text-muted-foreground text-sm">
-            <div className="animate-pulse">Loading strategy data…</div>
-          </div>
+      <div className="min-h-screen bg-background p-4 pt-20 text-foreground md:p-8 md:pt-8">
+        <div className="mx-auto max-w-[1240px]">
+          <Card className="p-8 text-center">
+            <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Loading</div>
+            <div className="text-base">Fetching strategy details…</div>
+          </Card>
         </div>
       </div>
     );
@@ -836,86 +216,154 @@ const StrategyDetailPage = () => {
 
   if (!strategy) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-8 text-destructive dark:text-red-400 text-sm">
-            <div className="font-medium">Strategy not found</div>
-            <div className="text-muted-foreground text-xs mt-2">Invalid strategy ID or access denied</div>
-          </div>
+      <div className="min-h-screen bg-background p-4 pt-20 text-foreground md:p-8 md:pt-8">
+        <div className="mx-auto max-w-[1240px]">
+          <Card className="p-8 text-center">
+            <div className="text-base font-medium text-destructive dark:text-red-400">Strategy not found</div>
+            <div className="mt-2 text-xs text-muted-foreground">Invalid strategy ID or access denied</div>
+          </Card>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background p-3 md:p-6 pt-20 md:pt-6">
-      <div className="w-full space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border pb-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              onClick={() => navigate(getBackNavigationPath())}
-            >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              <span className="text-xs">Back</span>
-            </Button>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">{strategy.name || 'Unnamed Strategy'}</h1>
-              <div className="flex items-center space-x-2 mt-2">
-                <Badge 
-                  variant={strategy.type === 'Paper' ? 'default' : 'default'}
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border-transparent ${
-                    strategy.type === 'Paper' 
-                      ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' 
-                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                  }`}
-                >
-                  <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                    strategy.type === 'Paper' ? 'bg-yellow-600 dark:bg-yellow-400' : 'bg-emerald-600 dark:bg-emerald-400'
-                  }`} />
-                  {strategy.type || 'Paper'}
-                </Badge>
-                
-                <Badge 
-                  variant="default"
-                  className="rounded-full border border-border bg-transparent px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
-                >
-                  <div className="w-1.5 h-1.5 rounded-full mr-1.5 bg-muted-foreground" />
-                  {strategy.integration || 'Default'}
-                </Badge>
-                
-                {/* Status Badge */}
-                <div className="flex items-center gap-3">
-                  <Badge
-                    variant={strategy.state === 'Active' ? 'default' : 'secondary'}
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border-transparent ${
-                      strategy.state === 'Active'
-                        ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                      strategy.state === 'Active' ? 'bg-green-600 dark:bg-green-400 animate-pulse' : 'bg-muted-foreground'
-                    }`} />
-                    {strategy.state || 'Inactive'}
-                  </Badge>
-                </div>
-              </div>
-            </div>
+  const { exitSettings, entrySettings } = strategy;
+  const closedCount = tradingData?.hold.trades.length ?? 0;
+
+  const configRail = (
+    <aside className="flex flex-col gap-4 self-start lg:sticky lg:top-4">
+      {(entrySettings?.filters?.length ?? 0) > 0 && (
+        <Card className="p-4">
+          <h3 className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+            Entry filters
+          </h3>
+          <div className="flex flex-col gap-1.5">
+            {entrySettings.filters.map((filter, index) => (
+              <code
+                key={index}
+                className="rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5 font-mono text-xs"
+              >
+                {filter}
+              </code>
+            ))}
           </div>
-          
-          <div className="flex items-center gap-2">
-            {/* Dropdown Menu */}
+        </Card>
+      )}
+
+      <Card className="p-4">
+        <h3 className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+          Position
+        </h3>
+        <RailRow label="Starting balance" value={`$${startingBalance.toLocaleString()}`} />
+        <RailRow
+          label="Position size"
+          value={`$${positionSettings.model.size.toLocaleString()} ${positionSettings.model.type.toLowerCase()}`}
+        />
+        <RailRow label="Max concurrent" value={String(positionSettings.maxConcurrentPositions)} />
+        <RailRow
+          label="Simultaneous entries"
+          value={positionSettings.allowSimultaneous ? 'Allowed' : 'Not allowed'}
+        />
+        {positionSettings.cooldown && (
+          <RailRow label="Cooldown" value={formatTimeframe(positionSettings.cooldown)} />
+        )}
+      </Card>
+
+      {(exitSettings?.stopLoss || exitSettings?.takeProfit || exitSettings?.timedExit) && (
+        <Card className="p-4">
+          <h3 className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+            Exits
+          </h3>
+          {exitSettings.stopLoss && (
+            <RailRow
+              label="Stop loss"
+              value={formatExitConfig(exitSettings.stopLoss)}
+              valueColor="var(--chart-loss)"
+            />
+          )}
+          {exitSettings.takeProfit && (
+            <RailRow
+              label="Take profit"
+              value={formatExitConfig(exitSettings.takeProfit)}
+              valueColor="var(--chart-gain)"
+            />
+          )}
+          {exitSettings.timedExit?.timeframe && (
+            <RailRow label="Timed exit" value={formatTimeframe(exitSettings.timedExit.timeframe)} />
+          )}
+          {exitSettings.timedExit && (
+            <RailRow
+              label="Overnight"
+              value={exitSettings.timedExit.avoidOvernight ? 'Avoided' : 'Allowed'}
+            />
+          )}
+        </Card>
+      )}
+    </aside>
+  );
+
+  return (
+    <div className="min-h-screen bg-background p-4 pt-20 text-foreground md:p-8 md:pt-8">
+      <div className="mx-auto max-w-[1240px]">
+        {/* ---------- Masthead ---------- */}
+        <header className="mb-6 flex flex-wrap items-end gap-4 border-b-2 border-foreground/80 pb-5">
+          <div>
+            <div className="mb-1.5 flex items-center gap-3">
+              <button
+                onClick={() => navigate(getBackNavigationPath())}
+                className="inline-flex items-center gap-1 text-xs uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Strategies
+              </button>
+              <Badge
+                variant={strategy.state === 'Active' ? 'default' : 'secondary'}
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide border-transparent ${
+                  strategy.state === 'Active'
+                    ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                <div className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
+                  strategy.state === 'Active' ? 'animate-pulse bg-green-600 dark:bg-green-400' : 'bg-muted-foreground'
+                }`} />
+                {strategy.state || 'Inactive'}
+              </Badge>
+              <Badge
+                variant="default"
+                className={`rounded-full border-transparent px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                  strategy.type === 'Paper'
+                    ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                }`}
+              >
+                {strategy.type || 'Paper'}
+              </Badge>
+              <Badge
+                variant="default"
+                className="rounded-full border border-border bg-transparent px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+              >
+                {strategy.integration || 'Default'}
+              </Badge>
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              {strategy.name || 'Unnamed Strategy'}
+            </h1>
+            <p className="mt-1 text-[13px] text-muted-foreground tabular-nums">
+              {closedCount > 0 && (
+                <>
+                  <b className="font-semibold text-foreground">{closedCount.toLocaleString()} closed trades</b>
+                  {' '}·{' '}
+                </>
+              )}
+              {openTrades.length} open position{openTrades.length === 1 ? '' : 's'}
+            </p>
+          </div>
+
+          <div className="ml-auto flex gap-2 pb-1">
             <DropdownMenu>
               <DropdownMenuTrigger>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                >
+                <Button variant="outline" size="sm">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -927,36 +375,28 @@ const StrategyDetailPage = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Optimize Button */}
             <Button
               variant="outline"
               size="sm"
-              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               onClick={() => navigate(`/optimus/strategy/${strategyId}/optimize`)}
             >
-              <Beaker className="h-3 w-3 mr-1.5" />
-              <span className="text-xs">Optimize</span>
+              <Beaker className="mr-1.5 h-4 w-4" />
+              Optimize
             </Button>
 
-            {/* Edit Button */}
             <Button
               variant="outline"
               size="sm"
-              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               onClick={() => navigate(`/optimus/strategy/${strategyId}/edit`)}
             >
-              <Settings className="h-3 w-3 mr-1.5" />
-              <span className="text-xs">Edit</span>
+              <Settings className="mr-1.5 h-4 w-4" />
+              Edit
             </Button>
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  className="text-xs"
-                >
-                  <Trash2 className="h-3 w-3 mr-1.5" />
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="mr-1.5 h-3 w-3" />
                   Delete
                 </Button>
               </AlertDialogTrigger>
@@ -979,331 +419,94 @@ const StrategyDetailPage = () => {
               </AlertDialogContent>
             </AlertDialog>
           </div>
-        </div>
+        </header>
 
-        {/* Compact Stats Bar */}
-        <div className="rounded-xl border border-border/80 bg-card overflow-hidden">
-          {/* Config Stats Row */}
-          <div className="flex flex-wrap items-center divide-x divide-border border-b border-border">
-            <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Init Bal</span>
-              <span className="text-sm font-semibold tabular-nums text-foreground">${positionSettings.startingBalance.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Pos Size</span>
-              <span className="text-sm font-semibold tabular-nums text-foreground">${positionSettings.model.size.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Max Pos</span>
-              <span className="text-sm font-semibold tabular-nums text-foreground">{positionSettings.maxConcurrentPositions}</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Trades</span>
-              <span className="text-sm font-semibold tabular-nums text-foreground">{tradesResponse?.totalTrades ?? trades.length}</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Win Rate</span>
-              <span className={`text-sm font-semibold tabular-nums ${winRatePercent && winRatePercent >= 50 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
-                {winRatePercent !== undefined ? `${winRatePercent.toFixed(1)}%` : '-'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2">
-              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Avg P/L</span>
-              <span className={`text-sm font-semibold tabular-nums ${averageProfitValue !== undefined ? (averageProfitValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-muted-foreground'}`}>
-                {averageProfitValue !== undefined ? formatPrice(averageProfitValue) : '-'}
-              </span>
-            </div>
-          </div>
-          
-          {/* Live Status Row - Inline with Balance History */}
+        {/* ---------- Live state ---------- */}
+        <div className="mb-6 overflow-hidden rounded-xl border border-border/80 bg-card">
           <div className="grid grid-cols-1 lg:grid-cols-12">
-            {/* Balance History Chart - Integrated */}
-            <div className="lg:col-span-8 border-r border-border">
-              <BalanceHistoryChart 
+            <div className="border-border lg:col-span-8 lg:border-r">
+              <BalanceHistoryChart
                 strategyId={strategyId!}
-                startingBalance={positionSettings.startingBalance}
+                startingBalance={startingBalance}
                 compact={true}
               />
             </div>
-            
-            {/* Live Strategy State Panel - Compact */}
             <div className="lg:col-span-4">
-              <StrategyStatePanel 
-                strategyId={strategyId!} 
-                startingBalance={positionSettings.startingBalance}
+              <StrategyStatePanel
+                strategyId={strategyId!}
+                startingBalance={startingBalance}
                 compact={true}
               />
             </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="w-full">
-
-          <div className="space-y-3 mt-3">
-            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-border pb-2">
-              <h2 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Trading Activity</h2>
-              
-              <ToggleGroup 
-                type="single" 
-                value={tradeType} 
-                onValueChange={handleTradeTypeChange}
-                className="bg-card p-0.5 rounded-lg border border-border"
-              >
-                <ToggleGroupItem value="all" aria-label="Show all trades" className="data-[state=on]:bg-accent data-[state=on]:text-foreground data-[state=on]:font-medium text-muted-foreground hover:text-foreground rounded-md px-2 py-0.5 text-[10px]">
-                  All
-                </ToggleGroupItem>
-                <ToggleGroupItem value="paper" aria-label="Show paper trades" className="data-[state=on]:bg-yellow-500/10 data-[state=on]:text-yellow-600 dark:data-[state=on]:text-yellow-400 data-[state=on]:font-medium text-muted-foreground hover:text-foreground rounded-md px-2 py-0.5 text-[10px]">
-                  Paper
-                </ToggleGroupItem>
-                <ToggleGroupItem value="live" aria-label="Show live trades" className="data-[state=on]:bg-green-500/10 data-[state=on]:text-green-600 dark:data-[state=on]:text-green-400 data-[state=on]:font-medium text-muted-foreground hover:text-foreground rounded-md px-2 py-0.5 text-[10px]">
-                  Live
-                </ToggleGroupItem>
-              </ToggleGroup>
+        {/* ---------- Open positions ---------- */}
+        {openTrades.length > 0 && (
+          <Card className="mb-6 p-4 md:p-5">
+            <h2 className="mb-2 text-sm font-semibold">Open positions</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] border-collapse text-[13px] tabular-nums">
+                <thead>
+                  <tr>
+                    {['Ticker', 'Opened', 'Entry', 'Shares', 'Cost'].map((h, i) => (
+                      <th
+                        key={h}
+                        className={`whitespace-nowrap border-b border-border px-2.5 pb-1.5 pt-2 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground ${
+                          i >= 2 ? 'text-right' : 'text-left'
+                        }`}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {openTrades.map((trade) => (
+                    <tr
+                      key={trade.id}
+                      onClick={() => navigate(`/optimus/trade/${trade.id}`, { state: { trade } })}
+                      className="cursor-pointer border-b border-border/60 hover:bg-muted/30"
+                    >
+                      <td className="whitespace-nowrap px-2.5 py-1.5 font-mono font-semibold">{trade.ticker}</td>
+                      <td className="whitespace-nowrap px-2.5 py-1.5 text-xs text-muted-foreground">
+                        {formatOpenedAt(trade.openedAt)} ET
+                      </td>
+                      <td className="whitespace-nowrap px-2.5 py-1.5 text-right">${trade.entryPrice.toFixed(2)}</td>
+                      <td className="whitespace-nowrap px-2.5 py-1.5 text-right">{trade.shares.toLocaleString()}</td>
+                      <td className="whitespace-nowrap px-2.5 py-1.5 text-right">{formatCurrency(trade.entryPosition)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          </Card>
+        )}
 
-            {tradesError ? (
-              <div className="rounded-lg bg-red-100 dark:bg-red-950/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 p-4 text-sm">
-                <span className="font-medium text-red-600 dark:text-red-500">Error:</span> Failed to load trades for this strategy
-              </div>
-            ) : (
-              <>
-                <TradeStatistics trades={filteredTrades} />
-                
-                {/* Main Layout: Chart | Calendar/Table */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-                  {/* Chart (Main Focus) */}
-                  <div className="lg:col-span-8">
-                    <Card className="p-3">
-                      <div className="mb-2 border-b border-border pb-2 flex items-center justify-between flex-wrap gap-2">
-                        <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Balance Over Time</h3>
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-0.5 bg-[#14a3bd]"></div>
-                            <span className="text-[10px] text-muted-foreground">Strategy</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-0.5 bg-[#f59e0b] border-dashed border-t-2"></div>
-                            <span className="text-[10px] text-muted-foreground">SPY</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div ref={chartContainerRef} className="w-full h-[400px] rounded-lg" />
-                    </Card>
-
-                    {/* Selected Trades Section */}
-                    {selectedDate && selectedDayTrades.length > 0 && (
-                      <Card className="p-3 mt-2">
-                        <div className="mb-2 border-b border-border pb-2">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                              {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Trades
-                            </h3>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-sm font-bold tabular-nums ${selectedDayProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {formatPrice(selectedDayProfit)}
-                              </span>
-                              <button
-                                onClick={() => setSelectedDate(undefined)}
-                                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
-                          {selectedDayTrades.map((trade) => (
-                            <div
-                              key={trade.id}
-                              onClick={() => handleTradeClick(trade)}
-                              className="p-2 rounded-lg border border-border bg-muted/30 hover:bg-accent/40 hover:border-muted-foreground/40 transition-colors cursor-pointer"
-                            >
-                              <div className="flex justify-between items-center">
-                                <span className="font-mono font-bold text-xs text-foreground">{trade.ticker}</span>
-                                <span
-                                  className={`text-xs font-bold tabular-nums ${
-                                    trade.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                                  }`}
-                                >
-                                  {formatPrice(trade.profit)}
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-[10px] tabular-nums text-muted-foreground mt-1">
-                                <span>{formatPrice(trade.entryPrice)} → {formatPrice(trade.closePrice)}</span>
-                                <span>x{trade.shares}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </Card>
-                    )}
-                  </div>
-                  
-                  {/* Right Sidebar - Calendar and Table */}
-                  <div className="lg:col-span-4 space-y-3">
-                    {/* Calendar */}
-                    <Card className="p-3">
-                      <div className="mb-2 border-b border-border pb-2">
-                        <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Calendar</h3>
-                      </div>
-                      <div className="rounded-lg border border-border/80 bg-muted/30 p-2">
-                        {/* Calendar Header */}
-                        <div className="flex justify-between items-center mb-2 border-b border-border pb-2">
-                          <button 
-                            onClick={goToPreviousMonth}
-                            className="p-0.5 rounded-md hover:bg-accent transition-colors"
-                          >
-                            <ChevronLeft className="h-3 w-3 text-muted-foreground" />
-                          </button>
-                          <h3 className="text-[11px] font-medium text-foreground">{monthYearDisplay}</h3>
-                          <button 
-                            onClick={goToNextMonth}
-                            className="p-0.5 rounded-md hover:bg-accent transition-colors"
-                          >
-                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                          </button>
-                        </div>
-                        
-                        {/* Days of Week Header */}
-                        <div className="grid grid-cols-7 gap-0.5 mb-1">
-                          {daysOfWeek.map(day => (
-                            <div key={day} className="text-center text-[8px] font-medium uppercase tracking-wider text-muted-foreground py-0.5">
-                              {day.substring(0, 2)}
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {/* Calendar Grid */}
-                        <div className="grid grid-cols-7 gap-0.5">
-                          {calendarData.flat().map((day, index) => (
-                            <button
-                              key={index}
-                              onClick={() => handleDayClick(day)}
-                              disabled={day === null}
-                              className={`
-                                h-6 w-full flex items-center justify-center text-[10px] tabular-nums rounded-md border transition-colors
-                                ${day === null ? 'text-muted-foreground/30 border-transparent' : 'text-foreground border-border hover:bg-accent'} 
-                                ${isSelected(day) ? 'border-primary bg-accent text-foreground font-semibold' : ''}
-                                ${isToday(day) ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400 font-semibold' : ''}
-                                ${getDayColor(day)}
-                              `}
-                            >
-                              {day}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Selected Day Summary */}
-                      {selectedDate && (
-                        <div className="mt-2 p-2 rounded-lg border border-border/80 bg-muted/30">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] text-muted-foreground">
-                              {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground tabular-nums">
-                              {selectedDayTrades.length} {selectedDayTrades.length === 1 ? 'trade' : 'trades'}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">P/L</span>
-                            <span className={`text-sm font-bold tabular-nums ${selectedDayProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {formatPrice(selectedDayProfit)}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </Card>
-                    
-                    {/* Table View */}
-                    <Card className="p-3">
-                      <div className="mb-2 border-b border-border pb-2">
-                        <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Recent Trades</h3>
-                      </div>
-                      {trades.length > 0 ? (
-                        <div className="space-y-2">
-                          <div className="max-h-[280px] overflow-y-auto custom-scrollbar">
-                            <TradesTable 
-                              trades={getPaginatedData()} 
-                              sortConfig={sortConfig}
-                              onSort={sortData}
-                              compact={true}
-                            />
-                          </div>
-                          
-                          {/* Compact Pagination Controls */}
-                          <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-border">
-                            <div className="flex items-center gap-2">
-                              <select
-                                value={itemsPerPage}
-                                onChange={(e) => {
-                                  setItemsPerPage(Number(e.target.value));
-                                  setCurrentPage(1);
-                                }}
-                                className="px-1.5 py-0.5 rounded-lg border border-input bg-card text-foreground text-[10px] transition-colors"
-                              >
-                                <option value={10}>10</option>
-                                <option value={25}>25</option>
-                                <option value={50}>50</option>
-                              </select>
-                              <span className="text-[10px] tabular-nums text-muted-foreground">
-                                {Math.min((currentPage - 1) * itemsPerPage + 1, filteredTrades.length)}-{Math.min(currentPage * itemsPerPage, filteredTrades.length)}/{filteredTrades.length}
-                              </span>
-                            </div>
-                            
-                            <div className="flex items-center gap-0.5">
-                              <button
-                                onClick={() => setCurrentPage(1)}
-                                disabled={!hasPrevPage}
-                                className="px-1.5 py-0.5 rounded-md border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 text-[10px] transition-colors"
-                              >
-                                «
-                              </button>
-                              <button
-                                onClick={() => setCurrentPage(currentPage - 1)}
-                                disabled={!hasPrevPage}
-                                className="px-1.5 py-0.5 rounded-md border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 text-[10px] transition-colors"
-                              >
-                                ‹
-                              </button>
-                              <span className="px-2 text-[10px] tabular-nums text-muted-foreground">{currentPage}/{totalPages}</span>
-                              <button
-                                onClick={() => setCurrentPage(currentPage + 1)}
-                                disabled={!hasNextPage}
-                                className="px-1.5 py-0.5 rounded-md border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 text-[10px] transition-colors"
-                              >
-                                ›
-                              </button>
-                              <button
-                                onClick={() => setCurrentPage(totalPages)}
-                                disabled={!hasNextPage}
-                                className="px-1.5 py-0.5 rounded-md border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 text-[10px] transition-colors"
-                              >
-                                »
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="p-4 rounded-lg border border-dashed border-border text-center">
-                          <p className="text-muted-foreground text-xs font-medium">No trades yet</p>
-                          <p className="text-[10px] text-muted-foreground/60 mt-1">Awaiting execution</p>
-                        </div>
-                      )}
-                    </Card>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        {/* ---------- Performance report (shared with backtests) ---------- */}
+        {tradesError ? (
+          <Card className="border-destructive/30 bg-destructive/10 p-6">
+            <div className="text-sm text-destructive">Failed to load trades for this strategy</div>
+          </Card>
+        ) : tradingData ? (
+          <BacktestReport
+            tradingData={tradingData}
+            startingBalance={startingBalance}
+            benchmarkBars={benchmarkBars}
+            configRail={configRail}
+          />
+        ) : (
+          <Card className="space-y-2 p-12 text-center">
+            <h3 className="text-sm font-semibold">No closed trades yet</h3>
+            <p className="text-sm text-muted-foreground">
+              Performance charts and statistics will appear here once the strategy closes its first
+              position.
+            </p>
+          </Card>
+        )}
       </div>
-      
     </div>
   );
 };
 
-export default StrategyDetailPage; 
+export default StrategyDetailPage;

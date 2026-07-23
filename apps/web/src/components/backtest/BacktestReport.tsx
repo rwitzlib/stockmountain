@@ -60,7 +60,11 @@ export function RailRow({ label, value, valueColor }: { label: string; value: st
 }
 
 interface BacktestReportProps {
-  tradingData: TradingData;
+  /**
+   * The hold portfolio drives everything; `high` may be an empty portfolio (no
+   * equity/trades) for sources without a max-potential simulation, e.g. live strategies.
+   */
+  tradingData: Pick<TradingData, 'hold' | 'high'>;
   startingBalance: number;
   /** Benchmark daily closes; when absent the benchmark series and vs-chip are omitted. */
   benchmarkBars?: BenchmarkBar[] | null;
@@ -286,7 +290,11 @@ export function BacktestReport({
           startingBalance={startingBalance}
           equity={analytics.primary.equity}
           drawdown={analytics.drawdown}
-          footnote="Max potential assumes every position is sold at its in-trade high — an upper bound on what better exits could capture, not a peer strategy."
+          footnote={
+            analytics.ceiling.equity.length > 0
+              ? 'Max potential assumes every position is sold at its in-trade high — an upper bound on what better exits could capture, not a peer strategy.'
+              : undefined
+          }
         />
 
         {configRail}

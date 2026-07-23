@@ -25,7 +25,7 @@ export interface EquityPoint {
   tradesTaken: number;
 }
 
-export type ExitReason = 'timedExit' | 'takeProfit' | 'stopLoss' | 'endOfData' | 'soldAtHigh';
+export type ExitReason = 'timedExit' | 'takeProfit' | 'stopLoss' | 'endOfData' | 'soldAtHigh' | 'manual';
 
 export interface ExecutedTrade {
   ticker: string;

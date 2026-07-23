@@ -53,6 +53,13 @@ function exitChip(trade: ExecutedTrade) {
       </span>
     );
   }
+  if (reason === 'manual') {
+    return (
+      <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Manual
+      </span>
+    );
+  }
   return (
     <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
       Timed

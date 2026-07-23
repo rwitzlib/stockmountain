@@ -7,6 +7,7 @@ export const EXIT_REASON_LABELS: Record<string, string> = {
   timedExit: 'Timed',
   endOfData: 'Ended',
   soldAtHigh: 'High',
+  manual: 'Manual',
 };
 
 const EXIT_REASON_HINTS: Record<string, string> = {
@@ -15,6 +16,7 @@ const EXIT_REASON_HINTS: Record<string, string> = {
   timedExit: 'rode the full exit window',
   endOfData: 'candles ran out early',
   soldAtHigh: 'sold at in-trade high',
+  manual: 'closed by hand',
 };
 
 interface ExitReasonPanelProps {
