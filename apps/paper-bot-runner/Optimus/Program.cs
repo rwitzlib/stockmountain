@@ -39,6 +39,7 @@ internal class Program
             .AddMemoryCache()
             .AddHttpContextAccessor()
             .AddSingleton<SellWorker>()
+            .AddSingleton<StateReconciliationWorker>()
             .AddSingleton<TradeExecutionService>()
             .AddSingleton<UnrealizedPnlService>()
             .AddMassiveClient(
@@ -117,6 +118,21 @@ internal class Program
                     .ForJob(sellWorkerJobKey)
                     .WithIdentity("SellWorkerTrigger")
                     .WithCronSchedule("0/10 * 9-16 ? * MON-FRI", x => x
+                        .InTimeZone(TimeZoneInfo.FindSystemTimeZoneById("America/New_York"))));
+
+                // State Reconciliation Job - rebuilds strategy state from trade records.
+                // Runs once at startup (catches drift accumulated while down or from bugs)
+                // and daily after the close, when no trades are in flight.
+                var reconciliationJobKey = new JobKey("StateReconciliationJob");
+                q.AddJob<StateReconciliationWorker>(opts => opts.WithIdentity(reconciliationJobKey));
+                q.AddTrigger(opts => opts
+                    .ForJob(reconciliationJobKey)
+                    .WithIdentity("StateReconciliationStartupTrigger")
+                    .StartNow());
+                q.AddTrigger(opts => opts
+                    .ForJob(reconciliationJobKey)
+                    .WithIdentity("StateReconciliationDailyTrigger")
+                    .WithCronSchedule("0 15 17 ? * MON-FRI", x => x
                         .InTimeZone(TimeZoneInfo.FindSystemTimeZoneById("America/New_York"))));
             })
             .AddQuartzHostedService(opt =>

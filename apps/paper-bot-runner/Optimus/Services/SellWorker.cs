@@ -130,56 +130,48 @@ public class SellWorker(
     /// <summary>
     /// Updates strategy state after a position is closed.
     /// Increments cash balance with close value, removes ticker from open set, sets cooldown.
+    /// The repository update is atomic arithmetic (no version lock), so parallel closes in the
+    /// same tick all land — a version condition here used to silently drop cash credits.
     /// </summary>
     private async Task UpdateStateOnClose(StrategyDto strategy, TradeRecord trade, Adapter.Interfaces.SellResult sellResult)
     {
         try
         {
-            // Get current state
+            // Lazy-create state for strategies that predate state tracking.
             var startingBalance = (decimal)strategy.PositionSettings.StartingBalance;
-            var state = await stateRepository.GetOrCreateState(strategy.Id, startingBalance);
+            var existingState = await stateRepository.GetOrCreateState(strategy.Id, startingBalance);
 
-            if (state == null)
+            if (existingState == null)
             {
                 logger.LogError("Failed to get state for strategy {StrategyId} during close", strategy.Id);
                 return;
             }
 
-            // Use the actual close value from the sell result
             var closeValue = sellResult.ActualCloseValue;
-
-            // Get the entry cost of the position being closed
             var entryCost = (decimal)trade.EntryPosition;
-
-            // Compute cooldown expiry
             var cooldownExpiry = TradeExecutionService.ComputeCooldownExpiry(strategy.PositionSettings.Cooldown);
 
-            // Update state
-            var stateUpdated = await stateRepository.UpdateStateOnClose(
+            var newState = await stateRepository.UpdateStateOnClose(
                 strategy.Id,
                 trade.Ticker,
                 closeValue,
                 entryCost,
-                cooldownExpiry,
-                state.Version);
+                cooldownExpiry);
 
-            if (stateUpdated)
+            if (newState == null)
             {
-                logger.LogInformation(
-                    "Updated state on close for strategy {StrategyId}, ticker {Ticker}, closeValue {CloseValue}, profit {Profit}, cooldown until {CooldownExpiry}",
-                    strategy.Id, trade.Ticker, closeValue, sellResult.Profit, cooldownExpiry);
-
-                // Write balance history snapshot after successful state update
-                await WriteBalanceHistoryRecord(strategy.Id, state, closeValue, entryCost);
-            }
-            else
-            {
-                // Version mismatch - state may be inconsistent
                 logger.LogWarning(
-                    "State update failed on close for strategy {StrategyId}, ticker {Ticker}. " +
-                    "Version mismatch, state may need reconciliation.",
+                    "State update skipped on close for strategy {StrategyId}, ticker {Ticker}. " +
+                    "State shows no open positions; reconciliation will correct it.",
                     strategy.Id, trade.Ticker);
+                return;
             }
+
+            logger.LogInformation(
+                "Updated state on close for strategy {StrategyId}, ticker {Ticker}, closeValue {CloseValue}, profit {Profit}, cooldown until {CooldownExpiry}",
+                strategy.Id, trade.Ticker, closeValue, sellResult.Profit, cooldownExpiry);
+
+            await WriteBalanceHistoryRecord(newState);
         }
         catch (Exception ex)
         {
@@ -190,34 +182,22 @@ public class SellWorker(
     }
 
     /// <summary>
-    /// Writes a balance history snapshot after a position is closed.
-    /// Uses the updated state values after the close.
+    /// Writes a balance history snapshot from the post-close state returned by the atomic update.
     /// </summary>
-    private async Task WriteBalanceHistoryRecord(string strategyId, StrategyStateRecord previousState, decimal closeValue, decimal closedEntryCost)
+    private async Task WriteBalanceHistoryRecord(StrategyStateRecord state)
     {
         try
         {
-            // Calculate the new values after the close
-            // Note: The state update already happened, so we compute what the new values are
-            var newCashBalance = previousState.CashBalance + closeValue;
-            var newTotalEntryCost = previousState.TotalEntryCost - closedEntryCost;
-            var newOpenPositionsCount = previousState.OpenPositionsCount - 1;
-
-            // PositionValue = TotalEntryCost + UnrealizedPnl
-            // UnrealizedPnl will be updated separately by the P/L refresh job
-            var newPositionValue = newTotalEntryCost + previousState.UnrealizedPnl;
-            var newCurrentBalance = newCashBalance + newPositionValue;
-
             var history = new BalanceHistoryRecord
             {
-                StrategyId = strategyId,
+                StrategyId = state.StrategyId,
                 Date = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd"),
-                CashBalance = newCashBalance,
-                TotalEntryCost = newTotalEntryCost,
-                UnrealizedPnl = previousState.UnrealizedPnl, // Will be updated separately
-                PositionValue = newPositionValue,
-                CurrentBalance = newCurrentBalance,
-                OpenPositionsCount = newOpenPositionsCount,
+                CashBalance = state.CashBalance,
+                TotalEntryCost = state.TotalEntryCost,
+                UnrealizedPnl = state.UnrealizedPnl, // Refreshed separately by the P/L job
+                PositionValue = state.PositionValue,
+                CurrentBalance = state.CurrentBalance,
+                OpenPositionsCount = state.OpenPositionsCount,
                 RecordedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 SnapshotType = "close"
             };
@@ -228,13 +208,13 @@ public class SellWorker(
             {
                 logger.LogDebug(
                     "Wrote balance history for strategy {StrategyId}, date {Date}, balance {Balance}",
-                    strategyId, history.Date, history.CurrentBalance);
+                    state.StrategyId, history.Date, history.CurrentBalance);
             }
             else
             {
                 logger.LogWarning(
                     "Failed to write balance history for strategy {StrategyId} on {Date}",
-                    strategyId, history.Date);
+                    state.StrategyId, history.Date);
             }
         }
         catch (Exception ex)
@@ -242,7 +222,7 @@ public class SellWorker(
             // Balance history write failure is non-critical
             logger.LogError(ex,
                 "Error writing balance history for strategy {StrategyId}",
-                strategyId);
+                state.StrategyId);
         }
     }
 }

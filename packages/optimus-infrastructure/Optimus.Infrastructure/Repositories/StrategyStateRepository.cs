@@ -335,16 +335,20 @@ public class StrategyStateRepository(
 
     /// <summary>
     /// Atomically updates state when closing a position.
-    /// Increments cash with close value, removes ticker from open set, decrements position count, 
+    /// Increments cash with close value, removes ticker from open set, decrements position count,
     /// decreases total entry cost, and sets cooldown.
+    /// Like the reserve path, this is pure atomic arithmetic with NO version lock: SellWorker
+    /// closes positions in parallel, and a version condition here silently drops cash credits
+    /// when concurrent closes race (the trades-vs-balance drift bug). The only guard is that
+    /// at least one position is open, so a stray double-close can't drive the count negative.
+    /// Returns the post-update state (for balance history snapshots), or null if the guard failed.
     /// </summary>
-    public async Task<bool> UpdateStateOnClose(
+    public async Task<StrategyStateRecord> UpdateStateOnClose(
         string strategyId,
         string ticker,
         decimal closeValue,
         decimal entryCost,
-        long cooldownExpirySeconds,
-        long expectedVersion)
+        long cooldownExpirySeconds)
     {
         try
         {
@@ -365,7 +369,7 @@ public class StrategyStateRepository(
                         Version = Version + :one,
                         Cooldowns.#ticker = :cooldownExpiry
                     DELETE OpenTickers :ticker",
-                ConditionExpression = "Version = :expectedVersion",
+                ConditionExpression = "OpenPositionsCount >= :one",
                 ExpressionAttributeNames = new Dictionary<string, string>
                 {
                     { "#ticker", ticker }
@@ -376,26 +380,90 @@ public class StrategyStateRepository(
                     { ":entryCost", new AttributeValue { N = entryCost.ToString() } },
                     { ":one", new AttributeValue { N = "1" } },
                     { ":now", new AttributeValue { N = now.ToString() } },
-                    { ":expectedVersion", new AttributeValue { N = expectedVersion.ToString() } },
                     { ":ticker", new AttributeValue { SS = [ticker] } },
                     { ":cooldownExpiry", new AttributeValue { N = cooldownExpirySeconds.ToString() } }
-                }
+                },
+                ReturnValues = ReturnValue.ALL_NEW
             };
 
-            await dynamoDb.UpdateItemAsync(request);
+            var response = await dynamoDb.UpdateItemAsync(request);
             logger.LogInformation(
                 "Updated state on close for strategy {StrategyId}, ticker {Ticker}, closeValue {CloseValue}, entryCost {EntryCost}",
                 strategyId, ticker, closeValue, entryCost);
-            return true;
+            return MapToStrategyStateRecord(response.Attributes);
         }
         catch (ConditionalCheckFailedException)
         {
-            logger.LogWarning("State update on close failed for strategy {StrategyId} - version mismatch", strategyId);
-            return false;
+            logger.LogWarning(
+                "State update on close skipped for strategy {StrategyId}, ticker {Ticker} - no open positions recorded in state",
+                strategyId, ticker);
+            return null;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating state on close for strategy {StrategyId}", strategyId);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Overwrites the trade-derived state fields (cash, entry cost, open positions/tickers) with
+    /// reconciled values computed from the trade records. Conditioned on Version so reconciliation
+    /// can never clobber a trade that executed while it was computing — on a version miss the
+    /// caller should skip and let the next run catch up. Cooldowns and UnrealizedPnl are preserved.
+    /// </summary>
+    public async Task<bool> TryOverwriteReconciledState(
+        string strategyId,
+        decimal cashBalance,
+        decimal totalEntryCost,
+        int openPositionsCount,
+        IReadOnlyCollection<string> openTickers,
+        long expectedVersion)
+    {
+        try
+        {
+            // DynamoDB doesn't allow empty string sets; mirror CreateState's placeholder.
+            var tickers = openTickers.Count > 0 ? openTickers.ToList() : new List<string> { "__EMPTY__" };
+
+            var request = new UpdateItemRequest
+            {
+                TableName = config.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { "PK", new AttributeValue { S = $"BOT#{strategyId}" } },
+                    { "SK", new AttributeValue { S = StateSkValue } }
+                },
+                UpdateExpression = @"
+                    SET CashBalance = :cash,
+                        TotalEntryCost = :entryCost,
+                        OpenPositionsCount = :openCount,
+                        OpenTickers = :openTickers,
+                        Version = Version + :one",
+                ConditionExpression = "Version = :expectedVersion",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":cash", new AttributeValue { N = cashBalance.ToString() } },
+                    { ":entryCost", new AttributeValue { N = totalEntryCost.ToString() } },
+                    { ":openCount", new AttributeValue { N = openPositionsCount.ToString() } },
+                    { ":openTickers", new AttributeValue { SS = tickers } },
+                    { ":one", new AttributeValue { N = "1" } },
+                    { ":expectedVersion", new AttributeValue { N = expectedVersion.ToString() } }
+                }
+            };
+
+            await dynamoDb.UpdateItemAsync(request);
+            return true;
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            logger.LogInformation(
+                "Reconciled state write skipped for strategy {StrategyId} - state changed while reconciling",
+                strategyId);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error writing reconciled state for strategy {StrategyId}", strategyId);
             throw;
         }
     }
