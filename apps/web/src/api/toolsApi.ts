@@ -1,4 +1,4 @@
-import { getAuthHeaders } from './authToken';
+import { authFetch } from './authToken';
 import type { BarData as LightweightBarData } from "lightweight-charts";
 import type { BarData } from "../types/tools";
 
@@ -34,9 +34,8 @@ export const toolsApi = {
       Filters: request.filters,
     };
 
-    const response = await fetch(`${BASE_URL}/tools/filter`, {
+    const response = await authFetch(`${BASE_URL}/tools/filter`, {
       method: 'POST',
-      headers: await getAuthHeaders(),
       body: JSON.stringify(payload),
     });
 

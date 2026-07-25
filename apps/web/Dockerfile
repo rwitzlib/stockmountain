@@ -1,21 +1,20 @@
-# Use the official Node.js image as the base image
-FROM node:alpine
+# Build the production bundle. VITE_* vars are baked in at build time from .env.
+FROM node:alpine AS build
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the package.json and package-lock.json first to leverage Docker's cache
-# This helps to avoid re-installing dependencies every time we change the source code
 COPY package*.json ./
+RUN npm ci
 
-# Install the dependencies specified in package.json
-RUN npm install
-
-# Copy the rest of your project files into the container
 COPY . .
+RUN npm run build
 
-# Expose the Vite dev server port
+# Serve the static bundle with Caddy. The Railway edge proxy forwards
+# dev.stockmountain.io here on the same port the Vite dev server used (5173),
+# overridable via PORT.
+FROM caddy:alpine
+
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/dist /srv
+
 EXPOSE 5173
-
-# Command to run the application
-CMD ["npm", "run", "dev"]

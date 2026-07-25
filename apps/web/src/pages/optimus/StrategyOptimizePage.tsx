@@ -1,4 +1,4 @@
-import { getAuthHeaders } from '../../api/authToken';
+import { authFetch } from '../../api/authToken';
 import { API_BASE_URL } from '../../api/apiConfig';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -69,9 +69,7 @@ const StrategyOptimizePage = () => {
   const { data: tradesResponse, error: tradesError } = useQuery({
     queryKey: ['strategyTrades', strategyId],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/trade?strategy=${strategyId}`, {
-        headers: await getAuthHeaders()
-      });
+      const response = await authFetch(`${API_BASE_URL}/trade?strategy=${strategyId}`);
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }

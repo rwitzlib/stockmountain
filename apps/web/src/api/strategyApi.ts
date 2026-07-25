@@ -1,4 +1,4 @@
-import { getAuthHeaders } from './authToken';
+import { authFetch } from './authToken';
 import { Strategy } from '../types/strategy';
 import type { StrategyOptimizeRequest, StrategyStateResponse, BalanceHistoryResponse } from '../types/strategy';
 
@@ -7,9 +7,8 @@ import { API_BASE_URL as BASE_URL } from './apiConfig';
 
 export const strategyApi = {
   createStrategy: async (strategy: Strategy): Promise<Strategy> => {
-    const response = await fetch(`${BASE_URL}/Strategy`, {
+    const response = await authFetch(`${BASE_URL}/Strategy`, {
       method: 'POST',
-      headers: await getAuthHeaders(),
       body: JSON.stringify(strategy)
     });
 
@@ -21,8 +20,7 @@ export const strategyApi = {
   },
 
   getStrategy: async (id: string): Promise<Strategy> => {
-    const response = await fetch(`${BASE_URL}/Strategy/${id}`, {
-      headers: await getAuthHeaders()
+    const response = await authFetch(`${BASE_URL}/Strategy/${id}`, {
     });
     
     if (!response.ok) {
@@ -34,8 +32,7 @@ export const strategyApi = {
 
   // Get user's own strategies (private)
   getMyStrategies: async (): Promise<Strategy[]> => {
-    const response = await fetch(`${BASE_URL}/Strategy`, {
-      headers: await getAuthHeaders()
+    const response = await authFetch(`${BASE_URL}/Strategy`, {
     });
     
     if (!response.ok) {
@@ -49,8 +46,7 @@ export const strategyApi = {
 
   // Get all public strategies
   getPublicStrategies: async (): Promise<Strategy[]> => {
-    const response = await fetch(`${BASE_URL}/Strategy?visibility=public`, {
-      headers: await getAuthHeaders()
+    const response = await authFetch(`${BASE_URL}/Strategy?visibility=public`, {
     });
     
     if (!response.ok) {
@@ -68,9 +64,8 @@ export const strategyApi = {
   },
 
   updateStrategy: async (id: string, strategy: Partial<Strategy>): Promise<Strategy> => {
-    const response = await fetch(`${BASE_URL}/Strategy/${id}`, {
+    const response = await authFetch(`${BASE_URL}/Strategy/${id}`, {
       method: 'PUT',
-      headers: await getAuthHeaders(),
       body: JSON.stringify(strategy)
     });
 
@@ -83,9 +78,8 @@ export const strategyApi = {
 
   // Optimize trades for a strategy using script-based filters
   optimizeStrategy: async (id: string, request: StrategyOptimizeRequest): Promise<any> => {
-    const response = await fetch(`${BASE_URL}/strategy/optimize/${id}`, {
+    const response = await authFetch(`${BASE_URL}/strategy/optimize/${id}`, {
       method: 'POST',
-      headers: await getAuthHeaders(),
       body: JSON.stringify(request)
     });
 
@@ -97,9 +91,8 @@ export const strategyApi = {
   },
 
   deleteStrategy: async (id: string): Promise<void> => {
-    const response = await fetch(`${BASE_URL}/Strategy/${id}`, {
+    const response = await authFetch(`${BASE_URL}/Strategy/${id}`, {
       method: 'DELETE',
-      headers: await getAuthHeaders()
     });
 
     if (!response.ok) {
@@ -109,8 +102,7 @@ export const strategyApi = {
 
   // Get current state for a strategy (balance, positions, P/L)
   getStrategyState: async (id: string): Promise<StrategyStateResponse> => {
-    const response = await fetch(`${BASE_URL}/Strategy/${id}/state`, {
-      headers: await getAuthHeaders()
+    const response = await authFetch(`${BASE_URL}/Strategy/${id}/state`, {
     });
     
     if (!response.ok) {
@@ -129,8 +121,7 @@ export const strategyApi = {
     const queryString = params.toString();
     const url = `${BASE_URL}/Strategy/${id}/balance-history${queryString ? `?${queryString}` : ''}`;
     
-    const response = await fetch(url, {
-      headers: await getAuthHeaders()
+    const response = await authFetch(url, {
     });
     
     if (!response.ok) {

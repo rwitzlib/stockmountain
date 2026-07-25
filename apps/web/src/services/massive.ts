@@ -1,5 +1,5 @@
 import { StockMarketData } from '../types/tools';
-import { getAuthHeaders } from '../api/authToken';
+import { authFetch } from '../api/authToken';
 import { API_ORIGIN } from '../api/apiConfig';
 
 interface FetchDataParams {
@@ -22,8 +22,6 @@ export async function fetchMarketData({
   try {
     const baseUrl = API_ORIGIN;
 
-    const headers = await getAuthHeaders();
-
     const requestBody: Record<string, string | number | string[]> = {
       ticker,
       Multiplier: multiplier,
@@ -37,9 +35,8 @@ export async function fetchMarketData({
       requestBody.Indicators = indicators;
     }
 
-    const response = await fetch(baseUrl + "/api/stocks", {
+    const response = await authFetch(baseUrl + "/api/stocks", {
       method: 'POST',
-      headers,
       body: JSON.stringify(requestBody)
     });
     const data = await response.json();

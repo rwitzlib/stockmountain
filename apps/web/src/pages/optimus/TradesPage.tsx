@@ -1,4 +1,4 @@
-import { getAuthHeaders } from '../../api/authToken';
+import { authFetch } from '../../api/authToken';
 import { API_BASE_URL } from '../../api/apiConfig';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -25,9 +25,7 @@ const TradesPage = () => {
   const { data: tradesData, error } = useQuery({
     queryKey: ['trades'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/trade`, {
-        headers: await getAuthHeaders()
-      });
+      const response = await authFetch(`${API_BASE_URL}/trade`);
 
       if (!response.ok) {
         throw new Error('Network response was not ok');

@@ -1,4 +1,4 @@
-import { getAuthHeaders } from './authToken';
+import { authFetch } from './authToken';
 import { BacktestEntry, BacktestRequest } from "../types/backtest";
 import { TradingData } from "../types/types";
 import { BacktestSharePayload, BacktestShareCreateResponse } from "../types/share";
@@ -8,9 +8,8 @@ import { API_BASE_URL as BASE_URL } from './apiConfig';
 
 export const backtestApi = {
   getBacktests: async (): Promise<BacktestEntry[]> => {
-    const response = await fetch(`${BASE_URL}/backtest`, {
-      method: 'GET',
-      headers: await getAuthHeaders()
+    const response = await authFetch(`${BASE_URL}/backtest`, {
+      method: 'GET'
     });
 
     if (!response.ok) {
@@ -23,9 +22,8 @@ export const backtestApi = {
   },
 
   createBacktest: async (request: BacktestRequest): Promise<BacktestEntry> => {
-    const response = await fetch(`${BASE_URL}/backtest`, {
+    const response = await authFetch(`${BASE_URL}/backtest`, {
       method: 'POST',
-      headers: await getAuthHeaders(),
       body: JSON.stringify(request)
     });
 
@@ -37,9 +35,8 @@ export const backtestApi = {
   },
 
   getBacktestEntry: async (id: string): Promise<BacktestEntry> => {
-    const response = await fetch(`${BASE_URL}/backtest/${id}`, {
-      method: 'GET',
-      headers: await getAuthHeaders()
+    const response = await authFetch(`${BASE_URL}/backtest/${id}`, {
+      method: 'GET'
     });
 
     if (!response.ok) {
@@ -51,9 +48,8 @@ export const backtestApi = {
 
   /** Portfolio outcome (stats + equity + taken trades). */
   getBacktestResult: async (id: string): Promise<TradingData> => {
-    const response = await fetch(`${BASE_URL}/backtest/result/${id}`, {
-      method: 'GET',
-      headers: await getAuthHeaders()
+    const response = await authFetch(`${BASE_URL}/backtest/result/${id}`, {
+      method: 'GET'
     });
 
     if (!response.ok) {
@@ -68,9 +64,8 @@ export const backtestApi = {
     id: string,
     options: { includeConfig: boolean; title?: string }
   ): Promise<BacktestShareCreateResponse> => {
-    const response = await fetch(`${BASE_URL}/backtest/${id}/share`, {
+    const response = await authFetch(`${BASE_URL}/backtest/${id}/share`, {
       method: 'POST',
-      headers: await getAuthHeaders(),
       body: JSON.stringify(options)
     });
 

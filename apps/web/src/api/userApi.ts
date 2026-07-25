@@ -1,4 +1,4 @@
-import { getAuthHeaders } from './authToken';
+import { authFetch } from './authToken';
 import { API_BASE_URL as BASE_URL } from './apiConfig';
 
 
@@ -13,9 +13,8 @@ export interface UserDetails {
 
 export const userApi = {
 	getUser: async (userId: string): Promise<UserDetails> => {
-		const response = await fetch(`${BASE_URL}/user/${userId}`, {
-			method: 'GET',
-			headers: await getAuthHeaders()
+		const response = await authFetch(`${BASE_URL}/user/${userId}`, {
+			method: 'GET'
 		});
 
 		if (!response.ok) {
