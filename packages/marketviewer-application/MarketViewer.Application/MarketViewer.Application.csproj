@@ -9,6 +9,9 @@
     <ProjectReference Include="..\..\marketviewer-infrastructure\MarketViewer.Infrastructure\MarketViewer.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="MarketViewer.Application.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.21.7" />
     <PackageReference Include="AWSSDK.Lambda" Version="4.0.19.1" />
     <PackageReference Include="AWSSDK.SQS" Version="4.0.3.8" />

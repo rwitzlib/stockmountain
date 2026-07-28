@@ -119,12 +119,25 @@ public class MemoryMarketCache(IMemoryCache memoryCache, IAmazonS3 s3) : IMarket
     }
 
 
+    /// <summary>
+    /// Completed websocket bars kept per ticker after minute rollover. Sized to cover
+    /// several missed snapshot polls: used for the scan blind window between minute
+    /// close and the snapshot landing, the snapshot-vs-websocket rollover diff, and
+    /// tier-1 gap backfill.
+    /// </summary>
+    private const int RecentLiveBarCount = 5;
+
     public void AddLiveBar(MassiveWebsocketAggregateResponse webSocketBar)
     {
         var currentBar = memoryCache.Get<Bar>(webSocketBar.Ticker);
 
         if (currentBar is null || webSocketBar.TickStart / 60_000 > currentBar.Timestamp / 60_000)
         {
+            if (currentBar is not null)
+            {
+                PushRecentLiveBar(webSocketBar.Ticker, currentBar);
+            }
+
             var bar = new Bar
             {
                 Close = webSocketBar.Close,
@@ -178,4 +191,29 @@ public class MemoryMarketCache(IMemoryCache memoryCache, IAmazonS3 s3) : IMarket
         return bar;
     }
 
+    public IReadOnlyList<Bar> GetRecentLiveBars(string ticker)
+    {
+        return memoryCache.Get<IReadOnlyList<Bar>>($"LiveBars/{ticker}") ?? [];
+    }
+
+    /// <summary>
+    /// Copy-on-write: the writer is the single websocket receive loop, but scans and
+    /// the snapshot job read concurrently, so the stored list is never mutated —
+    /// each push swaps in a new one. The bar itself is safe to share because it is
+    /// only mutated while it is the in-progress bar, before rollover pushes it here.
+    /// </summary>
+    private void PushRecentLiveBar(string ticker, Bar completedBar)
+    {
+        var existing = memoryCache.Get<IReadOnlyList<Bar>>($"LiveBars/{ticker}");
+
+        var updated = existing is null ? new List<Bar>(RecentLiveBarCount + 1) : new List<Bar>(existing);
+        updated.Add(completedBar);
+
+        if (updated.Count > RecentLiveBarCount)
+        {
+            updated.RemoveAt(0);
+        }
+
+        memoryCache.Set<IReadOnlyList<Bar>>($"LiveBars/{ticker}", updated, ExpireIn);
+    }
 }

@@ -19,9 +19,11 @@ public class MarketCalendarService(IAlpacaTradingClient tradingClient, ILogger<M
 
     /// <summary>
     /// True while inside today's regular trading session. An optional buffer shortens the
-    /// session end (e.g. producers stop signaling a few minutes before close).
+    /// session end (e.g. producers stop signaling a few minutes before close). An optional
+    /// asOf evaluates the gate at a different clock — consumers on a delayed data plan pass
+    /// their data time so the session covers the data's hours, not the wall clock's.
     /// </summary>
-    public async Task<bool> IsMarketOpen(TimeSpan? closingBuffer = null)
+    public async Task<bool> IsMarketOpen(TimeSpan? closingBuffer = null, DateTimeOffset? asOf = null)
     {
         var session = await GetTodaySession();
         if (session is null)
@@ -29,7 +31,7 @@ public class MarketCalendarService(IAlpacaTradingClient tradingClient, ILogger<M
             return false;
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = asOf ?? DateTimeOffset.UtcNow;
         var close = closingBuffer is null ? session.Value.Close : session.Value.Close - closingBuffer.Value;
         return now >= session.Value.Open && now < close;
     }

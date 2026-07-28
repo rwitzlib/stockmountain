@@ -23,4 +23,10 @@ public interface IMarketCache
 
     void AddLiveBar(MassiveWebsocketAggregateResponse bar);
     Bar GetLiveBar(string ticker);
+
+    /// <summary>
+    /// The last few websocket-completed minute bars for a ticker, oldest to newest.
+    /// Empty when the live feed is down or the ticker is not streaming.
+    /// </summary>
+    IReadOnlyList<Bar> GetRecentLiveBars(string ticker);
 }

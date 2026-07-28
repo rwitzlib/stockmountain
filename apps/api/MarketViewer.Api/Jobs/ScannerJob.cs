@@ -12,6 +12,7 @@ namespace MarketViewer.Api.Jobs;
 
 public class ScannerJob(
     ScanConfig config,
+    MarketDataConfig marketDataConfig,
     ScannerCache scannerCache,
     ScanHandler scanHandler,
     SignalPublisher signalPublisher,
@@ -23,7 +24,14 @@ public class ScannerJob(
 
     public async Task Execute(IJobExecutionContext context)
     {
-        if (!warmupState.IsReady || !await marketCalendar.IsMarketOpen(CloseBuffer))
+        // Scans run on the data clock: on a delayed data plan the newest bars are
+        // DelayMinutes behind the wall clock, so the session gate and the filter
+        // evaluation time ("time" field) must both be shifted or time-of-day filters
+        // diverge from backtests and the last minutes of the session never get
+        // scanned. DelayMinutes = 0 makes this the wall clock again.
+        var dataTime = DateTimeOffset.UtcNow.AddMinutes(-marketDataConfig.DelayMinutes);
+
+        if (!warmupState.IsReady || !await marketCalendar.IsMarketOpen(CloseBuffer, dataTime))
         {
             return;
         }
@@ -34,7 +42,8 @@ public class ScannerJob(
         {
             var scanRequest = new ScanRequest
             {
-                Filters = entrySettings.Filters
+                Filters = entrySettings.Filters,
+                Timestamp = dataTime
             };
 
             var response = await scanHandler.Handle(scanRequest, cancellationToken);

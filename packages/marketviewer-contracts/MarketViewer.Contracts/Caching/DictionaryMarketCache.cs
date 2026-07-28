@@ -117,4 +117,11 @@ public class DictionaryMarketCache(IAmazonS3 _amazonS3) : IMarketCache
     {
         throw new NotImplementedException();
     }
+
+    // Scans call this on every ticker; the backtester has no live feed, so an empty
+    // list (not a throw) keeps shared code paths working.
+    public IReadOnlyList<Bar> GetRecentLiveBars(string ticker)
+    {
+        return [];
+    }
 }

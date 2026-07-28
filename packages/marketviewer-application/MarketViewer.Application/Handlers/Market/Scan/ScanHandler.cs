@@ -105,6 +105,9 @@ public class ScanHandler(
 
     private ScanResponse.Item ScanTicker(string ticker, IReadOnlyList<IExpression> filters, DateTimeOffset timestamp)
     {
+        var latestBar = marketCache.GetLiveBar(ticker);
+        var recentBars = marketCache.GetRecentLiveBars(ticker);
+
         foreach (var filter in filters)
         {
             var timeframe = engine.ExtractTimeframe(filter) ?? new Timeframe(1, Timespan.minute);
@@ -118,10 +121,9 @@ public class ScanHandler(
 
             var clonedResponse = stocksResponse.Clone();
             AttachTickerDetails(ticker, clonedResponse);
-            var latestBar = marketCache.GetLiveBar(ticker);
 
             // TODO: add if statement to conditionally include latest bar
-            TryAddBarToResponse(timeframe.Multiplier, timeframe.Timespan, latestBar, clonedResponse);
+            TryAddBarToResponse(timeframe.Multiplier, timeframe.Timespan, latestBar, recentBars, clonedResponse);
 
             var passesFilter = engine.EvaluateExpression(filter, clonedResponse, timeframe, evaluationTime: timestamp);
 
@@ -161,9 +163,9 @@ public class ScanHandler(
         stocksResponse.TickerInfo.TickerDetails = tickerDetails;
     }
 
-    private static void TryAddBarToResponse(int multiplier, Timespan timespan, Bar latestBar, StocksResponse response)
+    internal static void TryAddBarToResponse(int multiplier, Timespan timespan, Bar latestBar, IReadOnlyList<Bar> recentBars, StocksResponse response)
     {
-        if (latestBar is null || response?.Results is not { Count: > 0 } || latestBar.Timestamp <= response.Results.Last().Timestamp)
+        if (response?.Results is not { Count: > 0 })
         {
             return;
         }
@@ -175,13 +177,41 @@ public class ScanHandler(
                 {
                     return; // Only add live bar for 1 minute aggregates
                 }
-                response.Results.Add(latestBar);
+
+                // Completed websocket bars cover the window between a minute closing
+                // and the snapshot poll appending it, when the just-closed bar exists
+                // nowhere else. The timestamp guards make this idempotent once the
+                // snapshot bar lands.
+                var lastMinute = response.Results.Last();
+                if (recentBars is { Count: > 0 })
+                {
+                    foreach (var recentBar in recentBars)
+                    {
+                        if (recentBar.Timestamp > lastMinute.Timestamp
+                            && (latestBar is null || recentBar.Timestamp < latestBar.Timestamp))
+                        {
+                            response.Results.Add(recentBar);
+                            lastMinute = recentBar;
+                        }
+                    }
+                }
+
+                if (latestBar is not null && latestBar.Timestamp > lastMinute.Timestamp)
+                {
+                    response.Results.Add(latestBar);
+                }
                 break;
             case Timespan.hour:
                 if (multiplier != 1)
                 {
                     return; // Only add live bar for 1 hour aggregates
                 }
+
+                if (latestBar is null || latestBar.Timestamp <= response.Results.Last().Timestamp)
+                {
+                    return;
+                }
+
                 var last = response.Results.Last();
 
                 if (latestBar.Timestamp / 3_600_000 > last.Timestamp / 3_600_000)

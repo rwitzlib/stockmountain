@@ -65,6 +65,7 @@ public class Program
         var signalQueueConfig = builder.Configuration.GetSection("SignalQueue").Get<SignalQueueConfig>() ?? new SignalQueueConfig();
         signalQueueConfig.QueueUrl = Environment.GetEnvironmentVariable("SIGNAL_QUEUE_URL") ?? signalQueueConfig.QueueUrl;
         builder.Services.AddSingleton(signalQueueConfig);
+        builder.Services.AddSingleton(builder.Configuration.GetSection("SnapshotConfig").Get<SnapshotConfig>() ?? new SnapshotConfig());
         builder.Services.AddSingleton<IAmazonSQS>(_ => new AmazonSQSClient(RegionEndpoint.USEast2));
         builder.Services.AddSingleton<SignalPublisher>();
         builder.Services.RegisterAlpacaClients(builder.Configuration);

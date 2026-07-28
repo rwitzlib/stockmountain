@@ -61,13 +61,15 @@ namespace MarketViewer.Api.HostedServices
                 .UsingJobData(WarmupJob.ForceKey, false)
                 .Build(), cancellationToken);
 
-            // Snapshots every minute (3s in, so the provider has the bar) during
-            // extended market hours. Buffered by CacheWarmupState while warming.
+            // Snapshots every minute during extended market hours, fired at :00 —
+            // the job probes (SPY bar advancement) until the provider has flushed
+            // the latest completed bar, instead of guessing a fixed offset.
+            // Buffered by CacheWarmupState while warming.
             await scheduler.ScheduleJob(
                 JobBuilder.Create<SnapshotJob>().WithIdentity("snapshot").Build(),
                 TriggerBuilder.Create()
                     .WithIdentity("snapshot-minutely")
-                    .WithCronSchedule("3 * 4-19 ? * MON-FRI", x => x.InTimeZone(TimeZone))
+                    .WithCronSchedule("0 * 4-19 ? * MON-FRI", x => x.InTimeZone(TimeZone))
                     .Build(), cancellationToken);
 
             // Scanner only runs while new bars are flowing; overnight the data is
