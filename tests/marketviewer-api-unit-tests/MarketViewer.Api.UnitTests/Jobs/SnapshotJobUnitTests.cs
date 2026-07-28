@@ -7,11 +7,13 @@ using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Responses.Market;
+using MarketViewer.Infrastructure.Config;
 using Massive.Client.Interfaces;
 using Massive.Client.Models;
 using Massive.Client.Requests;
 using Massive.Client.Responses;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Quartz;
@@ -24,12 +26,16 @@ namespace MarketViewer.Api.UnitTests.Jobs;
 public class SnapshotJobUnitTests
 {
     private const long MinuteMs = 60_000;
-    private const string LastSpyMinuteKey = "SnapshotJob/LastSpyMinuteTs";
     private static readonly long BaseTs = DateTimeOffset.Parse("2026-07-20T10:00:00-04:00").ToUnixTimeMilliseconds();
+
+    // With DelayMinutes = 0 the probe expects the wall-clock n-1 bar.
+    private static long ExpectedBarStart() =>
+        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 60_000 * 60_000 - 60_000;
 
     private readonly MemoryCache _memoryCache = new(new MemoryCacheOptions());
     private readonly Mock<IMassiveClient> _massiveClient = new();
     private readonly Mock<IJobExecutionContext> _jobContext = new();
+    private readonly Mock<ILogger<SnapshotJob>> _logger = new();
     private readonly MemoryMarketCache _marketCache;
     private readonly CacheWarmupState _warmupState;
     private readonly SnapshotJob _classUnderTest;
@@ -42,16 +48,20 @@ public class SnapshotJobUnitTests
         meterFactory.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(new Meter("test"));
         _warmupState = new CacheWarmupState(meterFactory.Object);
 
+        // Attempt cap of 3 keeps probe-count assertions stable even if the wall
+        // clock crosses a minute boundary mid-test (the "fresh" bar goes stale and
+        // the probe exhausts at the same count).
         var config = new SnapshotConfig { ProbeMaxAttempts = 3, ProbeDelayMs = 1, BackfillMaxTickers = 50, RestBackfillMaxGapMinutes = 5 };
+        var marketDataConfig = new MarketDataConfig { DelayMinutes = 0 };
 
         _classUnderTest = new SnapshotJob(
             config,
-            _memoryCache,
+            marketDataConfig,
             _massiveClient.Object,
             _marketCache,
             _warmupState,
             new BarCacheService(_marketCache, new NullLogger<BarCacheService>()),
-            new NullLogger<SnapshotJob>());
+            _logger.Object);
     }
 
     [Fact]
@@ -68,52 +78,75 @@ public class SnapshotJobUnitTests
     }
 
     [Fact]
-    public async Task Probe_RetriesUntilSpyBarAdvances_ThenAppliesSnapshot()
+    public async Task Probe_RetriesUntilExpectedBarFlushed_ThenAppliesSnapshot()
     {
+        var expected = ExpectedBarStart();
+
         _warmupState.MarkReady();
-        SeedSpyMinuteSeriesEndingAt(BaseTs);
-        _memoryCache.Set(LastSpyMinuteKey, BaseTs);
+        SeedSpyMinuteSeriesEndingAt(expected - MinuteMs);
 
         _massiveClient
             .SetupSequence(m => m.GetAllTickersSnapshot("SPY", false))
-            .ReturnsAsync(SnapshotWithSpyMinute(BaseTs))          // stale
-            .ReturnsAsync(SnapshotWithSpyMinute(BaseTs))          // stale
-            .ReturnsAsync(SnapshotWithSpyMinute(BaseTs + MinuteMs)); // advanced
+            .ReturnsAsync(SnapshotWithSpyMinute(expected - MinuteMs)) // previous bar still served
+            .ReturnsAsync(SnapshotWithSpyMinute(expected - MinuteMs))
+            .ReturnsAsync(SnapshotWithSpyMinute(expected));           // expected bar flushed
 
         _massiveClient
             .Setup(m => m.GetAllTickersSnapshot(null, false))
-            .ReturnsAsync(SnapshotWithSpyMinute(BaseTs + MinuteMs));
+            .ReturnsAsync(SnapshotWithSpyMinute(expected));
 
         await _classUnderTest.Execute(_jobContext.Object);
 
         _massiveClient.Verify(m => m.GetAllTickersSnapshot("SPY", false), Times.Exactly(3));
         _massiveClient.Verify(m => m.GetAllTickersSnapshot(null, false), Times.Once);
 
-        SpyMinuteSeries().Results[^1].Timestamp.Should().Be(BaseTs + MinuteMs);
-        _memoryCache.Get<long>(LastSpyMinuteKey).Should().Be(BaseTs + MinuteMs);
+        SpyMinuteSeries().Results[^1].Timestamp.Should().Be(expected);
     }
 
     [Fact]
     public async Task Probe_Exhausted_StillAppliesFullSnapshot()
     {
+        var expected = ExpectedBarStart();
+
+        _warmupState.MarkReady();
+        SeedSpyMinuteSeriesEndingAt(expected - 2 * MinuteMs);
+
+        // Provider never flushes the expected bar within the probe window.
+        _massiveClient
+            .Setup(m => m.GetAllTickersSnapshot("SPY", false))
+            .ReturnsAsync(SnapshotWithSpyMinute(expected - MinuteMs));
+
+        _massiveClient
+            .Setup(m => m.GetAllTickersSnapshot(null, false))
+            .ReturnsAsync(SnapshotWithSpyMinute(expected - MinuteMs));
+
+        await _classUnderTest.Execute(_jobContext.Object);
+
+        _massiveClient.Verify(m => m.GetAllTickersSnapshot("SPY", false), Times.Exactly(3));
+        _massiveClient.Verify(m => m.GetAllTickersSnapshot(null, false), Times.Once);
+        SpyMinuteSeries().Results[^1].Timestamp.Should().Be(expected - MinuteMs);
+    }
+
+    [Fact]
+    public async Task Diff_FallsBackToCurrentLiveBar_WhenNotYetRolledIntoRing()
+    {
         _warmupState.MarkReady();
         SeedSpyMinuteSeriesEndingAt(BaseTs);
-        _memoryCache.Set(LastSpyMinuteKey, BaseTs + MinuteMs);
 
-        // Probe never advances past what was already applied.
+        // One traded minute, no later tick: the completed bar is still the live bar.
+        AddWebsocketMinute(BaseTs + MinuteMs);
+
         _massiveClient
             .Setup(m => m.GetAllTickersSnapshot("SPY", false))
             .ReturnsAsync(SnapshotWithSpyMinute(BaseTs + MinuteMs));
-
         _massiveClient
             .Setup(m => m.GetAllTickersSnapshot(null, false))
             .ReturnsAsync(SnapshotWithSpyMinute(BaseTs + MinuteMs));
 
         await _classUnderTest.Execute(_jobContext.Object);
 
-        _massiveClient.Verify(m => m.GetAllTickersSnapshot("SPY", false), Times.Exactly(3));
-        _massiveClient.Verify(m => m.GetAllTickersSnapshot(null, false), Times.Once);
-        SpyMinuteSeries().Results[^1].Timestamp.Should().Be(BaseTs + MinuteMs);
+        GetWideEventValue("wsMatched").Should().Be(1);
+        GetWideEventValue("wsMissing").Should().Be(0);
     }
 
     [Fact]
@@ -224,6 +257,22 @@ public class SnapshotJobUnitTests
             Volume = 100f,
             TickVwap = 10f
         });
+    }
+
+    /// <summary>
+    /// Pulls a named value out of the SNAPSHOT_RUN structured log state.
+    /// </summary>
+    private long GetWideEventValue(string key)
+    {
+        var state = _logger.Invocations
+            .Where(invocation => invocation.Method.Name == nameof(ILogger.Log))
+            .Select(invocation => invocation.Arguments[2])
+            .OfType<IReadOnlyList<KeyValuePair<string, object>>>()
+            .FirstOrDefault(values => values.Any(kv => kv.Key == key));
+
+        state.Should().NotBeNull($"a SNAPSHOT_RUN log with field '{key}' should have been emitted");
+
+        return Convert.ToInt64(state!.First(kv => kv.Key == key).Value);
     }
 
     private static MassiveSnapshotResponse SnapshotWithSpyMinute(long timestamp)

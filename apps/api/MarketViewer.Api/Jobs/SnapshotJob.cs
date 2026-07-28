@@ -4,9 +4,9 @@ using MarketViewer.Api.Services;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
+using MarketViewer.Infrastructure.Config;
 using Massive.Client.Interfaces;
 using Massive.Client.Requests;
-using Microsoft.Extensions.Caching.Memory;
 using Quartz;
 using System.Diagnostics;
 using Bar = Massive.Client.Models.Bar;
@@ -14,24 +14,22 @@ using Bar = Massive.Client.Models.Bar;
 namespace MarketViewer.Api.Jobs;
 
 /// <summary>
-/// Once per minute: waits for the provider to flush the latest completed minute bar
-/// (freshness is judged by advancement of SPY's bar, never by wall clock — the data
-/// plan may be delayed), applies the all-tickers snapshot to the cache, diffs the
-/// snapshot bars against the websocket-built bars from the live feed, and backfills
-/// any minute gaps a missed poll left behind. Emits one wide event per run.
+/// Once per minute: waits for the provider to flush the expected latest completed
+/// minute bar on the data clock (wall time minus the plan's delay), applies the
+/// all-tickers snapshot to the cache, diffs the snapshot bars against the
+/// websocket-built bars from the live feed, and backfills any minute gaps a missed
+/// poll left behind. Emits one wide event per run.
 /// </summary>
 [DisallowConcurrentExecution]
 public class SnapshotJob(
     SnapshotConfig config,
-    IMemoryCache memoryCache,
+    MarketDataConfig marketDataConfig,
     IMassiveClient massiveClient,
     IMarketCache marketCache,
     CacheWarmupState warmupState,
     BarCacheService barCacheService,
     ILogger<SnapshotJob> logger) : IJob
 {
-    private const string LastSpyMinuteKey = "SnapshotJob/LastSpyMinuteTs";
-
     private const float PriceTolerance = 0.005f;
     private const float VolumeRelativeTolerance = 0.005f;
 
@@ -110,6 +108,19 @@ public class SnapshotJob(
                 var wsBar = marketCache.GetRecentLiveBars(snapshot.Ticker)
                     .FirstOrDefault(bar => bar.Timestamp == snapshot.Minute.Timestamp);
 
+                // A thin ticker's completed bar can still be sitting as the current
+                // live bar — no later tick has rolled it into the ring. The snapshot
+                // publishing this minute means it's closed on the data clock, so the
+                // websocket bar is final and safe to diff.
+                if (wsBar is null)
+                {
+                    var liveBar = marketCache.GetLiveBar(snapshot.Ticker);
+                    if (liveBar?.Timestamp == snapshot.Minute.Timestamp)
+                    {
+                        wsBar = liveBar;
+                    }
+                }
+
                 if (wsBar is null)
                 {
                     wsMissing++;
@@ -140,11 +151,6 @@ public class SnapshotJob(
                 {
                     mismatches.Add(new MismatchRecord(snapshot.Ticker, relVolumeDelta, wsBar, snapshot.Minute));
                 }
-            }
-
-            if (spyTimestamp is not null)
-            {
-                memoryCache.Set(LastSpyMinuteKey, spyTimestamp.Value);
             }
 
             var (gapMinutesFilledFromRing, gapMinutesFilledFromRest, gapMinutesEmpty, gapTickersDeferred, gapsAssumedNatural) =
@@ -182,16 +188,22 @@ public class SnapshotJob(
     }
 
     /// <summary>
-    /// Retries a cheap single-ticker SPY snapshot until its minute bar advances past
-    /// the one the previous run applied. Advancement (not wall clock) is the freshness
-    /// signal because the data plan may be delayed by any amount. SPY is the sentinel:
-    /// per-ticker freshness is undecidable (an illiquid ticker's old bar may just mean
-    /// no trades), but SPY prints every minute of extended hours.
+    /// Retries a cheap single-ticker SPY snapshot until its minute bar reaches the
+    /// expected latest completed bar on the data clock: floor(now − DelayMinutes) − 1
+    /// minute. The job fires at :00, which on the data clock is the exact instant that
+    /// bar closes — the provider takes a couple of seconds to flush it, and settling
+    /// for mere advancement means permanently applying the previous bar (one minute of
+    /// avoidable staleness). SPY is the sentinel: per-ticker freshness is undecidable
+    /// (an illiquid ticker's old bar may just mean no trades), but SPY prints every
+    /// minute of extended hours. On exhaustion the caller fetches the full snapshot
+    /// anyway; the append-only cache makes a stale fetch a no-op.
     /// </summary>
     private async Task<(int Attempts, long LatencyMs, bool Exhausted)> ProbeForFreshBar(CancellationToken cancellationToken)
     {
         var sp = Stopwatch.StartNew();
-        var lastApplied = memoryCache.TryGetValue<long>(LastSpyMinuteKey, out var value) ? value : (long?)null;
+
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var expectedBarStart = nowMs / 60_000 * 60_000 - (marketDataConfig.DelayMinutes + 1) * 60_000L;
 
         for (var attempt = 1; attempt <= config.ProbeMaxAttempts; attempt++)
         {
@@ -202,7 +214,7 @@ public class SnapshotJob(
                 var spyTimestamp = probeResponse?.Tickers?
                     .FirstOrDefault(q => q.Ticker == "SPY")?.Minute?.Timestamp;
 
-                if (spyTimestamp is not null && (lastApplied is null || spyTimestamp > lastApplied))
+                if (spyTimestamp is not null && spyTimestamp >= expectedBarStart)
                 {
                     return (attempt, sp.ElapsedMilliseconds, false);
                 }

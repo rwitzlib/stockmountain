@@ -4,9 +4,11 @@ public class SnapshotConfig
 {
     /// <summary>
     /// Max single-ticker probe requests per run while waiting for the provider to
-    /// flush the latest completed minute bar.
+    /// flush the expected latest completed minute bar. Sized so the probe window
+    /// (attempts × delay) rides out the provider's ~2-3s aggregation flush after
+    /// the minute closes.
     /// </summary>
-    public int ProbeMaxAttempts { get; set; } = 5;
+    public int ProbeMaxAttempts { get; set; } = 8;
 
     /// <summary>Delay between probe attempts.</summary>
     public int ProbeDelayMs { get; set; } = 400;
