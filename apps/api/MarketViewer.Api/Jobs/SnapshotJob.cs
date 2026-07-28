@@ -147,7 +147,7 @@ public class SnapshotJob(
                 memoryCache.Set(LastSpyMinuteKey, spyTimestamp.Value);
             }
 
-            var (gapMinutesFilledFromRing, gapMinutesFilledFromRest, gapMinutesEmpty, gapTickersDeferred) =
+            var (gapMinutesFilledFromRing, gapMinutesFilledFromRest, gapMinutesEmpty, gapTickersDeferred, gapsAssumedNatural) =
                 await BackfillGaps(gaps, context.CancellationToken);
 
             sp.Stop();
@@ -165,13 +165,13 @@ public class SnapshotJob(
                 "SNAPSHOT_RUN tickers={tickers} appended={appended} wsMatched={wsMatched} wsPriceMismatch={wsPriceMismatch} " +
                 "wsVolumeMismatch={wsVolumeMismatch} wsMissing={wsMissing} gapsDetected={gapsDetected} " +
                 "gapMinutesFilledFromRing={gapMinutesFilledFromRing} gapMinutesFilledFromRest={gapMinutesFilledFromRest} " +
-                "gapMinutesEmpty={gapMinutesEmpty} gapTickersDeferred={gapTickersDeferred} probeAttempts={probeAttempts} " +
-                "probeLatencyMs={probeLatencyMs} probeExhausted={probeExhausted} spyMinuteTs={spyMinuteTs} " +
+                "gapMinutesEmpty={gapMinutesEmpty} gapTickersDeferred={gapTickersDeferred} gapsAssumedNatural={gapsAssumedNatural} " +
+                "probeAttempts={probeAttempts} probeLatencyMs={probeLatencyMs} probeExhausted={probeExhausted} spyMinuteTs={spyMinuteTs} " +
                 "dataLagSeconds={dataLagSeconds} elapsedMs={elapsedMs} worstOffenders={worstOffenders}",
                 snapshots.Count, appended, wsMatched, wsPriceMismatch,
                 wsVolumeMismatch, wsMissing, gaps.Count,
                 gapMinutesFilledFromRing, gapMinutesFilledFromRest,
-                gapMinutesEmpty, gapTickersDeferred, probe.Attempts,
+                gapMinutesEmpty, gapTickersDeferred, gapsAssumedNatural, probe.Attempts,
                 probe.LatencyMs, probe.Exhausted, spyTimestamp ?? 0,
                 dataLagSeconds, sp.ElapsedMilliseconds, worstOffenders);
         }
@@ -227,15 +227,16 @@ public class SnapshotJob(
     /// cover the rest. Minutes neither source has are counted, not treated as errors —
     /// an illiquid ticker legitimately has empty minutes.
     /// </summary>
-    private async Task<(int FromRing, int FromRest, int Empty, int Deferred)> BackfillGaps(
+    private async Task<(int FromRing, int FromRest, int Empty, int Deferred, int AssumedNatural)> BackfillGaps(
         List<GapRecord> gaps, CancellationToken cancellationToken)
     {
         if (gaps.Count == 0)
         {
-            return (0, 0, 0, 0);
+            return (0, 0, 0, 0, 0);
         }
 
         var fromRing = 0;
+        var assumedNatural = 0;
         List<GapRecord> stillMissing = [];
 
         foreach (var gap in gaps)
@@ -248,10 +249,21 @@ public class SnapshotJob(
             fromRing += inserted;
 
             var expectedMinutes = (int)((gap.ToTs - gap.FromTs) / 60_000) - 1;
-            if (inserted < expectedMinutes)
+
+            if (inserted >= expectedMinutes)
             {
-                stillMissing.Add(gap);
+                continue;
             }
+
+            // Long gaps are natural illiquidity, not missed polls; REST has nothing
+            // for those minutes either, so don't burn calls on them.
+            if (expectedMinutes > config.RestBackfillMaxGapMinutes)
+            {
+                assumedNatural++;
+                continue;
+            }
+
+            stillMissing.Add(gap);
         }
 
         var restCandidates = stillMissing.Take(config.BackfillMaxTickers).ToList();
@@ -295,6 +307,6 @@ public class SnapshotJob(
                 }
             });
 
-        return (fromRing, fromRest, empty, deferred);
+        return (fromRing, fromRest, empty, deferred, assumedNatural);
     }
 }

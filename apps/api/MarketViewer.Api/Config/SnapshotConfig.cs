@@ -16,4 +16,12 @@ public class SnapshotConfig
     /// Bounds the request stampede after several consecutive failed polls.
     /// </summary>
     public int BackfillMaxTickers { get; set; } = 50;
+
+    /// <summary>
+    /// Gaps longer than this are assumed to be natural illiquidity (the ticker just
+    /// didn't trade) and skip the REST fallback. A missed snapshot poll produces
+    /// 1-2 minute gaps across many tickers at once; a thin ticker resuming after a
+    /// quiet half hour produces one long gap that REST can't fill anyway.
+    /// </summary>
+    public int RestBackfillMaxGapMinutes { get; set; } = 5;
 }

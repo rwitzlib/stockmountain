@@ -1,0 +1,17 @@
+info:
+  name: Websocket (Delayed)
+  type: websocket
+  seq: 2
+
+websocket:
+  url: wss://delayed.massive.com/stocks
+  message:
+    type: json
+    data: |-
+      {"action":"auth","params":"{{process.env.MASSIVE_TOKEN}}"}
+      {"action":"subscribe","params":"A.SPY"}
+  auth: inherit
+
+settings:
+  timeout: 0
+  keepAliveInterval: 0

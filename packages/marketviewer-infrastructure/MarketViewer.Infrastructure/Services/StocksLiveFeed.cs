@@ -7,14 +7,25 @@ using Microsoft.Extensions.Configuration;
 using Massive.Client.Responses;
 using Massive.Client.Requests;
 using MarketViewer.Contracts.Caching;
+using MarketViewer.Infrastructure.Config;
 
 namespace MarketViewer.Infrastructure.Services;
 
 public class StocksLiveFeed(
     IConfiguration configuration,
+    MarketDataConfig marketDataConfig,
     IMarketCache marketCache,
     ILogger<StocksLiveFeed> logger) : BackgroundService
 {
+    // Massive serves delayed and real-time data from different clusters; a token
+    // entitled only to the delayed plan authenticates on the real-time cluster but
+    // streams nothing. Keyed off DelayMinutes so the socket host and the scan data
+    // clock can never disagree about which plan is active.
+    private const string RealTimeUrl = "wss://socket.massive.com/stocks";
+    private const string DelayedUrl = "wss://delayed.massive.com/stocks";
+
+    private string SocketUrl => marketDataConfig.DelayMinutes > 0 ? DelayedUrl : RealTimeUrl;
+
     private const int ReceiveBufferSize = 1024 * 64;
 
     // A dead TCP peer can leave ReceiveAsync hanging forever with no exception;
@@ -48,9 +59,9 @@ public class StocksLiveFeed(
                 // ClientWebSocket cannot be reused after a close/abort; one per attempt.
                 using var socket = new ClientWebSocket();
 
-                logger.LogInformation("Connecting to MassiveApi WebSocket (attempt {attempt}) at: {time}", attempt, DateTimeOffset.Now);
+                logger.LogInformation("Connecting to MassiveApi WebSocket at {url} (attempt {attempt}) at: {time}", SocketUrl, attempt, DateTimeOffset.Now);
 
-                await socket.ConnectAsync(new Uri("wss://socket.massive.com/stocks"), cancellationToken);
+                await socket.ConnectAsync(new Uri(SocketUrl), cancellationToken);
 
                 var subscribed = await RunSession(socket, cancellationToken);
 

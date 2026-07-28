@@ -42,7 +42,7 @@ public class SnapshotJobUnitTests
         meterFactory.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(new Meter("test"));
         _warmupState = new CacheWarmupState(meterFactory.Object);
 
-        var config = new SnapshotConfig { ProbeMaxAttempts = 3, ProbeDelayMs = 1, BackfillMaxTickers = 50 };
+        var config = new SnapshotConfig { ProbeMaxAttempts = 3, ProbeDelayMs = 1, BackfillMaxTickers = 50, RestBackfillMaxGapMinutes = 5 };
 
         _classUnderTest = new SnapshotJob(
             config,
@@ -172,6 +172,27 @@ public class SnapshotJobUnitTests
             BaseTs, BaseTs + MinuteMs, BaseTs + 2 * MinuteMs, BaseTs + 3 * MinuteMs);
 
         _massiveClient.Verify(m => m.GetAggregates(It.IsAny<MassiveAggregateRequest>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task LongGap_AssumedNaturalIlliquidity_SkipsRest()
+    {
+        _warmupState.MarkReady();
+        SeedSpyMinuteSeriesEndingAt(BaseTs);
+
+        // 10 missing minutes > RestBackfillMaxGapMinutes (5): a thin ticker that
+        // simply didn't trade — no REST call.
+        _massiveClient
+            .Setup(m => m.GetAllTickersSnapshot("SPY", false))
+            .ReturnsAsync(SnapshotWithSpyMinute(BaseTs + 11 * MinuteMs));
+        _massiveClient
+            .Setup(m => m.GetAllTickersSnapshot(null, false))
+            .ReturnsAsync(SnapshotWithSpyMinute(BaseTs + 11 * MinuteMs));
+
+        await _classUnderTest.Execute(_jobContext.Object);
+
+        SpyMinuteSeries().Results[^1].Timestamp.Should().Be(BaseTs + 11 * MinuteMs);
+        _massiveClient.Verify(m => m.GetAggregates(It.IsAny<MassiveAggregateRequest>()), Times.Never);
     }
 
     #region Private Methods

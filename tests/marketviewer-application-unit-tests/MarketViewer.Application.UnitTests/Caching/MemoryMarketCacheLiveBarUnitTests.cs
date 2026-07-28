@@ -24,6 +24,23 @@ public class MemoryMarketCacheLiveBarUnitTests
     }
 
     [Fact]
+    public void LiveBar_TimestampFlooredToMinute_WhenFirstTickIsMidMinute()
+    {
+        // A thin ticker's first per-second aggregate can start at :03; the bar must
+        // still be stamped at the minute boundary to line up with snapshot bars.
+        AddTick(BaseTs + 3_000, close: 10f, high: 10f, low: 10f, volume: 5f);
+
+        _classUnderTest.GetLiveBar("SPY").Timestamp.Should().Be(BaseTs);
+
+        AddTick(BaseTs + MinuteMs + 7_000, close: 11f, high: 11f, low: 11f, volume: 5f);
+
+        var ring = _classUnderTest.GetRecentLiveBars("SPY");
+        ring.Should().HaveCount(1);
+        ring[0].Timestamp.Should().Be(BaseTs);
+        _classUnderTest.GetLiveBar("SPY").Timestamp.Should().Be(BaseTs + MinuteMs);
+    }
+
+    [Fact]
     public void GetRecentLiveBars_ReturnsEmpty_WhenNothingStreamed()
     {
         var bars = _classUnderTest.GetRecentLiveBars("SPY");

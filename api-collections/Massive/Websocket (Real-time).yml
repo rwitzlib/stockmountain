@@ -1,0 +1,11 @@
+info:
+  name: Websocket (Real-time)
+  type: websocket
+  seq: 1
+
+websocket:
+  url: wss://socket.massive.com/stocks
+
+settings:
+  timeout: 30
+  keepAliveInterval: 0

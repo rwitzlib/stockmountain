@@ -146,7 +146,10 @@ public class MemoryMarketCache(IMemoryCache memoryCache, IAmazonS3 s3) : IMarket
                 Open = webSocketBar.Open,
                 Volume = webSocketBar.Volume,
                 Vwap = webSocketBar.TickVwap,
-                Timestamp = webSocketBar.TickStart,
+                // TickStart is the first traded *second* of the minute (e.g. :03 for a
+                // thin ticker); floor to the minute so live bars line up with the
+                // minute-aligned snapshot/canonical bars for dedupe and the rollover diff.
+                Timestamp = webSocketBar.TickStart / 60_000 * 60_000,
             };
 
             if (webSocketBar.Ticker is "SPY")
