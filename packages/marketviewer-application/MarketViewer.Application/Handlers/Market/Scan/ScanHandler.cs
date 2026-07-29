@@ -74,7 +74,7 @@ public class ScanHandler(
             List<Task<ScanResponse.Item>> tasks = [];
             foreach (var ticker in tickers)
             {
-                tasks.Add(Task.Run(() => ScanTicker(ticker, filters, timestamp)));
+                tasks.Add(Task.Run(() => ScanTicker(ticker, filters, timestamp, request.CompletedBarsOnly)));
             }
             var items = (await Task.WhenAll(tasks)).Where(item => item is not null).ToList();
 
@@ -103,9 +103,13 @@ public class ScanHandler(
 
     #region Private Methods
 
-    private ScanResponse.Item ScanTicker(string ticker, IReadOnlyList<IExpression> filters, DateTimeOffset timestamp)
+    private ScanResponse.Item ScanTicker(string ticker, IReadOnlyList<IExpression> filters, DateTimeOffset timestamp, bool completedBarsOnly)
     {
-        var latestBar = marketCache.GetLiveBar(ticker);
+        // Completed-bar mode drops the in-progress bar but keeps the ring buffer:
+        // those are completed minutes the snapshot poll hasn't landed yet, so entries
+        // still fire seconds after a minute closes (with lit-only volume until the
+        // snapshot corrects it — conservative for "volume >" filters; see ADR 0003).
+        var latestBar = completedBarsOnly ? null : marketCache.GetLiveBar(ticker);
         var recentBars = marketCache.GetRecentLiveBars(ticker);
 
         foreach (var filter in filters)

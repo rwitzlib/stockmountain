@@ -38,12 +38,20 @@ public class ScannerJob(
 
         var entrySettingsList = scannerCache.GetStrategyEntrySettings(); // TODO: Use cadence parameter eventually if we want to separate jobs by cadence
 
+        // Completed-bar mode keys the signal window to the data-clock minute: the
+        // underlying data only changes once per minute, so the 15-second re-scans of
+        // the same bar produce the same window and dedupe in the executor
+        // (TryRecordExecution on strategy/ticker/window). Partial-bar mode keeps the
+        // per-scan window since every tick evaluates fresh data.
+        var window = ComputeWindow(dataTime, config.CompletedBarEntries);
+
         await Parallel.ForEachAsync(entrySettingsList, async (entrySettings, cancellationToken) =>
         {
             var scanRequest = new ScanRequest
             {
                 Filters = entrySettings.Filters,
-                Timestamp = dataTime
+                Timestamp = dataTime,
+                CompletedBarsOnly = config.CompletedBarEntries
             };
 
             var response = await scanHandler.Handle(scanRequest, cancellationToken);
@@ -56,7 +64,7 @@ public class ScannerJob(
             var scanRecord = new ScanRecord
             {
                 StrategyHash = entrySettings.ComputeStrategyHash(),
-                Window = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                Window = window,
                 Tickers = response.Data.Items.Select(r => r.Ticker).ToList(),
                 TimeElapsed = response.Data.TimeElapsed,
                 CadenceSec = config.CadenceSec
@@ -64,5 +72,12 @@ public class ScannerJob(
 
             await signalPublisher.Publish(scanRecord);
         });
+    }
+
+    public static long ComputeWindow(DateTimeOffset dataTime, bool completedBarEntries)
+    {
+        return completedBarEntries
+            ? dataTime.ToUnixTimeSeconds() / 60 * 60
+            : DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     }
 }

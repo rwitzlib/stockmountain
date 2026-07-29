@@ -125,6 +125,65 @@ public class ScanHandlerUnitTests
     }
 
     [Fact]
+    public async Task CompletedBarsOnly_ExcludesPartialLiveBar()
+    {
+        // The live (partial) bar would pass the filter, but completed-bar mode
+        // must not evaluate it.
+        var now = DateTimeOffset.Now;
+        SetupMarketCacheForMinuteTimeframe(now, true, true);
+
+        var request = new ScanRequest
+        {
+            Timestamp = now,
+            CompletedBarsOnly = true,
+            Filters =
+            [
+                "vwap > 5 [1m]"
+            ]
+        };
+
+        var response = await _classUnderTest.Handle(request, default);
+
+        response.Data.Items.Count().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CompletedBarsOnly_StillEvaluatesRingCompletedBar()
+    {
+        // A completed minute that only exists in the websocket ring (snapshot poll
+        // not landed yet) passes the filter; the newer partial bar would fail it.
+        var now = DateTimeOffset.Now;
+        SetupMarketCacheForMinuteTimeframe(now.AddMinutes(-2), false);
+
+        _marketCache.AddLiveBar(new MassiveWebsocketAggregateResponse
+        {
+            Ticker = "SPY",
+            TickVwap = 1000, // completed bar: passes "vwap > 5"
+            TickStart = now.AddMinutes(-1).ToUnixTimeMilliseconds()
+        });
+        _marketCache.AddLiveBar(new MassiveWebsocketAggregateResponse
+        {
+            Ticker = "SPY",
+            TickVwap = 0, // in-progress bar: would fail the filter if evaluated
+            TickStart = now.ToUnixTimeMilliseconds()
+        });
+
+        var request = new ScanRequest
+        {
+            Timestamp = now,
+            CompletedBarsOnly = true,
+            Filters =
+            [
+                "vwap > 5 [1m]"
+            ]
+        };
+
+        var response = await _classUnderTest.Handle(request, default);
+
+        response.Data.Items.Count().Should().Be(1);
+    }
+
+    [Fact]
     public async Task LatestBarIsIncluded_Passes_Multiple_Timeframes()
     {
         // Arrange
