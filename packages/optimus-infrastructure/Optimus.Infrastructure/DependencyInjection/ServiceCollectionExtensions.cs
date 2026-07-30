@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Optimus.Infrastructure.Config;
 using Optimus.Infrastructure.Repositories;
+using Optimus.Infrastructure.Services;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Optimus.Infrastructure.DependencyInjection;
@@ -18,9 +19,12 @@ public static class ServiceCollectionExtensions
             .AddSingleton(configuration.GetSection("SqsConsumerConfig").Get<SqsConsumerConfig>())
             .AddSingleton(configuration.GetSection("ScanResultsConfig").Get<ScanConfig>())
             .AddSingleton(configuration.GetSection("ExecutionDedupConfig").Get<ExecutionDedupConfig>())
-            .AddSingleton(configuration.GetSection("MetaConfig").Get<MetaConfig>());
+            .AddSingleton(configuration.GetSection("MetaConfig").Get<MetaConfig>())
+            // Missing section means no delay: the data clock degrades to the wall clock.
+            .AddSingleton(configuration.GetSection("MarketDataConfig").Get<MarketDataConfig>() ?? new MarketDataConfig());
 
         services.AddSingleton<TickerCache>();
+        services.AddSingleton<MarketDataClock>();
 
         services.AddSingleton<StrategyRepository>()
             .AddSingleton<StrategyStateRepository>()

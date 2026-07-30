@@ -6,6 +6,7 @@ using MarketViewer.Contracts.Records.Strategy;
 using Massive.Client.Interfaces;
 using Optimus.Adapter;
 using Optimus.Infrastructure.Repositories;
+using Optimus.Infrastructure.Services;
 using Quartz;
 
 namespace Optimus.Services;
@@ -18,13 +19,20 @@ public class SellWorker(
     IMassiveClient massiveClient,
     MarketCalendarService marketCalendar,
     AdapterFactory adapterFactory,
+    MarketDataClock dataClock,
     ILogger<SellWorker> logger) : IJob
 {
     private const int SnapshotBatchSize = 500;
 
     public async Task Execute(IJobExecutionContext context)
     {
-        if (!await marketCalendar.IsMarketOpen())
+        // Gate on the data clock, not the wall clock: on a delayed plan the snapshot
+        // prices lag by DelayMinutes, so exits keep evaluating past the wall-clock close
+        // until the data covering the full session has arrived. Without this the last
+        // DelayMinutes of each session were never exit-evaluated until the next open.
+        var dataNow = dataClock.Now;
+
+        if (!await marketCalendar.IsMarketOpen(asOf: dataNow))
         {
             return;
         }
@@ -56,7 +64,7 @@ public class SellWorker(
             var distinctTickers = openPositions.Select(p => p.Trade.Ticker).Distinct().ToList();
             var priceMap = await GetCurrentPrices(distinctTickers);
 
-            var sellTasks = openPositions.Select(p => SellPositionIfApplicable(p.Strategy, p.Trade, priceMap));
+            var sellTasks = openPositions.Select(p => SellPositionIfApplicable(p.Strategy, p.Trade, priceMap, dataNow));
             await Task.WhenAll(sellTasks);
         }
         catch (Exception e)
@@ -95,12 +103,13 @@ public class SellWorker(
         return prices;
     }
 
-    private async Task SellPositionIfApplicable(StrategyDto strategy, TradeRecord trade, Dictionary<string, float> priceMap)
+    private async Task SellPositionIfApplicable(StrategyDto strategy, TradeRecord trade, Dictionary<string, float> priceMap, DateTimeOffset dataNow)
     {
         float? currentPrice = priceMap.TryGetValue(trade.Ticker, out var price) ? price : null;
 
         // TODO: Evaluate ExitSettings.ConditionalExit (scan-based exits) here once supported.
-        var exitReason = ExitEvaluator.Evaluate(strategy, trade, currentPrice, DateTimeOffset.Now);
+        // Timed exits compare against the data clock, consistent with the data-time OpenedAt stamp.
+        var exitReason = ExitEvaluator.Evaluate(strategy, trade, currentPrice, dataNow);
 
         if (exitReason is null)
         {

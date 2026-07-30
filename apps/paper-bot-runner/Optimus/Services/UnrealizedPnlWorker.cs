@@ -5,7 +5,7 @@ using Quartz;
 namespace Optimus.Services;
 
 /// <summary>
-/// Scheduled worker that refreshes unrealized P/L for all active strategies with open positions.
+/// Scheduled worker that refreshes unrealized P/L for all active strategies.
 /// Runs periodically during market hours.
 /// </summary>
 [DisallowConcurrentExecution]
@@ -41,9 +41,11 @@ public class UnrealizedPnlWorker(
             {
                 try
                 {
-                    // Check if strategy has open positions before refreshing
+                    // Skip strategies that have never traded (no state record). Strategies with
+                    // 0 open positions still go through RefreshUnrealizedPnl so any stale
+                    // UnrealizedPnl left over from the last close gets reset to 0.
                     var state = await stateRepository.GetState(strategy.Id);
-                    if (state == null || state.OpenPositionsCount == 0)
+                    if (state == null)
                     {
                         skippedCount++;
                         continue;
@@ -72,7 +74,7 @@ public class UnrealizedPnlWorker(
             }
 
             logger.LogInformation(
-                "Unrealized P/L refresh complete: {RefreshCount} refreshed, {SkippedCount} skipped (no positions), {ErrorCount} errors",
+                "Unrealized P/L refresh complete: {RefreshCount} refreshed, {SkippedCount} skipped (no state), {ErrorCount} errors",
                 refreshCount, skippedCount, errorCount);
         }
         catch (Exception ex)

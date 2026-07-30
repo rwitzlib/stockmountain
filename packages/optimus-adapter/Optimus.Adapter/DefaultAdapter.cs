@@ -6,12 +6,14 @@ using Massive.Client.Interfaces;
 using Optimus.Adapter.Interfaces;
 using Microsoft.Extensions.Logging;
 using Optimus.Infrastructure.Repositories;
+using Optimus.Infrastructure.Services;
 
 namespace Optimus.Adapter;
 
 public class DefaultAdapter(
     TradeRepository tradeRepository,
     IMassiveClient massiveClient,
+    MarketDataClock dataClock,
     ILogger<DefaultAdapter> logger) : IAdapter
 {
 
@@ -51,7 +53,9 @@ public class DefaultAdapter(
                 Ticker = ticker,
                 Type = TradeType.Paper,
                 OrderStatus = TradeStatus.Open,
-                OpenedAt = DateTimeOffset.Now.ToString(),
+                // Data-clock stamp: matches the delayed snapshot price above, so trade
+                // times line up with backtests instead of trailing the close by the delay.
+                OpenedAt = dataClock.Now.ToString(),
                 EntryPrice = currentPrice.Value,
                 EntryPosition = actualEntryCost,
                 Shares = shares
@@ -97,7 +101,7 @@ public class DefaultAdapter(
             trade.ClosePosition = closePosition;
             trade.Profit = profit;
             trade.OrderStatus = TradeStatus.Closed;
-            trade.ClosedAt = DateTimeOffset.Now.ToString();
+            trade.ClosedAt = dataClock.Now.ToString();
 
             var isSuccess = await tradeRepository.Put(trade);
 
