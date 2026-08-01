@@ -38,7 +38,7 @@ const defaultFormData: Strategy = {
 /**
  * Execution tiers per plan 08: internal paper answers "does the strategy work",
  * Alpaca paper answers "does the integration work", Alpaca live is real money.
- * The Alpaca tiers unlock when the Phase 3 adapter ships.
+ * Alpaca live stays locked until Phase 4 (reconciliation + watchdog) ships.
  */
 interface ExecutionTier {
   id: string;
@@ -63,15 +63,15 @@ const EXECUTION_TIERS: ExecutionTier[] = [
     label: 'Alpaca paper',
     description: 'Dress rehearsal: the live integration path against Alpaca’s paper account.',
     type: 'Paper',
-    integration: 'Default',
-    available: false,
+    integration: 'AlpacaPaper',
+    available: true,
   },
   {
     id: 'alpaca-live',
     label: 'Alpaca live',
     description: 'Real money. Market orders with a broker-side disaster backstop.',
     type: 'Live',
-    integration: 'Default',
+    integration: 'AlpacaLive',
     available: false,
   },
 ];

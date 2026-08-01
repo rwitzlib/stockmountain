@@ -69,7 +69,7 @@ export interface EntrySettings {
 export type StrategyStateType = 'Inactive' | 'Active' | 'Paused' | 'Deleted';
 export type VisibilityType = 'Private' | 'Public';
 export type TradeType = 'Paper' | 'Live';
-export type IntegrationType = 'Default' | 'Schwab' | 'Fidelity' | 'ETrade';
+export type IntegrationType = 'Default' | 'Schwab' | 'Fidelity' | 'ETrade' | 'AlpacaPaper' | 'AlpacaLive';
 
 // Legacy aliases for backward compatibility
 export type StrategyState = 'active' | 'inactive';
