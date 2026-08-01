@@ -20,41 +20,39 @@ public class WorkerExitLogicUnitTests
     [Theory]
     [InlineData(5f)]
     [InlineData(-5f)]
-    public void CheckStopLoss_PercentLow_TriggersRegardlessOfSign(float configuredValue)
+    public void CheckStopLoss_Percent_TriggersRegardlessOfSign(float configuredValue)
     {
         var request = CreateRequest(stopLoss: new Exit
         {
-            PriceActionType = PriceActionType.low,
             Type = ExitValueType.percent,
             Value = configuredValue
         });
 
         var bars = new List<Bar>
         {
-            CreateBar(1000, high: 101f, low: 99f, close: 100f),   // -1%, no trigger
-            CreateBar(2000, high: 100f, low: 94f, close: 96f),    // -6%, trigger
-            CreateBar(3000, high: 100f, low: 90f, close: 92f)
+            CreateBar(1000, high: 101f, low: 99f, close: 100f),   // 0%, no trigger
+            CreateBar(2000, high: 100f, low: 94f, close: 96f),    // -4%, no trigger
+            CreateBar(3000, high: 100f, low: 90f, close: 92f)     // -8%, trigger
         };
 
         var triggered = WorkerFunction.CheckStopLoss(request, Shares, EntryPosition, EntryPrice, bars, out var candle);
 
         triggered.Should().BeTrue();
-        candle.Timestamp.Should().Be(2000);
+        candle.Timestamp.Should().Be(3000);
     }
 
     [Fact]
-    public void CheckStopLoss_PercentLow_DoesNotTriggerAboveThreshold()
+    public void CheckStopLoss_Percent_DoesNotTriggerAboveThreshold()
     {
         var request = CreateRequest(stopLoss: new Exit
         {
-            PriceActionType = PriceActionType.low,
             Type = ExitValueType.percent,
             Value = 5f
         });
 
         var bars = new List<Bar>
         {
-            CreateBar(1000, high: 101f, low: 97f, close: 100f),   // -3%, no trigger
+            CreateBar(1000, high: 101f, low: 97f, close: 100f),   // 0%, no trigger
             CreateBar(2000, high: 102f, low: 98f, close: 101f)
         };
 
@@ -65,12 +63,11 @@ public class WorkerExitLogicUnitTests
     }
 
     [Fact]
-    public void CheckStopLoss_FlatClose_TriggersOnPositionLoss()
+    public void CheckStopLoss_Flat_TriggersOnPositionLoss()
     {
         // $50 flat stop on a $1000 position: close of $94 means a $60 loss.
         var request = CreateRequest(stopLoss: new Exit
         {
-            PriceActionType = PriceActionType.close,
             Type = ExitValueType.flat,
             Value = 50f
         });
@@ -88,16 +85,16 @@ public class WorkerExitLogicUnitTests
     }
 
     [Fact]
-    public void CheckStopLoss_UsesClosePrice_NotLow_ForClosePriceAction()
+    public void CheckStopLoss_UsesClosePrice_NotLow()
     {
         var request = CreateRequest(stopLoss: new Exit
         {
-            PriceActionType = PriceActionType.close,
             Type = ExitValueType.percent,
             Value = 5f
         });
 
-        // Low dips below -5% but close recovers; a close-based stop must not trigger.
+        // Low dips below -5% but close recovers; stops are close-based like live's
+        // snapshot polling, so an intra-bar low must not trigger.
         var bars = new List<Bar>
         {
             CreateBar(1000, high: 101f, low: 92f, close: 99f)
@@ -113,19 +110,18 @@ public class WorkerExitLogicUnitTests
     #region CheckTakeProfit
 
     [Fact]
-    public void CheckTakeProfit_PercentHigh_TriggersAtTarget()
+    public void CheckTakeProfit_Percent_TriggersAtTarget()
     {
         var request = CreateRequest(takeProfit: new Exit
         {
-            PriceActionType = PriceActionType.high,
             Type = ExitValueType.percent,
             Value = 10f
         });
 
         var bars = new List<Bar>
         {
-            CreateBar(1000, high: 105f, low: 99f, close: 104f),   // +5%, no trigger
-            CreateBar(2000, high: 111f, low: 103f, close: 108f)   // +11%, trigger
+            CreateBar(1000, high: 105f, low: 99f, close: 104f),   // +4%, no trigger
+            CreateBar(2000, high: 112f, low: 103f, close: 111f)   // +11%, trigger
         };
 
         var triggered = WorkerFunction.CheckTakeProfit(request, Shares, EntryPosition, EntryPrice, bars, out var candle);
@@ -142,13 +138,11 @@ public class WorkerExitLogicUnitTests
         var request = CreateRequest(
             takeProfit: new Exit
             {
-                PriceActionType = PriceActionType.close,
                 Type = ExitValueType.flat,
                 Value = 100f
             },
             stopLoss: new Exit
             {
-                PriceActionType = PriceActionType.low,
                 Type = ExitValueType.flat,
                 Value = 1f
             });
@@ -169,13 +163,11 @@ public class WorkerExitLogicUnitTests
         var request = CreateRequest(
             takeProfit: new Exit
             {
-                PriceActionType = PriceActionType.close,
                 Type = ExitValueType.flat,
                 Value = 100f
             },
             stopLoss: new Exit
             {
-                PriceActionType = PriceActionType.low,
                 Type = ExitValueType.flat,
                 Value = 1f
             });
@@ -190,34 +182,6 @@ public class WorkerExitLogicUnitTests
 
         triggered.Should().BeTrue();
         candle.Timestamp.Should().Be(2000);
-    }
-
-    [Fact]
-    public void CheckTakeProfit_VwapFlat_UsesTakeProfitValue_NotStopLossValue()
-    {
-        // Regression: the vwap/flat branch previously compared against StopLoss.Value.
-        var request = CreateRequest(
-            takeProfit: new Exit
-            {
-                PriceActionType = PriceActionType.vwap,
-                Type = ExitValueType.flat,
-                Value = 100f
-            },
-            stopLoss: new Exit
-            {
-                PriceActionType = PriceActionType.low,
-                Type = ExitValueType.flat,
-                Value = 1f
-            });
-
-        var bars = new List<Bar>
-        {
-            CreateBar(1000, high: 106f, low: 103f, close: 105f)   // vwap ≈ 104.67, +$46, no trigger
-        };
-
-        var triggered = WorkerFunction.CheckTakeProfit(request, Shares, EntryPosition, EntryPrice, bars, out _);
-
-        triggered.Should().BeFalse();
     }
 
     #endregion
@@ -263,7 +227,8 @@ public class WorkerExitLogicUnitTests
 
         var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
 
-        result.High.SoldAt.Should().Be(DateTimeOffset.FromUnixTimeMilliseconds(bars[1].Timestamp).ToOffset(EntryStart.Offset));
+        // SoldAt is the execution minute after the priced bar.
+        result.High.SoldAt.Should().Be(DateTimeOffset.FromUnixTimeMilliseconds(bars[1].Timestamp).ToOffset(EntryStart.Offset).AddMinutes(1));
         result.High.MaxRunup.Should().Be(100f);
         result.High.MaxDrawdown.Should().Be(-100f);
         result.Hold.MaxRunup.Should().Be(200f);
@@ -275,7 +240,6 @@ public class WorkerExitLogicUnitTests
     {
         var request = CreateRequest(takeProfit: new Exit
         {
-            PriceActionType = PriceActionType.high,
             Type = ExitValueType.percent,
             Value = 5f
         });
@@ -301,7 +265,6 @@ public class WorkerExitLogicUnitTests
     {
         var request = CreateRequest(takeProfit: new Exit
         {
-            PriceActionType = PriceActionType.high,
             Type = ExitValueType.percent,
             Value = 5f
         });
@@ -328,13 +291,11 @@ public class WorkerExitLogicUnitTests
         var request = CreateRequest(
             takeProfit: new Exit
             {
-                PriceActionType = PriceActionType.high,
                 Type = ExitValueType.percent,
                 Value = 5f
             },
             stopLoss: new Exit
             {
-                PriceActionType = PriceActionType.low,
                 Type = ExitValueType.percent,
                 Value = 5f
             });
@@ -359,7 +320,6 @@ public class WorkerExitLogicUnitTests
     {
         var request = CreateRequest(stopLoss: new Exit
         {
-            PriceActionType = PriceActionType.low,
             Type = ExitValueType.percent,
             Value = 5f
         });
@@ -385,7 +345,6 @@ public class WorkerExitLogicUnitTests
     {
         var request = CreateRequest(takeProfit: new Exit
         {
-            PriceActionType = PriceActionType.close,
             Type = ExitValueType.flat,
             Value = 50f
         });
@@ -406,18 +365,18 @@ public class WorkerExitLogicUnitTests
     }
 
     [Fact]
-    public void BuildEntryResult_SameBarTakeProfitAndStopLoss_TieGoesToStopLoss()
+    public void BuildEntryResult_TakeProfitBeforeStopLoss_KeepsTakeProfit()
     {
+        // With close-based triggers a same-bar tie is impossible (one close cannot be
+        // both above the target and below the stop), so ordering decides.
         var request = CreateRequest(
             takeProfit: new Exit
             {
-                PriceActionType = PriceActionType.high,
                 Type = ExitValueType.percent,
                 Value = 5f
             },
             stopLoss: new Exit
             {
-                PriceActionType = PriceActionType.low,
                 Type = ExitValueType.percent,
                 Value = 5f
             });
@@ -426,14 +385,16 @@ public class WorkerExitLogicUnitTests
         var bars = new List<Bar>
         {
             CreateBarAt(EntryStart.AddMinutes(1), 100f),
-            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 112f, low: 90f, close: 100f), // both fire
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 110f, low: 100f, close: 106f), // target first
+            CreateBar(EntryStart.AddMinutes(20).ToUnixTimeMilliseconds(), high: 100f, low: 88f, close: 92f),   // stop later
             CreateBarAt(entryEnd, 100.5f)
         };
 
         var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
 
-        result.Hold.ExitReason.Should().Be(BacktestExitReason.stopLoss);
-        result.High.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.takeProfit);
+        result.High.ExitReason.Should().Be(BacktestExitReason.takeProfit);
+        result.Hold.SoldAt.Should().Be(EntryStart.AddMinutes(11));
     }
 
     [Fact]
@@ -454,6 +415,52 @@ public class WorkerExitLogicUnitTests
 
         result.Hold.ExitReason.Should().Be(BacktestExitReason.endOfData);
         result.High.ExitReason.Should().Be(BacktestExitReason.soldAtHigh);
+    }
+
+    [Fact]
+    public void BuildEntryResult_FillsAtSignalBarClose_MatchingLiveSnapshotPrice()
+    {
+        var request = CreateRequest();
+        var entryEnd = EntryStart.AddHours(1);
+
+        var entry = CreateEntry();
+        entry.Bars =
+        [
+            CreateBar(EntryStart.AddMinutes(-1).ToUnixTimeMilliseconds(), high: 49f, low: 47f, close: 48f),
+            CreateBar(EntryStart.ToUnixTimeMilliseconds(), high: 51f, low: 49f, close: 50f)
+        ];
+
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBarAt(entryEnd, 110f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, entry, bars, entryEnd);
+
+        result.StartPrice.Should().Be(50f);
+        result.Shares.Should().Be(20);
+        result.BoughtAt.Should().Be(EntryStart.AddMinutes(1));
+        result.Hold.EndPrice.Should().Be(110f);
+        result.Hold.Profit.Should().Be(110f * 20 - 50f * 20);
+    }
+
+    [Fact]
+    public void BuildEntryResult_NoSignalBar_FallsBackToFillBarClose()
+    {
+        var request = CreateRequest();
+        var entryEnd = EntryStart.AddHours(1);
+
+        var bars = new List<Bar>
+        {
+            CreateBar(EntryStart.AddMinutes(1).ToUnixTimeMilliseconds(), high: 105f, low: 95f, close: 100f),
+            CreateBarAt(entryEnd, 101f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.StartPrice.Should().Be(100f);
+        result.Shares.Should().Be(10);
     }
 
     #endregion
@@ -494,13 +501,11 @@ public class WorkerExitLogicUnitTests
             {
                 StopLoss = stopLoss ?? new Exit
                 {
-                    PriceActionType = PriceActionType.low,
                     Type = ExitValueType.percent,
                     Value = 50f
                 },
                 TakeProfit = takeProfit ?? new Exit
                 {
-                    PriceActionType = PriceActionType.high,
                     Type = ExitValueType.percent,
                     Value = 1000f
                 },

@@ -35,13 +35,9 @@ export interface PositionSettings {
 // Exit Settings (matches backend StrategyExitSettings)
 // ============================================================================
 
-export type ExitCandleType = 'PreviousCandle' | 'CurrentCandle';
-export type PriceActionType = 'open' | 'high' | 'low' | 'close' | 'vwap' | 'volume';
 export type ExitValueType = 'percent' | 'flat';
 
 export interface Exit {
-  candleType: ExitCandleType;
-  priceActionType: PriceActionType;
   type: ExitValueType;
   value: number;
 }
@@ -124,7 +120,6 @@ export interface ScanArgument {
 export type OperandType = 'Study' | 'PriceAction' | 'Fixed';
 
 export interface StopConfig {
-  priceActionType: 'open' | 'close' | 'high' | 'low';
   type: 'percent' | 'value';
   value: number;
 }
@@ -159,10 +154,8 @@ export interface LegacyStrategy {
 
 // Exit target configuration (legacy alias)
 export interface ExitTarget {
-  candleType: string;
   type: 'percent' | 'value';
   value: number;
-  priceActionType: string;
 }
 
 // Timed exit settings (legacy alias)

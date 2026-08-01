@@ -78,7 +78,9 @@ public static class BacktestPortfolioSimulator
             var tradesTakenToday = 0;
             var dayMaxConcurrent = openPositions.Count;
 
-            for (var i = 0; i < (marketClose - marketOpen).TotalMinutes; i++)
+            // Inclusive of the 16:00 tick: SoldAt is an execution minute (priced bar + 1),
+            // so an exit priced from the 15:59 bar clears at 16:00, not the next day.
+            for (var i = 0; i <= (marketClose - marketOpen).TotalMinutes; i++)
             {
                 var currentTime = marketOpen.AddMinutes(i);
 
@@ -157,8 +159,12 @@ public static class BacktestPortfolioSimulator
 
         foreach (var position in openPositions)
         {
+            // Close anything due by now, not just exact matches: BoughtAt is the fill
+            // bar, so a trade can exit on its entry bar (high peaking at entry, or a
+            // single-candle window). Sells run before buys each minute, so such a
+            // position is opened after its own sell minute and closes the minute after.
             var outcome = GetOutcome(type, position);
-            if (outcome is null || outcome.SoldAt != timestamp)
+            if (outcome is null || outcome.SoldAt > timestamp)
             {
                 continue;
             }

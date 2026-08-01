@@ -102,8 +102,7 @@ function mergeIntoDefaults(partial: Partial<Strategy>): Strategy {
 
 const formatExit = (exit: Exit | undefined) => {
   if (!exit) return 'Not set';
-  const amount = exit.type === 'percent' ? `${exit.value}%` : `$${exit.value}`;
-  return `${exit.priceActionType} ${amount}`;
+  return exit.type === 'percent' ? `${exit.value}%` : `$${exit.value}`;
 };
 
 const formatTimeframe = (timeframe: Timeframe | undefined) => {

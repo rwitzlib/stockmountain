@@ -21,16 +21,12 @@ export const defaultBacktestRequest: BacktestRequest = {
   },
   ExitSettings: {
     StopLoss: {
-      CandleType: 'PreviousCandle',
       Type: 'percent',
       Value: -5,
-      PriceActionType: 'close',
     },
     TakeProfit: {
-      CandleType: 'PreviousCandle',
       Type: 'percent',
       Value: 20,
-      PriceActionType: 'close',
     },
     TimedExit: {
       Timeframe: {

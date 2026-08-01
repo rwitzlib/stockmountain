@@ -10,18 +10,16 @@ import { Card } from '../components/ui/card';
 import { formatDateNoTimezone } from '../utils/dateFormatter';
 import { Lock, Share2 } from 'lucide-react';
 
-function formatStopConfig(config: { priceActionType?: string; type?: string; value?: number } | undefined) {
+function formatStopConfig(config: { type?: string; value?: number } | undefined) {
   if (!config) return 'Not set';
 
-  const priceActionDisplay = config.priceActionType ? `${config.priceActionType} ` : '';
-
   if (config.type === 'percent') {
-    return `${priceActionDisplay}${config.value}%`;
+    return `${config.value}%`;
   }
   if (config.type === 'flat' || config.type === 'value') {
-    return `${priceActionDisplay}$${config.value}`;
+    return `$${config.value}`;
   }
-  return `${priceActionDisplay}${config.value} (${config.type || 'unknown type'})`;
+  return `${config.value} (${config.type || 'unknown type'})`;
 }
 
 function formatTimeframe(timeframe: { multiplier?: number; timespan?: string } | undefined) {

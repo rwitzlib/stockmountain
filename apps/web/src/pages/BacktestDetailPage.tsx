@@ -8,9 +8,7 @@ import { TradingData } from '../types/types';
 import { BacktestEntry, BacktestRequest } from '../types/backtest';
 import {
   Exit,
-  ExitCandleType,
   PositionType,
-  PriceActionType,
   ScanArgument,
   Strategy,
   Timespan,
@@ -31,8 +29,6 @@ interface BacktestDetailData {
 }
 
 interface StopConfigView {
-  candleType?: string;
-  priceActionType?: string;
   type?: string;
   value?: number;
 }
@@ -276,15 +272,13 @@ export function BacktestDetailPage() {
   const formatStopConfig = (config: StopConfigView | undefined) => {
     if (!config) return 'Not set';
 
-    const priceActionDisplay = config.priceActionType ? `${config.priceActionType} ` : '';
-
     if (config.type === 'percent') {
-      return `${priceActionDisplay}${config.value}%`;
+      return `${config.value}%`;
     }
     if (config.type === 'flat' || config.type === 'value') {
-      return `${priceActionDisplay}$${config.value}`;
+      return `$${config.value}`;
     }
-    return `${priceActionDisplay}${config.value} (${config.type || 'unknown type'})`;
+    return `${config.value} (${config.type || 'unknown type'})`;
   };
 
   const formatTimeframe = (timeframe: RequestDataView['exitInfo']['timeframe']) => {
@@ -312,8 +306,6 @@ export function BacktestDetailPage() {
       config?.value == null
         ? undefined
         : {
-            candleType: (config.candleType as ExitCandleType) ?? 'CurrentCandle',
-            priceActionType: (config.priceActionType as PriceActionType) ?? 'close',
             type: config.type === 'flat' || config.type === 'value' ? 'flat' : 'percent',
             value: config.value,
           };
@@ -381,19 +373,15 @@ export function BacktestDetailPage() {
 
     if (exitInfo.profitTarget) {
       request.ExitSettings.TakeProfit = {
-        CandleType: exitInfo.profitTarget.candleType ?? 'PreviousCandle',
         Type: exitInfo.profitTarget.type ?? 'percent',
         Value: exitInfo.profitTarget.value ?? 0,
-        PriceActionType: exitInfo.profitTarget.priceActionType ?? 'close',
       };
     }
 
     if (exitInfo.stopLoss) {
       request.ExitSettings.StopLoss = {
-        CandleType: exitInfo.stopLoss.candleType ?? 'PreviousCandle',
         Type: exitInfo.stopLoss.type ?? 'percent',
         Value: exitInfo.stopLoss.value ?? 0,
-        PriceActionType: exitInfo.stopLoss.priceActionType ?? 'close',
       };
     }
 
