@@ -1,4 +1,4 @@
-import { Strategy, StrategyStateType, ExitValueType, PriceActionType } from '../types/strategy';
+import { Strategy, StrategyStateType, ExitValueType } from '../types/strategy';
 import { Switch } from './ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';

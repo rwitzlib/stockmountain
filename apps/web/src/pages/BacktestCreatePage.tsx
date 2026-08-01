@@ -28,8 +28,6 @@ const createFilter = (expression: string): FilterItem => ({
 const formatDateInput = (date: Date) => date.toISOString().split('T')[0];
 
 const TIMESPAN_OPTIONS = ['minute', 'hour', 'day', 'week', 'month', 'year'] as const;
-const PRICE_ACTION_OPTIONS = ['open', 'high', 'low', 'close'] as const;
-const CANDLE_TYPE_OPTIONS = ['EntryCandle', 'PreviousCandle'] as const;
 const MODEL_TYPE_OPTIONS = ['Fixed', 'PercentOfEquity'] as const;
 
 export function BacktestCreatePage() {
@@ -62,17 +60,11 @@ export function BacktestCreatePage() {
   const [takeProfitValue, setTakeProfitValue] = useState<number>(10);
   const [takeProfitValueInput, setTakeProfitValueInput] = useState<string>('10');
   const [takeProfitType, setTakeProfitType] = useState<'percent' | 'value'>('percent');
-  const [takeProfitCandleType, setTakeProfitCandleType] = useState<(typeof CANDLE_TYPE_OPTIONS)[number]>('PreviousCandle');
-  const [takeProfitPriceActionType, setTakeProfitPriceActionType] =
-    useState<(typeof PRICE_ACTION_OPTIONS)[number]>('close');
 
   const [stopLossEnabled, setStopLossEnabled] = useState(true);
   const [stopLossValue, setStopLossValue] = useState<number>(-10);
   const [stopLossValueInput, setStopLossValueInput] = useState<string>('-10');
   const [stopLossType, setStopLossType] = useState<'percent' | 'value'>('percent');
-  const [stopLossCandleType, setStopLossCandleType] = useState<(typeof CANDLE_TYPE_OPTIONS)[number]>('PreviousCandle');
-  const [stopLossPriceActionType, setStopLossPriceActionType] =
-    useState<(typeof PRICE_ACTION_OPTIONS)[number]>('close');
 
   const [timedExitEnabled, setTimedExitEnabled] = useState(true);
   const [timedExitMultiplier, setTimedExitMultiplier] = useState<number>(5);
@@ -120,12 +112,6 @@ export function BacktestCreatePage() {
           setTakeProfitValue(tpValue);
           setTakeProfitValueInput(tpValue.toString());
           setTakeProfitType((TakeProfit.Type as 'percent' | 'value') ?? 'percent');
-          setTakeProfitCandleType(
-            (TakeProfit.CandleType as (typeof CANDLE_TYPE_OPTIONS)[number]) ?? 'PreviousCandle'
-          );
-          setTakeProfitPriceActionType(
-            (TakeProfit.PriceActionType as (typeof PRICE_ACTION_OPTIONS)[number]) ?? 'close'
-          );
         }
 
         setStopLossEnabled(!!StopLoss);
@@ -134,12 +120,6 @@ export function BacktestCreatePage() {
           setStopLossValue(slValue);
           setStopLossValueInput(slValue.toString());
           setStopLossType((StopLoss.Type as 'percent' | 'value') ?? 'percent');
-          setStopLossCandleType(
-            (StopLoss.CandleType as (typeof CANDLE_TYPE_OPTIONS)[number]) ?? 'PreviousCandle'
-          );
-          setStopLossPriceActionType(
-            (StopLoss.PriceActionType as (typeof PRICE_ACTION_OPTIONS)[number]) ?? 'close'
-          );
         }
 
         setTimedExitEnabled(!!TimedExit?.Timeframe);
@@ -250,19 +230,15 @@ export function BacktestCreatePage() {
 
     if (takeProfitEnabled) {
       exitSettings.TakeProfit = {
-        CandleType: takeProfitCandleType,
         Type: takeProfitType,
         Value: Number.isFinite(takeProfitValue) ? takeProfitValue : 0,
-        PriceActionType: takeProfitPriceActionType,
       };
     }
 
     if (stopLossEnabled) {
       exitSettings.StopLoss = {
-        CandleType: stopLossCandleType,
         Type: stopLossType,
         Value: Number.isFinite(stopLossValue) ? stopLossValue : 0,
-        PriceActionType: stopLossPriceActionType,
       };
     }
 
@@ -620,42 +596,6 @@ export function BacktestCreatePage() {
                           <option value="value">Value</option>
                         </select>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Candle</label>
-                        <select
-                          value={takeProfitCandleType}
-                          onChange={event =>
-                            setTakeProfitCandleType(event.target.value as (typeof CANDLE_TYPE_OPTIONS)[number])
-                          }
-                          disabled={isCreatingBacktest}
-                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
-                        >
-                          {CANDLE_TYPE_OPTIONS.map(option => (
-                            <option key={`tp-candle-${option}`} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Price</label>
-                        <select
-                          value={takeProfitPriceActionType}
-                          onChange={event =>
-                            setTakeProfitPriceActionType(
-                              event.target.value as (typeof PRICE_ACTION_OPTIONS)[number]
-                            )
-                          }
-                          disabled={isCreatingBacktest}
-                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
-                        >
-                          {PRICE_ACTION_OPTIONS.map(option => (
-                            <option key={`tp-price-${option}`} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -714,42 +654,6 @@ export function BacktestCreatePage() {
                         >
                           <option value="percent">Percent</option>
                           <option value="value">Value</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Candle</label>
-                        <select
-                          value={stopLossCandleType}
-                          onChange={event =>
-                            setStopLossCandleType(event.target.value as (typeof CANDLE_TYPE_OPTIONS)[number])
-                          }
-                          disabled={isCreatingBacktest}
-                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
-                        >
-                          {CANDLE_TYPE_OPTIONS.map(option => (
-                            <option key={`sl-candle-${option}`} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Price</label>
-                        <select
-                          value={stopLossPriceActionType}
-                          onChange={event =>
-                            setStopLossPriceActionType(
-                              event.target.value as (typeof PRICE_ACTION_OPTIONS)[number]
-                            )
-                          }
-                          disabled={isCreatingBacktest}
-                          className="w-full rounded-lg border border-input bg-card text-foreground text-xs px-2 py-1 h-7"
-                        >
-                          {PRICE_ACTION_OPTIONS.map(option => (
-                            <option key={`sl-price-${option}`} value={option}>
-                              {option}
-                            </option>
-                          ))}
                         </select>
                       </div>
                     </div>

@@ -79,7 +79,7 @@ export function ExitConfigForm({ value, onChange }: ExitConfigFormProps) {
                 checked={!!value.stopLoss}
                 onCheckedChange={(checked) => onChange({
                   ...value,
-                  stopLoss: checked ? { type: 'percent', value: -10, priceActionType: 'close' } : undefined
+                  stopLoss: checked ? { type: 'percent', value: -10 } : undefined
                 })}
               />
               <label htmlFor="useStopLoss" className="text-sm font-medium text-foreground">
@@ -101,7 +101,7 @@ export function ExitConfigForm({ value, onChange }: ExitConfigFormProps) {
                 checked={!!value.profitTarget}
                 onCheckedChange={(checked) => onChange({
                   ...value,
-                  profitTarget: checked ? { type: 'percent', value: 10, priceActionType: 'close' } : undefined
+                  profitTarget: checked ? { type: 'percent', value: 10 } : undefined
                 })}
               />
               <label htmlFor="useProfitTarget" className="text-sm font-medium text-foreground">

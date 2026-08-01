@@ -19,10 +19,8 @@ export interface BacktestPositionSettings {
 }
 
 export interface BacktestExitTarget {
-  CandleType: string;
   Type: string;
   Value: number;
-  PriceActionType: string;
 }
 
 export interface BacktestTimedExitSettings {
@@ -69,14 +67,10 @@ export interface BacktestRequestInfo {
   };
   exitInfo?: {
     stopLoss?: {
-      candleType?: string;
-      priceActionType?: string;
       type?: string;
       value?: number;
     };
     profitTarget?: {
-      candleType?: string;
-      priceActionType?: string;
       type?: string;
       value?: number;
     };
@@ -126,14 +120,10 @@ export interface BacktestEntry {
     };
     exitSettings?: {
       stopLoss?: {
-        candleType?: string;
-        priceActionType?: string;
         type?: string;
         value?: number;
       };
       takeProfit?: {
-        candleType?: string;
-        priceActionType?: string;
         type?: string;
         value?: number;
       };

@@ -423,7 +423,7 @@ export function BacktestResultsTable({
                                 <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
                                   <div className="text-muted-foreground">Stop Loss:</div>
                                   <div className="text-foreground">
-                                    {(requestInfo.exitInfo.stopLoss.type || requestInfo.exitInfo.stopLoss.priceActionType || 'value')} @ {requestInfo.exitInfo.stopLoss.value}
+                                    {(requestInfo.exitInfo.stopLoss.type || 'value')} @ {requestInfo.exitInfo.stopLoss.value}
                                   </div>
                                 </div>
                               )}
@@ -431,7 +431,7 @@ export function BacktestResultsTable({
                                 <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
                                   <div className="text-muted-foreground">Profit Target:</div>
                                   <div className="text-foreground">
-                                    {(requestInfo.exitInfo.profitTarget.type || requestInfo.exitInfo.profitTarget.priceActionType || 'value')} @ {requestInfo.exitInfo.profitTarget.value}
+                                    {(requestInfo.exitInfo.profitTarget.type || 'value')} @ {requestInfo.exitInfo.profitTarget.value}
                                   </div>
                                 </div>
                               )}

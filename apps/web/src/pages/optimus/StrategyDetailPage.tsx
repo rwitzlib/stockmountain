@@ -32,8 +32,7 @@ type TradeResponse = {
 
 function formatExitConfig(config: Exit | undefined): string {
   if (!config) return 'Not set';
-  const priceAction = config.priceActionType ? `${config.priceActionType} ` : '';
-  return config.type === 'percent' ? `${priceAction}${config.value}%` : `${priceAction}$${config.value}`;
+  return config.type === 'percent' ? `${config.value}%` : `$${config.value}`;
 }
 
 function formatTimeframe(timeframe: Timeframe | undefined): string {

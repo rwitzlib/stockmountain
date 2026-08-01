@@ -1,32 +1,17 @@
 import { Switch } from '../../ui/switch';
 import { NumberInput } from '../../ui/NumberInput';
-import type { 
-  ExitSettings, 
-  Exit, 
+import type {
+  ExitSettings,
+  Exit,
   TimedExit,
-  ExitCandleType, 
-  PriceActionType, 
   ExitValueType,
-  Timespan 
+  Timespan
 } from '../../../types/strategy';
 
 interface ExitSettingsFormProps {
   value: ExitSettings;
   onChange: (value: ExitSettings) => void;
 }
-
-const CANDLE_TYPES: { value: ExitCandleType; label: string }[] = [
-  { value: 'CurrentCandle', label: 'Current' },
-  { value: 'PreviousCandle', label: 'Previous' },
-];
-
-const PRICE_ACTION_TYPES: { value: PriceActionType; label: string }[] = [
-  { value: 'close', label: 'Close' },
-  { value: 'open', label: 'Open' },
-  { value: 'high', label: 'High' },
-  { value: 'low', label: 'Low' },
-  { value: 'vwap', label: 'VWAP' },
-];
 
 const VALUE_TYPES: { value: ExitValueType; label: string }[] = [
   { value: 'percent', label: '%' },
@@ -55,8 +40,6 @@ function ExitForm({
   const handleToggle = (enabled: boolean) => {
     if (enabled) {
       onChange({
-        candleType: 'CurrentCandle',
-        priceActionType: 'close',
         type: 'percent',
         value: defaultValue,
       });
@@ -83,7 +66,7 @@ function ExitForm({
             ? 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-900' 
             : 'bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-900'
         }`}>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {/* Value & Type */}
             <div className="col-span-2 space-y-2">
               <label className="block text-xs font-medium text-muted-foreground">Target Value</label>
@@ -111,34 +94,6 @@ function ExitForm({
                   ))}
                 </select>
               </div>
-            </div>
-
-            {/* Price Action */}
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-muted-foreground">Price</label>
-              <select
-                value={value.priceActionType}
-                onChange={(e) => onChange({ ...value, priceActionType: e.target.value as PriceActionType })}
-                className="w-full h-10 px-3 rounded-lg border border-input bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {PRICE_ACTION_TYPES.map((pa) => (
-                  <option key={pa.value} value={pa.value}>{pa.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Candle Type */}
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-muted-foreground">Candle</label>
-              <select
-                value={value.candleType}
-                onChange={(e) => onChange({ ...value, candleType: e.target.value as ExitCandleType })}
-                className="w-full h-10 px-3 rounded-lg border border-input bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {CANDLE_TYPES.map((ct) => (
-                  <option key={ct.value} value={ct.value}>{ct.label}</option>
-                ))}
-              </select>
             </div>
           </div>
         </div>

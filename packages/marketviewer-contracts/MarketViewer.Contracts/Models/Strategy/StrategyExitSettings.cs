@@ -15,8 +15,6 @@ public class StrategyExitSettings
 [ExcludeFromCodeCoverage]
 public class Exit
 {
-    public ExitCandleType CandleType { get; init; }
-    public PriceActionType PriceActionType { get; init; }
     public ExitValueType Type { get; init; }
     public float Value { get; init; }
 }

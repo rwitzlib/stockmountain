@@ -210,8 +210,11 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             // Hold and high exit at different times, so each keeps its own re-entry
             // timeline; the signal is priced if either timeline can take it, and the
             // portfolio simulator enforces per-type eligibility against actual fills.
-            var holdEligible = gate.IsEligible("hold", entry.Start);
-            var highEligible = gate.IsEligible("high", entry.Start);
+            // Eligibility runs on the execution clock (signal bar + 1) because recorded
+            // closes are execution minutes — live checks cooldowns at buy time the same way.
+            var executionTime = entry.Start.AddMinutes(1);
+            var holdEligible = gate.IsEligible("hold", executionTime);
+            var highEligible = gate.IsEligible("high", executionTime);
 
             if (!holdEligible && !highEligible)
             {
@@ -389,18 +392,27 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
     internal static BacktestEntryResultCollection BuildEntryResult(WorkerRequest request, StrategyEntry entry, List<Bar> candlesWithinMarketHours, DateTimeOffset entryEnd)
     {
-        if (!candlesWithinMarketHours.Any() || request.PositionSettings.Model.Size < candlesWithinMarketHours.First().Vwap)
+        if (!candlesWithinMarketHours.Any())
         {
             return null;
         }
 
-        int shares = (int)(request.PositionSettings.Model.Size / candlesWithinMarketHours.First().Vwap);
+        // Live fills at the snapshot price when the buy fires: the close of the last
+        // completed bar, which is the signal bar. Falling back to the fill bar's close
+        // covers signals whose bar is missing from the aggregate window.
+        var signalBar = entry.Bars?.LastOrDefault(bar => bar.Timestamp <= entry.Start.ToUnixTimeMilliseconds());
+        var entryPrice = signalBar?.Close ?? candlesWithinMarketHours.First().Close;
 
-        var entryPrice = candlesWithinMarketHours.First().Vwap;
+        if (request.PositionSettings.Model.Size < entryPrice)
+        {
+            return null;
+        }
+
+        int shares = (int)(request.PositionSettings.Model.Size / entryPrice);
         var entryPosition = entryPrice * shares;
 
         var hold = candlesWithinMarketHours.Last();
-        var high = candlesWithinMarketHours.MaxBy(candle => candle.Vwap);
+        var high = candlesWithinMarketHours.MaxBy(candle => candle.Close);
 
         var result = new BacktestEntryResultCollection
         {
@@ -408,7 +420,10 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             StartPrice = entryPrice,
             Shares = shares,
             StartPosition = entryPosition,
-            BoughtAt = entry.Start,
+            // Stamp the fill bar, not the signal bar: live scans a completed bar one
+            // minute after its timestamp and stamps OpenedAt with that execution
+            // minute, which is the same minute as the bar this entry is priced from.
+            BoughtAt = DateTimeOffset.FromUnixTimeMilliseconds(candlesWithinMarketHours.First().Timestamp).ToTimezone(TimeZone),
             Hold = new BacktestEntryResult
             {
                 StoppedOut = false,
@@ -417,20 +432,20 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 ExitReason = hold.Timestamp < entryEnd.AddMinutes(-1).ToUnixTimeMilliseconds()
                     ? BacktestExitReason.endOfData
                     : BacktestExitReason.timedExit,
-                EndPrice = hold.Vwap,
-                EndPosition = hold.Vwap * shares,
-                Profit = hold.Vwap * shares - entryPosition,
-                SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(hold.Timestamp).ToTimezone(TimeZone),
+                EndPrice = hold.Close,
+                EndPosition = hold.Close * shares,
+                Profit = hold.Close * shares - entryPosition,
+                SoldAt = ToExecutionMinute(hold.Timestamp),
 
             },
             High = new BacktestEntryResult
             {
                 StoppedOut = false,
                 ExitReason = BacktestExitReason.soldAtHigh,
-                EndPrice = high.Vwap,
-                EndPosition = high.Vwap * shares,
-                Profit = high.Vwap * shares - entryPosition,
-                SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(high.Timestamp).ToTimezone(TimeZone)
+                EndPrice = high.Close,
+                EndPosition = high.Close * shares,
+                Profit = high.Close * shares - entryPosition,
+                SoldAt = ToExecutionMinute(high.Timestamp)
             }
         };
 
@@ -458,16 +473,16 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             result.Hold.StoppedOut = true;
             result.Hold.ExitReason = BacktestExitReason.takeProfit;
             result.Hold.Profit = profitTargetValue;
-            result.Hold.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(profitTarget.Timestamp).ToTimezone(TimeZone);
+            result.Hold.SoldAt = ToExecutionMinute(profitTarget.Timestamp);
             result.Hold.EndPosition = result.StartPosition + profitTargetValue;
-            result.Hold.EndPrice = profitTarget.Vwap;
+            result.Hold.EndPrice = profitTarget.Close;
 
             result.High.StoppedOut = true;
             result.High.ExitReason = BacktestExitReason.takeProfit;
             result.High.Profit = profitTargetValue;
-            result.High.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(profitTarget.Timestamp).ToTimezone(TimeZone);
+            result.High.SoldAt = ToExecutionMinute(profitTarget.Timestamp);
             result.High.EndPosition = result.StartPosition + profitTargetValue;
-            result.High.EndPrice = profitTarget.Vwap;
+            result.High.EndPrice = profitTarget.Close;
 
             //if (passesExitFiltersTimestamp is null || profitTarget.Timestamp < passesExitFiltersTimestamp.Value.ToUnixTimeMilliseconds())
             //{
@@ -497,16 +512,16 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 result.Hold.StoppedOut = true;
                 result.Hold.ExitReason = BacktestExitReason.stopLoss;
                 result.Hold.Profit = stopLossValue;
-                result.Hold.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(stopLoss.Timestamp).ToTimezone(TimeZone);
+                result.Hold.SoldAt = ToExecutionMinute(stopLoss.Timestamp);
                 result.Hold.EndPosition = result.StartPosition + stopLossValue;
-                result.Hold.EndPrice = stopLoss.Vwap;
+                result.Hold.EndPrice = stopLoss.Close;
 
                 result.High.StoppedOut = true;
                 result.High.ExitReason = BacktestExitReason.stopLoss;
                 result.High.Profit = stopLossValue;
-                result.High.SoldAt = DateTimeOffset.FromUnixTimeMilliseconds(stopLoss.Timestamp).ToTimezone(TimeZone);
+                result.High.SoldAt = ToExecutionMinute(stopLoss.Timestamp);
                 result.High.EndPosition = result.StartPosition + stopLossValue;
-                result.High.EndPrice = stopLoss.Vwap;
+                result.High.EndPrice = stopLoss.Close;
             }
 
             //if (passesExitFiltersTimestamp is null || stopLoss.Timestamp < passesExitFiltersTimestamp.Value.ToUnixTimeMilliseconds())
@@ -522,9 +537,11 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             //}
         }
 
+        // SoldAt is the execution minute; excursions cap at the priced bar before it so
+        // MFE/MAE never include price action past the exit observation.
         var (holdRunup, holdDrawdown) = ComputeExcursions(
             candlesWithinMarketHours,
-            result.Hold.SoldAt.ToUnixTimeMilliseconds(),
+            result.Hold.SoldAt.AddMinutes(-1).ToUnixTimeMilliseconds(),
             shares,
             entryPosition);
         result.Hold.MaxRunup = Math.Max(holdRunup, result.Hold.Profit);
@@ -532,13 +549,22 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
         var (highRunup, highDrawdown) = ComputeExcursions(
             candlesWithinMarketHours,
-            result.High.SoldAt.ToUnixTimeMilliseconds(),
+            result.High.SoldAt.AddMinutes(-1).ToUnixTimeMilliseconds(),
             shares,
             entryPosition);
         result.High.MaxRunup = Math.Max(highRunup, result.High.Profit);
         result.High.MaxDrawdown = Math.Min(highDrawdown, result.High.Profit);
 
         return result;
+    }
+
+    /// <summary>
+    /// A bar timestamped T is only observable once it completes at T+1, which is when
+    /// live executes against it and stamps the trade — mirror that convention.
+    /// </summary>
+    private static DateTimeOffset ToExecutionMinute(long barTimestampMs)
+    {
+        return DateTimeOffset.FromUnixTimeMilliseconds(barTimestampMs).ToTimezone(TimeZone).AddMinutes(1);
     }
 
     private static (float runup, float drawdown) ComputeExcursions(
@@ -577,17 +603,12 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         // A stop loss is always a loss, regardless of the sign the user entered.
         var threshold = -Math.Abs(stopLoss.Value);
 
-        Func<Bar, float> price = stopLoss.PriceActionType switch
-        {
-            PriceActionType.low => bar => bar.Low,
-            PriceActionType.close => bar => bar.Close,
-            _ => bar => bar.Vwap
-        };
-
+        // Close-based only: live's exit evaluator polls the snapshot price, which is the
+        // close of the last completed bar — an intra-bar low can never trigger it.
         stopLossCandle = stopLoss.Type switch
         {
-            ExitValueType.flat => results.FirstOrDefault(bar => price(bar) * shares - entryPosition <= threshold),
-            ExitValueType.percent => results.FirstOrDefault(bar => (price(bar) - entryPrice) / entryPrice * 100 <= threshold),
+            ExitValueType.flat => results.FirstOrDefault(bar => bar.Close * shares - entryPosition <= threshold),
+            ExitValueType.percent => results.FirstOrDefault(bar => (bar.Close - entryPrice) / entryPrice * 100 <= threshold),
             _ => null
         };
 
@@ -606,17 +627,11 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
         var threshold = Math.Abs(takeProfit.Value);
 
-        Func<Bar, float> price = takeProfit.PriceActionType switch
-        {
-            PriceActionType.high => bar => bar.High,
-            PriceActionType.close => bar => bar.Close,
-            _ => bar => bar.Vwap
-        };
-
+        // Close-based only — see CheckStopLoss.
         profitTargetCandle = takeProfit.Type switch
         {
-            ExitValueType.flat => results.FirstOrDefault(bar => price(bar) * shares - entryPosition >= threshold),
-            ExitValueType.percent => results.FirstOrDefault(bar => (price(bar) - entryPrice) / entryPrice * 100 >= threshold),
+            ExitValueType.flat => results.FirstOrDefault(bar => bar.Close * shares - entryPosition >= threshold),
+            ExitValueType.percent => results.FirstOrDefault(bar => (bar.Close - entryPrice) / entryPrice * 100 >= threshold),
             _ => null
         };
 

@@ -26,8 +26,8 @@ export interface ShareConfig {
     model?: { type?: string; size?: number };
   };
   exitSettings?: {
-    stopLoss?: { candleType?: string; priceActionType?: string; type?: string; value?: number };
-    takeProfit?: { candleType?: string; priceActionType?: string; type?: string; value?: number };
+    stopLoss?: { type?: string; value?: number };
+    takeProfit?: { type?: string; value?: number };
     timedExit?: {
       timeframe?: { multiplier?: number; timespan?: string };
       avoidOvernight?: boolean;

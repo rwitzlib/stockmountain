@@ -26,14 +26,10 @@ http:
         },
         "exitSettings": {
           "stopLoss": {
-            "candleType": "CurrentCandle",
-            "priceActionType": "close",
             "type": "percent",
             "value": 2.5
           },
           "takeProfit": {
-            "candleType": "CurrentCandle",
-            "priceActionType": "close",
             "type": "percent",
             "value": 15
           },
