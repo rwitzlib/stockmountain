@@ -1,5 +1,6 @@
 using MarketViewer.Contracts.Dtos;
 using MarketViewer.Contracts.Enums;
+using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Records.Strategy;
 using Optimus.Adapter;
 using Optimus.Infrastructure.Repositories;
@@ -168,19 +169,7 @@ public class TradeExecutionService(
         }
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var seconds = cooldown.Timespan switch
-        {
-            Timespan.minute => cooldown.Multiplier * 60,
-            Timespan.hour => cooldown.Multiplier * 3600,
-            Timespan.day => cooldown.Multiplier * 86400,
-            Timespan.week => cooldown.Multiplier * 604800,
-            Timespan.month => cooldown.Multiplier * 2592000, // 30 days
-            Timespan.quarter => cooldown.Multiplier * 7776000, // 90 days
-            Timespan.year => cooldown.Multiplier * 31536000, // 365 days
-            _ => 0
-        };
-
-        return now + seconds;
+        return now + (long)cooldown.ToTimeSpan().TotalSeconds;
     }
 }
 

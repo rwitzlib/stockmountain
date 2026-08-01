@@ -85,13 +85,14 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             }
 
             var scanMs = sp.ElapsedMilliseconds;
-            var (backtestResults, entryErrors) = await GetBacktestResults(strategyEntries, request);
+            var (backtestResults, entryErrors, gateSkipped) = await GetBacktestResults(strategyEntries, request);
 
             sp.Stop();
 
             wideEvent.Set("compute_ms", sp.ElapsedMilliseconds - scanMs)
                 .Set("result_count", backtestResults.Count)
                 .Set("dropped_signal_count", entryErrors.Count)
+                .Set("gate_skipped_count", gateSkipped)
                 .Set("credits_used", MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds);
 
             if (backtestResults.Count == 0)
@@ -163,23 +164,96 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
     #region Private Methods
 
-    private async Task<(List<BacktestEntryResultCollection> Results, List<string> Errors)> GetBacktestResults(List<StrategyEntry> scannerEntries, WorkerRequest request)
+    private async Task<(List<BacktestEntryResultCollection> Results, List<string> Errors, int GateSkipped)> GetBacktestResults(List<StrategyEntry> scannerEntries, WorkerRequest request)
     {
         int batchSize = int.TryParse(Environment.GetEnvironmentVariable("MASSIVE_BATCH_SIZE"), out var massiveBatchSize) ? massiveBatchSize : 750;
+        using var throttle = new SemaphoreSlim(batchSize);
+        var cooldown = request.PositionSettings.Cooldown.ToTimeSpan();
+
+        // Signals within a ticker must be processed in time order so the ReentryGate can
+        // suppress signals that fire while a simulated position is still open or cooling
+        // down; tickers are independent, so they run concurrently under a shared throttle
+        // that bounds in-flight Massive requests.
+        var tickerGroups = scannerEntries
+            .GroupBy(entry => entry.Ticker)
+            .Select(group => group.OrderBy(entry => entry.Start).ToList());
+
+        var tasks = tickerGroups.Select(entries => Task.Run(() => ProcessTickerEntries(entries, request, cooldown, throttle))).ToList();
+        var perTicker = await Task.WhenAll(tasks);
+
+        // Deterministic ordering regardless of task completion order.
+        var results = perTicker.SelectMany(t => t.Results)
+            .OrderBy(r => r.BoughtAt)
+            .ThenBy(r => r.Ticker, StringComparer.Ordinal)
+            .ToList();
+        var errors = perTicker
+            .OrderBy(t => t.Ticker, StringComparer.Ordinal)
+            .SelectMany(t => t.Errors)
+            .ToList();
+
+        return (results, errors, perTicker.Sum(t => t.GateSkipped));
+    }
+
+    private async Task<(string Ticker, List<BacktestEntryResultCollection> Results, List<string> Errors, int GateSkipped)> ProcessTickerEntries(
+        List<StrategyEntry> entries,
+        WorkerRequest request,
+        TimeSpan cooldown,
+        SemaphoreSlim throttle)
+    {
+        var gate = new ReentryGate(request.PositionSettings.AllowSimultaneous, cooldown);
         var results = new List<BacktestEntryResultCollection>();
         var errors = new List<string>();
+        var gateSkipped = 0;
 
-        for (int i = 0; i < scannerEntries.Count; i += batchSize)
+        foreach (var entry in entries)
         {
-            var batch = scannerEntries.Skip(i).Take(batchSize);
-            var tasks = batch.Select(entry => Task.Run(() => GetBacktestResult(request, entry))).ToList();
-            var batchResults = await Task.WhenAll(tasks);
+            // Hold and high exit at different times, so each keeps its own re-entry
+            // timeline; the signal is priced if either timeline can take it, and the
+            // portfolio simulator enforces per-type eligibility against actual fills.
+            var holdEligible = gate.IsEligible("hold", entry.Start);
+            var highEligible = gate.IsEligible("high", entry.Start);
 
-            results.AddRange(batchResults.Where(q => q.Result is not null).Select(q => q.Result));
-            errors.AddRange(batchResults.Where(q => q.Error is not null).Select(q => q.Error));
+            if (!holdEligible && !highEligible)
+            {
+                gateSkipped++;
+                continue;
+            }
+
+            (BacktestEntryResultCollection? Result, string? Error) outcome;
+            await throttle.WaitAsync();
+            try
+            {
+                outcome = await GetBacktestResult(request, entry);
+            }
+            finally
+            {
+                throttle.Release();
+            }
+
+            if (outcome.Error is not null)
+            {
+                errors.Add(outcome.Error);
+            }
+
+            if (outcome.Result is null)
+            {
+                continue;
+            }
+
+            results.Add(outcome.Result);
+
+            if (holdEligible)
+            {
+                gate.RecordFill("hold", outcome.Result.Hold.SoldAt);
+            }
+
+            if (highEligible)
+            {
+                gate.RecordFill("high", outcome.Result.High.SoldAt);
+            }
         }
 
-        return (results, errors);
+        return (entries[0].Ticker, results, errors, gateSkipped);
     }
 
     private async Task<(BacktestEntryResultCollection? Result, string? Error)> GetBacktestResult(WorkerRequest request, StrategyEntry entry)

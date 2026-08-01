@@ -145,4 +145,111 @@ public class BacktestPortfolioSimulatorUnitTests
         response.High.Trades.Single().MaxRunup.Should().BeNull();
         response.High.Trades.Single().MaxDrawdown.Should().BeNull();
     }
+
+    [Fact]
+    public void Simulate_SkipsReentry_WhileTickerStillOpen()
+    {
+        // Cooldown of zero isolates the open-position rule: the 09:40 signal fires while
+        // the 09:31 position is still open, so only the 10:05 re-entry is taken.
+        var workerResponse = new WorkerResponse
+        {
+            Date = StartDate,
+            Results =
+            [
+                CreateResult("TEST", BoughtAt, BoughtAt.AddMinutes(29)),
+                CreateResult("TEST", BoughtAt.AddMinutes(9), BoughtAt.AddMinutes(40)),
+                CreateResult("TEST", BoughtAt.AddMinutes(34), BoughtAt.AddMinutes(60))
+            ]
+        };
+
+        var response = BacktestPortfolioSimulator.Simulate(
+            "backtest-id", 0f, StartDate, CreateSettings(new Timeframe(0, Timespan.minute)), [workerResponse]);
+
+        response.Hold.Trades.Should().HaveCount(2);
+        response.Hold.Trades.Select(t => t.BoughtAt).Should().Equal(BoughtAt, BoughtAt.AddMinutes(34));
+    }
+
+    [Fact]
+    public void Simulate_SkipsReentry_DuringCooldown()
+    {
+        // First position closes at 09:40; with a 15-minute cooldown the 09:45 signal is
+        // blocked and the 09:56 signal (past the 09:55 expiry) is taken.
+        var workerResponse = new WorkerResponse
+        {
+            Date = StartDate,
+            Results =
+            [
+                CreateResult("TEST", BoughtAt, BoughtAt.AddMinutes(9)),
+                CreateResult("TEST", BoughtAt.AddMinutes(14), BoughtAt.AddMinutes(30)),
+                CreateResult("TEST", BoughtAt.AddMinutes(25), BoughtAt.AddMinutes(45))
+            ]
+        };
+
+        var response = BacktestPortfolioSimulator.Simulate(
+            "backtest-id", 0f, StartDate, CreateSettings(new Timeframe(15, Timespan.minute)), [workerResponse]);
+
+        response.Hold.Trades.Should().HaveCount(2);
+        response.Hold.Trades.Select(t => t.BoughtAt).Should().Equal(BoughtAt, BoughtAt.AddMinutes(25));
+    }
+
+    [Fact]
+    public void Simulate_AllowSimultaneous_TakesOverlappingPositions()
+    {
+        var workerResponse = new WorkerResponse
+        {
+            Date = StartDate,
+            Results =
+            [
+                CreateResult("TEST", BoughtAt, BoughtAt.AddMinutes(29)),
+                CreateResult("TEST", BoughtAt.AddMinutes(9), BoughtAt.AddMinutes(40))
+            ]
+        };
+
+        var response = BacktestPortfolioSimulator.Simulate(
+            "backtest-id", 0f, StartDate, CreateSettings(new Timeframe(0, Timespan.minute), allowSimultaneous: true), [workerResponse]);
+
+        response.Hold.Trades.Should().HaveCount(2);
+    }
+
+    private static StrategyPositionSettings CreateSettings(Timeframe cooldown, bool allowSimultaneous = false)
+    {
+        return new StrategyPositionSettings
+        {
+            StartingBalance = 10000,
+            MaxConcurrentPositions = 5,
+            AllowSimultaneous = allowSimultaneous,
+            Model = new PositionModel
+            {
+                Type = PositionType.Fixed,
+                Size = 1000
+            },
+            Cooldown = cooldown
+        };
+    }
+
+    private static BacktestEntryResultCollection CreateResult(string ticker, DateTimeOffset boughtAt, DateTimeOffset soldAt)
+    {
+        return new BacktestEntryResultCollection
+        {
+            Ticker = ticker,
+            BoughtAt = boughtAt,
+            StartPrice = 100f,
+            Shares = 10,
+            StartPosition = 1000f,
+            Hold = new BacktestEntryResult
+            {
+                SoldAt = soldAt,
+                EndPrice = 101f,
+                EndPosition = 1010f,
+                Profit = 10f
+            },
+            High = new BacktestEntryResult
+            {
+                SoldAt = soldAt,
+                EndPrice = 102f,
+                EndPosition = 1020f,
+                Profit = 20f
+            }
+        };
+    }
 }

@@ -1,3 +1,4 @@
+using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Backtest;
 using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Responses.Market.Backtest;
@@ -55,6 +56,12 @@ public static class BacktestPortfolioSimulator
         var maxConcurrent = 0;
         var totalTradesTaken = 0;
 
+        // Mirrors live trading: every close starts a per-ticker cooldown (close time +
+        // duration) that blocks re-entry until it expires. Wall-clock, so it can span
+        // days — which the per-day worker gate cannot see.
+        var cooldown = positionSettings.Cooldown.ToTimeSpan();
+        var cooldownExpiries = new Dictionary<string, DateTimeOffset>();
+
         foreach (var day in dayRange)
         {
             var offset = EasternTimeZone.IsDaylightSavingTime(day.Date)
@@ -75,7 +82,7 @@ public static class BacktestPortfolioSimulator
             {
                 var currentTime = marketOpen.AddMinutes(i);
 
-                SellPositions(type, openPositions, currentTime, ref availableFunds, trades, ref dayProfit);
+                SellPositions(type, openPositions, currentTime, ref availableFunds, trades, ref dayProfit, cooldown, cooldownExpiries);
                 BuyPositions(
                     type,
                     entry,
@@ -83,7 +90,8 @@ public static class BacktestPortfolioSimulator
                     positionSettings,
                     ref availableFunds,
                     openPositions,
-                    ref tradesTakenToday);
+                    ref tradesTakenToday,
+                    cooldownExpiries);
 
                 dayMaxConcurrent = Math.Max(dayMaxConcurrent, openPositions.Count);
             }
@@ -141,7 +149,9 @@ public static class BacktestPortfolioSimulator
         DateTimeOffset timestamp,
         ref float availableFunds,
         List<BacktestExecutedTrade> trades,
-        ref float dayProfit)
+        ref float dayProfit,
+        TimeSpan cooldown,
+        Dictionary<string, DateTimeOffset> cooldownExpiries)
     {
         var positionsToRemove = new List<BacktestEntryResultCollection>();
 
@@ -174,6 +184,7 @@ public static class BacktestPortfolioSimulator
             });
 
             positionsToRemove.Add(position);
+            cooldownExpiries[position.Ticker] = outcome.SoldAt + cooldown;
         }
 
         foreach (var position in positionsToRemove)
@@ -189,7 +200,8 @@ public static class BacktestPortfolioSimulator
         StrategyPositionSettings positionSettings,
         ref float availableFunds,
         List<BacktestEntryResultCollection> openPositions,
-        ref int tradesTakenToday)
+        ref int tradesTakenToday,
+        Dictionary<string, DateTimeOffset> cooldownExpiries)
     {
         if (entry?.Results is null)
         {
@@ -205,6 +217,20 @@ public static class BacktestPortfolioSimulator
         foreach (var result in candidates)
         {
             if (GetOutcome(type, result) is null)
+            {
+                continue;
+            }
+
+            if (!positionSettings.AllowSimultaneous
+                && openPositions.Any(p => p.Ticker == result.Ticker))
+            {
+                continue;
+            }
+
+            // Sells for this minute have already run, so a position closing right now
+            // with no cooldown is immediately re-enterable — same as live.
+            if (cooldownExpiries.TryGetValue(result.Ticker, out var expiry)
+                && timestamp < expiry)
             {
                 continue;
             }

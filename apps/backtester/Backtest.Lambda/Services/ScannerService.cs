@@ -50,7 +50,6 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
         var entryListsByTime = strategyEntryLists.Select(list => list.GroupBy(e => e.Start).ToDictionary(g => g.Key, g => g.ToList())).ToList();
 
         // Process per minute sequentially for determinism
-        var processedTickers = new HashSet<string>();
         for (var i = 0; i < totalMinutes; i++)
         {
             var currentTime = marketOpen.AddMinutes(i);
@@ -87,16 +86,11 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
                 continue;
             }
 
-            foreach (var entry in validEntries)
-            {
-                if (!request.PositionSettings.AllowSimultaneous && processedTickers.Contains(entry.Ticker))
-                {
-                    continue;
-                }
-
-                strategyEntries.Add(entry);
-                processedTickers.Add(entry.Ticker);
-            }
+            // Every signal minute is a candidate entry. Re-entry eligibility (open
+            // position, cooldown, AllowSimultaneous) is enforced downstream: the worker's
+            // ReentryGate decides which candidates are worth pricing, and the portfolio
+            // simulator applies the same rules against actual simulated fills.
+            strategyEntries.AddRange(validEntries);
         }
 
         return strategyEntries;
