@@ -56,7 +56,7 @@ internal class Program
             .AddSingleton<IAmazonSQS>(client => new AmazonSQSClient(RegionEndpoint.USEast2));
 
         builder.Services.RegisterInfrastructure(builder.Configuration);
-        builder.Services.RegisterAdapters();
+        builder.Services.RegisterAdapters(builder.Configuration);
         builder.Services.RegisterSchwabClients();
         builder.Services.RegisterAlpacaClients(builder.Configuration);
 

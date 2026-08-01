@@ -115,6 +115,11 @@ Ordering: 0 → 1 → 2 gets paper trading actually running end-to-end on the ne
 > intraday-margin framework, confirmed by Rob). Phases 1 and 2 are implemented — see the
 > "Implemented" notes inside each phase for what shipped and where it deviated from the
 > original sketch.
+>
+> **Status 2026-08-01:** Phase 3 is implemented (see its "Implemented" notes). Alpaca
+> paper trading needs only a strategy with `Integration = AlpacaPaper` and the existing
+> `ALPACA_API_KEY_ID`/`ALPACA_API_SECRET_KEY` env vars on optimus. Phase 4
+> (reconciliation/watchdog) is next and remains required before any live order.
 
 ### Phase 0 — Accounts and verification spikes (no code)
 
@@ -240,6 +245,47 @@ build it now, don't rip it out).
 
 **Backtest parity note:** `DefaultAdapter` keeps its current semantics on purpose
 (decision 2) — do not "improve" its fill model to look like Alpaca's.
+
+**Implemented 2026-08-01.** Deviations/specifics:
+
+- `packages/alpaca-client` extended (not a new package — Phase 2 started it): order
+  models with typed convenience properties over Alpaca's string-typed wire format
+  (`AlpacaOrder`, `AlpacaOrderRequest`, `AlpacaPosition`, `AlpacaAccount`), plus
+  `SubmitOrder`/`GetOrder`/`CancelOrder`/`GetPositions`/`GetAccount`. `CancelOrder`
+  returns a `CancelOrderResult` enum (Canceled/NotCancelable/NotFound/Failed) because the
+  422-vs-404 distinction drives backstop handling. Paper vs live are two named
+  HttpClients; keyed DI (`alpaca-paper`/`alpaca-live`) selects the environment, and the
+  unkeyed `IAlpacaTradingClient` stays on paper so nothing reaches live implicitly. Live
+  keys come from `ALPACA_LIVE_API_KEY_ID`/`ALPACA_LIVE_API_SECRET_KEY` (or
+  `Alpaca:Live*` config) and may stay empty until live is real.
+- One `AlpacaAdapter` class serves both tiers: two keyed registrations differing only in
+  the injected client and the `TradeType` stamped on records (Paper/Live — the enum's
+  existing values; there is no `TradeType.Real`). `AdapterFactory` maps
+  `AlpacaPaper`/`AlpacaLive` (appended to `IntegrationType`) to the keyed instances.
+  `RegisterAdapters` now takes `IConfiguration` for `AlpacaAdapterConfig`
+  (fill timeout 30s, poll 1s, backstop multiplier 3×, fallback backstop 25% for
+  strategies with no stop loss — a broker position never goes unprotected).
+- Idempotency: every order carries a deterministic `client_order_id` derived from the
+  trade id (`{id}:entry`, `{id}:backstop`, `{id}:close`), so Alpaca itself rejects a
+  duplicate submission — this layers under the existing SQS-window dedup.
+- Fill loop handles the cancel-races-fill case: after a timeout cancel, the final order
+  state is re-read; a partial fill is kept and recorded with actual shares (canceling and
+  pretending it failed would strand real shares). A partially filled *sell* that then
+  cancels logs critical and leaves the record open for reconciliation.
+- Sell aborts (retried next SellWorker tick) when the backstop's state can't be fetched
+  or its cancel fails — market-selling while a stop might still rest risks a double fill.
+  If the backstop turns out to have filled, the close is recorded from the backstop's
+  fill (`ExitReason = stopLoss`). If the market sell dies after the backstop was
+  canceled, a replacement backstop is re-placed at the same stop price.
+- `TradeRecord` gained `EntryOrderId`/`CloseOrderId`/`BackstopOrderId` (JSON-serialized
+  into DynamoDB, so no repo changes). Records carry actual broker fill prices/qty and
+  real fill timestamps — on a delayed data plan, timed exits therefore run up to
+  DelayMinutes long on Alpaca tiers; accepted for the dress rehearsal.
+- Sizing price still comes from the Massive snapshot (same source as `DefaultAdapter`)
+  so both tiers size positions identically; only fills come from Alpaca.
+- Pure math (share sizing, backstop stop price with Alpaca's 2/4-decimal tick rules) is
+  in `AlpacaOrderMath` with unit tests. Timeout "alert" is critical/error logging for
+  now — real paging arrives with Phase 4's watchdog.
 
 ### Phase 4 — Recovery + watchdog (required before any live order)
 

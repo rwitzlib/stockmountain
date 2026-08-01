@@ -24,4 +24,16 @@ public class TradeRecord
 
     /// <summary>Why the position was closed. Null while open and on records predating the field.</summary>
     public BacktestExitReason? ExitReason { get; set; }
+
+    /// <summary>Broker order id of the entry fill. Null on internal paper trades.</summary>
+    public string EntryOrderId { get; set; }
+
+    /// <summary>Broker order id of the closing fill (market sell, or the backstop if it fired).</summary>
+    public string CloseOrderId { get; set; }
+
+    /// <summary>
+    /// GTC stop-market disaster backstop resting broker-side while the position is open.
+    /// Reconciliation re-places missing backstops keyed off this field.
+    /// </summary>
+    public string BackstopOrderId { get; set; }
 }
