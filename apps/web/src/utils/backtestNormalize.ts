@@ -45,6 +45,9 @@ function normalizeEquity(raw: unknown): EquityPoint[] {
       maxConcurrentPositions: Number(p.maxConcurrentPositions ?? 0),
       dayProfit: Number(p.dayProfit ?? 0),
       tradesTaken: Number(p.tradesTaken ?? 0),
+      signalsSeen: p.signalsSeen != null ? Number(p.signalsSeen) : undefined,
+      skippedFunds: p.skippedFunds != null ? Number(p.skippedFunds) : undefined,
+      skippedConcurrency: p.skippedConcurrency != null ? Number(p.skippedConcurrency) : undefined,
     };
   });
 }

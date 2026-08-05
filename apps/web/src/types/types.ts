@@ -23,6 +23,12 @@ export interface EquityPoint {
   maxConcurrentPositions: number;
   dayProfit: number;
   tradesTaken: number;
+  /** Signals evaluated this day (taken + capacity skips); absent on older results */
+  signalsSeen?: number;
+  /** Signals skipped because cash was below the position size; absent on older results */
+  skippedFunds?: number;
+  /** Signals skipped at the max-concurrent-positions cap; absent on older results */
+  skippedConcurrency?: number;
 }
 
 export type ExitReason = 'timedExit' | 'takeProfit' | 'stopLoss' | 'endOfData' | 'soldAtHigh' | 'manual';

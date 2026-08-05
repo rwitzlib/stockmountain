@@ -138,6 +138,23 @@ export function DailyPnlChart({ equity }: DailyPnlChartProps) {
             <span className="text-muted-foreground">Trades</span>
             <b className="tabular-nums">{hover.tradesTaken}</b>
           </div>
+          {hover.signalsSeen > 0 && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Signals</span>
+              <b className="tabular-nums">{hover.signalsSeen}</b>
+            </div>
+          )}
+          {hover.skippedFunds + hover.skippedConcurrency > 0 && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Skipped</span>
+              <b className="tabular-nums">
+                {hover.skippedFunds + hover.skippedConcurrency}
+                <span className="font-normal text-muted-foreground">
+                  {' '}({hover.skippedConcurrency} slots · {hover.skippedFunds} cash)
+                </span>
+              </b>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-4">
             <span className="text-muted-foreground">Balance</span>
             <b className="tabular-nums">{formatCurrency(hover.totalBalance)}</b>

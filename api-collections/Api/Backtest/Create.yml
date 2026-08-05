@@ -10,8 +10,8 @@ http:
     type: json
     data: |-
       {
-        "Start": "2024-01-01",
-        "End": "2026-07-23",
+        "Start": "2026-07-01",
+        "End": "2026-08-04",
         "PositionSettings": {
           "StartingBalance": 100000,
           "MaxConcurrentPositions": 1000,
@@ -29,7 +29,8 @@ http:
             "rsi(30,70,14,ema) < 30 [1m]",
             "float < 10000000",
             "close > 1.00 [1m]",
-            "volume > 10000 [1m,5]"
+            "volume > 10000 [1m,5]",
+            "close > ema(100) [1d]"
           ]
         },
         "ExitSettings": {
