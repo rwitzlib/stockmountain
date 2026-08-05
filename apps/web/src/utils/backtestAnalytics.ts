@@ -214,6 +214,10 @@ export interface PnlBucket {
   totalBalance: number;
   /** Trading days rolled into the bucket */
   days: number;
+  /** Zero on results persisted before skip counting existed */
+  signalsSeen: number;
+  skippedFunds: number;
+  skippedConcurrency: number;
 }
 
 /** Monday of the calendar week containing the given day */
@@ -243,6 +247,9 @@ export function binDailyPnl(
         tradesTaken: pt.tradesTaken,
         totalBalance: pt.totalBalance,
         days: 1,
+        signalsSeen: pt.signalsSeen ?? 0,
+        skippedFunds: pt.skippedFunds ?? 0,
+        skippedConcurrency: pt.skippedConcurrency ?? 0,
       })),
     };
   }
@@ -256,7 +263,16 @@ export function binDailyPnl(
     for (const pt of equity) {
       const key = keyOf(pt);
       if (key !== lastKey) {
-        buckets.push({ date: day(pt), pnl: 0, tradesTaken: 0, totalBalance: pt.totalBalance, days: 0 });
+        buckets.push({
+          date: day(pt),
+          pnl: 0,
+          tradesTaken: 0,
+          totalBalance: pt.totalBalance,
+          days: 0,
+          signalsSeen: 0,
+          skippedFunds: 0,
+          skippedConcurrency: 0,
+        });
         lastKey = key;
       }
       const bucket = buckets[buckets.length - 1];
@@ -264,6 +280,9 @@ export function binDailyPnl(
       bucket.tradesTaken += pt.tradesTaken;
       bucket.totalBalance = pt.totalBalance;
       bucket.days++;
+      bucket.signalsSeen += pt.signalsSeen ?? 0;
+      bucket.skippedFunds += pt.skippedFunds ?? 0;
+      bucket.skippedConcurrency += pt.skippedConcurrency ?? 0;
     }
     result = { unit, buckets };
     if (buckets.length <= maxBars) break;
@@ -439,5 +458,40 @@ export function computeTickerAggregates(
   return {
     best: sorted.slice(0, topN),
     worst: sorted.slice(-topN).reverse(),
+  };
+}
+
+export interface SignalCoverage {
+  signalsSeen: number;
+  taken: number;
+  skippedFunds: number;
+  skippedConcurrency: number;
+  /** taken / signalsSeen, 0..1 */
+  coverage: number;
+}
+
+/**
+ * Run-level signal coverage totals. Returns null when no equity point carries
+ * signal counts (results persisted before the backend recorded them), so
+ * callers can hide coverage UI entirely for old backtests.
+ */
+export function computeSignalCoverage(equity: EquityPoint[]): SignalCoverage | null {
+  let signalsSeen = 0;
+  let taken = 0;
+  let skippedFunds = 0;
+  let skippedConcurrency = 0;
+  for (const pt of equity) {
+    signalsSeen += pt.signalsSeen ?? 0;
+    taken += pt.tradesTaken;
+    skippedFunds += pt.skippedFunds ?? 0;
+    skippedConcurrency += pt.skippedConcurrency ?? 0;
+  }
+  if (signalsSeen === 0) return null;
+  return {
+    signalsSeen,
+    taken,
+    skippedFunds,
+    skippedConcurrency,
+    coverage: taken / signalsSeen,
   };
 }

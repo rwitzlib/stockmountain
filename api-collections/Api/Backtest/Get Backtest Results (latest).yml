@@ -14,6 +14,21 @@ docs: |
     "maxDrawdown": -18.75
   }
   ```
+
+  Each equity point carries per-day signal counts (zero on older results):
+  signalsSeen = tradesTaken + skippedFunds + skippedConcurrency. Policy skips
+  (duplicate ticker, cooldown) are excluded from signalsSeen.
+
+  Sample equity point:
+  ```json
+  {
+    "date": "2026-06-30T00:00:00-04:00",
+    "tradesTaken": 10,
+    "signalsSeen": 141,
+    "skippedFunds": 96,
+    "skippedConcurrency": 35
+  }
+  ```
 info:
   name: Get Backtest Results (latest)
   type: http

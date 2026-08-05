@@ -328,6 +328,23 @@ export function EquityCurveCard({
               <span className="text-muted-foreground">Trades</span>
               <b className="tabular-nums">{hoverDay.tradesTaken}</b>
             </div>
+            {(hoverDay.signalsSeen ?? 0) > 0 && (
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-muted-foreground">Signals</span>
+                <b className="tabular-nums">{hoverDay.signalsSeen}</b>
+              </div>
+            )}
+            {(hoverDay.skippedFunds ?? 0) + (hoverDay.skippedConcurrency ?? 0) > 0 && (
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-muted-foreground">Skipped</span>
+                <b className="tabular-nums">
+                  {(hoverDay.skippedFunds ?? 0) + (hoverDay.skippedConcurrency ?? 0)}
+                  <span className="font-normal text-muted-foreground">
+                    {' '}({hoverDay.skippedConcurrency ?? 0} slots · {hoverDay.skippedFunds ?? 0} cash)
+                  </span>
+                </b>
+              </div>
+            )}
           </div>
         )}
       </div>

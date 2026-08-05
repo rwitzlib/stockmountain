@@ -211,12 +211,150 @@ public class BacktestPortfolioSimulatorUnitTests
         response.Hold.Trades.Should().HaveCount(2);
     }
 
-    private static StrategyPositionSettings CreateSettings(Timeframe cooldown, bool allowSimultaneous = false)
+    [Fact]
+    public void Simulate_CountsConcurrencySkips_ForSameMinuteSignals()
+    {
+        // Three same-minute signals with a cap of 1: the alphabetically-first ticker wins
+        // the slot, the other two count as concurrency skips.
+        var workerResponse = new WorkerResponse
+        {
+            Date = StartDate,
+            Results =
+            [
+                CreateResult("AAA", BoughtAt, BoughtAt.AddMinutes(29)),
+                CreateResult("BBB", BoughtAt, BoughtAt.AddMinutes(29)),
+                CreateResult("CCC", BoughtAt, BoughtAt.AddMinutes(29))
+            ]
+        };
+
+        var settings = CreateSettings(new Timeframe(0, Timespan.minute), maxConcurrentPositions: 1);
+
+        var response = BacktestPortfolioSimulator.Simulate(
+            "backtest-id", 0f, StartDate, settings, [workerResponse]);
+
+        var day = response.Hold.Equity.First();
+        day.TradesTaken.Should().Be(1);
+        day.SignalsSeen.Should().Be(3);
+        day.SkippedConcurrency.Should().Be(2);
+        day.SkippedFunds.Should().Be(0);
+    }
+
+    [Fact]
+    public void Simulate_CountsFundsSkips_WhenCashExhausted()
+    {
+        var workerResponse = new WorkerResponse
+        {
+            Date = StartDate,
+            Results =
+            [
+                CreateResult("AAA", BoughtAt, BoughtAt.AddMinutes(29)),
+                CreateResult("BBB", BoughtAt, BoughtAt.AddMinutes(29))
+            ]
+        };
+
+        var settings = CreateSettings(new Timeframe(0, Timespan.minute), startingBalance: 1500);
+
+        var response = BacktestPortfolioSimulator.Simulate(
+            "backtest-id", 0f, StartDate, settings, [workerResponse]);
+
+        var day = response.Hold.Equity.First();
+        day.TradesTaken.Should().Be(1);
+        day.SignalsSeen.Should().Be(2);
+        day.SkippedFunds.Should().Be(1);
+        day.SkippedConcurrency.Should().Be(0);
+    }
+
+    [Fact]
+    public void Simulate_AttributesDualConstraintSkips_ToConcurrency()
+    {
+        // Cap of 1 and cash for one position: the second signal fails both constraints
+        // and must land in SkippedConcurrency, not SkippedFunds.
+        var workerResponse = new WorkerResponse
+        {
+            Date = StartDate,
+            Results =
+            [
+                CreateResult("AAA", BoughtAt, BoughtAt.AddMinutes(29)),
+                CreateResult("BBB", BoughtAt, BoughtAt.AddMinutes(29))
+            ]
+        };
+
+        var settings = CreateSettings(
+            new Timeframe(0, Timespan.minute), startingBalance: 1000, maxConcurrentPositions: 1);
+
+        var response = BacktestPortfolioSimulator.Simulate(
+            "backtest-id", 0f, StartDate, settings, [workerResponse]);
+
+        var day = response.Hold.Equity.First();
+        day.SkippedConcurrency.Should().Be(1);
+        day.SkippedFunds.Should().Be(0);
+    }
+
+    [Fact]
+    public void Simulate_PolicySkips_DoNotCountAsSignalsSeen()
+    {
+        // Same scenario as Simulate_SkipsReentry_WhileTickerStillOpen: the 09:40 signal is
+        // a duplicate-ticker policy skip, so it appears in neither SignalsSeen nor a skip
+        // bucket — the invariant seen == taken + skips still holds.
+        var workerResponse = new WorkerResponse
+        {
+            Date = StartDate,
+            Results =
+            [
+                CreateResult("TEST", BoughtAt, BoughtAt.AddMinutes(29)),
+                CreateResult("TEST", BoughtAt.AddMinutes(9), BoughtAt.AddMinutes(40)),
+                CreateResult("TEST", BoughtAt.AddMinutes(34), BoughtAt.AddMinutes(60))
+            ]
+        };
+
+        var response = BacktestPortfolioSimulator.Simulate(
+            "backtest-id", 0f, StartDate, CreateSettings(new Timeframe(0, Timespan.minute)), [workerResponse]);
+
+        var day = response.Hold.Equity.First();
+        day.TradesTaken.Should().Be(2);
+        day.SignalsSeen.Should().Be(2);
+        day.SkippedFunds.Should().Be(0);
+        day.SkippedConcurrency.Should().Be(0);
+    }
+
+    [Fact]
+    public void Simulate_EquityPoints_SatisfySignalInvariant()
+    {
+        var workerResponse = new WorkerResponse
+        {
+            Date = StartDate,
+            Results =
+            [
+                CreateResult("AAA", BoughtAt, BoughtAt.AddMinutes(29)),
+                CreateResult("BBB", BoughtAt, BoughtAt.AddMinutes(29)),
+                CreateResult("CCC", BoughtAt.AddMinutes(5), BoughtAt.AddMinutes(45)),
+                CreateResult("AAA", BoughtAt.AddMinutes(40), BoughtAt.AddMinutes(60))
+            ]
+        };
+
+        var settings = CreateSettings(
+            new Timeframe(0, Timespan.minute), startingBalance: 2500, maxConcurrentPositions: 2);
+
+        var response = BacktestPortfolioSimulator.Simulate(
+            "backtest-id", 0f, StartDate, settings, [workerResponse]);
+
+        foreach (var portfolio in new[] { response.Hold, response.High })
+        {
+            portfolio.Equity.Should().OnlyContain(day =>
+                day.SignalsSeen == day.TradesTaken + day.SkippedFunds + day.SkippedConcurrency);
+        }
+    }
+
+    private static StrategyPositionSettings CreateSettings(
+        Timeframe cooldown,
+        bool allowSimultaneous = false,
+        float startingBalance = 10000,
+        int maxConcurrentPositions = 5)
     {
         return new StrategyPositionSettings
         {
-            StartingBalance = 10000,
-            MaxConcurrentPositions = 5,
+            StartingBalance = startingBalance,
+            MaxConcurrentPositions = maxConcurrentPositions,
             AllowSimultaneous = allowSimultaneous,
             Model = new PositionModel
             {

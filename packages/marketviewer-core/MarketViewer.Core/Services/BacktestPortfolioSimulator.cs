@@ -76,6 +76,7 @@ public static class BacktestPortfolioSimulator
             var startCash = availableFunds;
             var dayProfit = 0f;
             var tradesTakenToday = 0;
+            var dayCounters = new SignalCounters();
             var dayMaxConcurrent = openPositions.Count;
 
             // Inclusive of the 16:00 tick: SoldAt is an execution minute (priced bar + 1),
@@ -93,7 +94,8 @@ public static class BacktestPortfolioSimulator
                     ref availableFunds,
                     openPositions,
                     ref tradesTakenToday,
-                    cooldownExpiries);
+                    cooldownExpiries,
+                    dayCounters);
 
                 dayMaxConcurrent = Math.Max(dayMaxConcurrent, openPositions.Count);
             }
@@ -110,7 +112,10 @@ public static class BacktestPortfolioSimulator
                 OpenPositions = openPositions.Count,
                 MaxConcurrentPositions = dayMaxConcurrent,
                 DayProfit = dayProfit,
-                TradesTaken = tradesTakenToday
+                TradesTaken = tradesTakenToday,
+                SignalsSeen = dayCounters.Seen,
+                SkippedFunds = dayCounters.SkippedFunds,
+                SkippedConcurrency = dayCounters.SkippedConcurrency
             });
         }
 
@@ -199,6 +204,11 @@ public static class BacktestPortfolioSimulator
         }
     }
 
+    /// <summary>
+    /// Counts a candidate as seen once it passes the outcome/duplicate/cooldown gates
+    /// (policy skips are not opportunity misses). A candidate failing both capacity
+    /// constraints is attributed to concurrency — with the cap hit, cash is moot.
+    /// </summary>
     private static void BuyPositions(
         string type,
         WorkerResponse entry,
@@ -207,7 +217,8 @@ public static class BacktestPortfolioSimulator
         ref float availableFunds,
         List<BacktestEntryResultCollection> openPositions,
         ref int tradesTakenToday,
-        Dictionary<string, DateTimeOffset> cooldownExpiries)
+        Dictionary<string, DateTimeOffset> cooldownExpiries,
+        SignalCounters counters)
     {
         if (entry?.Results is null)
         {
@@ -241,14 +252,18 @@ public static class BacktestPortfolioSimulator
                 continue;
             }
 
-            if (availableFunds < positionSettings.Model.Size)
-            {
-                continue;
-            }
+            counters.Seen++;
 
             if (positionSettings.MaxConcurrentPositions > 0
                 && openPositions.Count >= positionSettings.MaxConcurrentPositions)
             {
+                counters.SkippedConcurrency++;
+                continue;
+            }
+
+            if (availableFunds < positionSettings.Model.Size)
+            {
+                counters.SkippedFunds++;
                 continue;
             }
 
@@ -398,6 +413,13 @@ public static class BacktestPortfolioSimulator
         var sumOfSquares = values.Sum(value => Math.Pow(value - mean, 2));
 
         return Math.Sqrt(sumOfSquares / (values.Count - 1));
+    }
+
+    private sealed class SignalCounters
+    {
+        public int Seen { get; set; }
+        public int SkippedFunds { get; set; }
+        public int SkippedConcurrency { get; set; }
     }
 
     private readonly struct PerformanceMetrics

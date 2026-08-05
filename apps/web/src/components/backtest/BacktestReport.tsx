@@ -22,6 +22,7 @@ import {
   computeEntryTimeBuckets,
   computeExitReasonBreakdown,
   computeProfitHistogram,
+  computeSignalCoverage,
   computeTickerAggregates,
 } from '../../utils/backtestAnalytics';
 
@@ -106,6 +107,7 @@ export function BacktestReport({
       entryBuckets: computeEntryTimeBuckets(primary.trades),
       tickers: computeTickerAggregates(primary.trades),
       exitReasons: computeExitReasonBreakdown(primary.trades),
+      signalCoverage: computeSignalCoverage(primary.equity),
     };
   }, [tradingData, startingBalance]);
 
@@ -226,6 +228,19 @@ export function BacktestReport({
                 <b className="font-semibold text-foreground">
                   {analytics.exitEfficiency.toFixed(1)}%
                 </b>
+              </span>
+            )}
+            {analytics.signalCoverage && (
+              <span
+                className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground"
+                title={`Skipped ${analytics.signalCoverage.skippedConcurrency.toLocaleString()} at the position cap, ${analytics.signalCoverage.skippedFunds.toLocaleString()} on insufficient cash`}
+              >
+                Signal coverage{' '}
+                <b className="font-semibold text-foreground">
+                  {(analytics.signalCoverage.coverage * 100).toFixed(0)}%
+                </b>{' '}
+                · {analytics.signalCoverage.taken.toLocaleString()} of{' '}
+                {analytics.signalCoverage.signalsSeen.toLocaleString()} signals
               </span>
             )}
           </div>
