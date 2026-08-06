@@ -1,51 +1,23 @@
-import { ScanArgument, StopConfig, TimeFrame } from "./strategy";
+import type {
+  ScanArgument,
+  StopConfig,
+  TimeFrame,
+  PositionSettings,
+  ExitSettings,
+  EntrySettings,
+} from "./strategy";
 
-export interface BacktestModelSettings {
-  Type: string;
-  Size: number;
-}
-
-export interface BacktestCooldownSettings {
-  Multiplier: number;
-  Timespan: string;
-}
-
-export interface BacktestPositionSettings {
-  StartingBalance: number;
-  AllowSimultaneous: boolean;
-  MaxConcurrentPositions: number;
-  Model: BacktestModelSettings;
-  Cooldown?: BacktestCooldownSettings;
-}
-
-export interface BacktestExitTarget {
-  Type: string;
-  Value: number;
-}
-
-export interface BacktestTimedExitSettings {
-  Timeframe: {
-    Multiplier: number;
-    Timespan: string;
-  };
-}
-
-export interface BacktestEntrySettings {
-  Filters: string[];
-}
-
-export interface BacktestExitSettings {
-  TakeProfit?: BacktestExitTarget;
-  StopLoss?: BacktestExitTarget;
-  TimedExit?: BacktestTimedExitSettings;
-}
-
+/**
+ * Backtest create payload — the backend reuses the strategy settings models, so the
+ * frontend does too. Cooldown is optional (omit when disabled); stop loss, take profit,
+ * and timed exit are mandatory.
+ */
 export interface BacktestRequest {
   start: string;
   end: string;
-  PositionSettings: BacktestPositionSettings;
-  EntrySettings: BacktestEntrySettings;
-  ExitSettings: BacktestExitSettings;
+  positionSettings: PositionSettings;
+  entrySettings: EntrySettings;
+  exitSettings: ExitSettings;
 }
 
 export interface BacktestEntryStatsSummary {

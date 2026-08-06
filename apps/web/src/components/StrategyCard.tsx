@@ -1,4 +1,4 @@
-import { Strategy, StrategyStateType, ExitValueType } from '../types/strategy';
+import { Strategy, StrategyStateType, ExitValueType, ExitSettings } from '../types/strategy';
 import { Switch } from './ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -23,8 +23,8 @@ export function StrategyCard({ strategy, onUpdate, onDelete, readOnly = false, f
   // Get position settings directly from the new structure
   const positionSettings = strategy.positionSettings;
 
-  // Get exit settings directly from the new structure
-  const exitSettings = strategy.exitSettings || {};
+  // Exits are mandatory for new strategies, but old records may predate that rule.
+  const exitSettings: Partial<ExitSettings> = strategy.exitSettings || {};
 
   const handleSwitchClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click when clicking switch

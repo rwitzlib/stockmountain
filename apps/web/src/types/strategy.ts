@@ -44,14 +44,16 @@ export interface Exit {
 
 export interface TimedExit {
   avoidOvernight: boolean;
-  timeframe?: Timeframe;
+  timeframe: Timeframe;
 }
 
+// Stop loss, take profit, and timed exit are mandatory (enforced by the API);
+// only conditional exits are optional.
 export interface ExitSettings {
-  stopLoss?: Exit;
-  takeProfit?: Exit;
+  stopLoss: Exit;
+  takeProfit: Exit;
   conditionalExit?: string[];
-  timedExit?: TimedExit;
+  timedExit: TimedExit;
 }
 
 // ============================================================================

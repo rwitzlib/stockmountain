@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Strategy, Exit, IntegrationType, Timeframe, TradeType } from '../../types/strategy';
 import { PositionSettingsForm } from '../../components/forms/strategy/PositionSettingsForm';
-import { ExitSettingsForm } from '../../components/forms/strategy/ExitSettingsForm';
+import { ExitSettingsForm, defaultExitSettings } from '../../components/forms/strategy/ExitSettingsForm';
 import { EntrySettingsForm } from '../../components/forms/strategy/EntrySettingsForm';
 import { RailRow } from '../../components/backtest/BacktestReport';
 import { Switch } from '../../components/ui/switch';
@@ -29,7 +29,7 @@ const defaultFormData: Strategy = {
       size: 1000,
     },
   },
-  exitSettings: {},
+  exitSettings: defaultExitSettings,
   entrySettings: {
     filters: [],
   },
@@ -88,9 +88,16 @@ function mergeIntoDefaults(partial: Partial<Strategy>): Strategy {
         ...partial.positionSettings?.model,
       },
     },
+    // Exits are mandatory — strategies saved before that rule may lack some, so
+    // fill each one individually from the defaults.
     exitSettings: {
       ...defaultFormData.exitSettings,
       ...partial.exitSettings,
+      stopLoss: partial.exitSettings?.stopLoss ?? defaultExitSettings.stopLoss,
+      takeProfit: partial.exitSettings?.takeProfit ?? defaultExitSettings.takeProfit,
+      timedExit: partial.exitSettings?.timedExit?.timeframe
+        ? partial.exitSettings.timedExit
+        : defaultExitSettings.timedExit,
     },
     entrySettings: {
       ...defaultFormData.entrySettings,
@@ -100,10 +107,8 @@ function mergeIntoDefaults(partial: Partial<Strategy>): Strategy {
   };
 }
 
-const formatExit = (exit: Exit | undefined) => {
-  if (!exit) return 'Not set';
-  return exit.type === 'percent' ? `${exit.value}%` : `$${exit.value}`;
-};
+const formatExit = (exit: Exit) =>
+  exit.type === 'percent' ? `${exit.value}%` : `$${exit.value}`;
 
 const formatTimeframe = (timeframe: Timeframe | undefined) => {
   if (!timeframe) return 'Not set';
@@ -503,17 +508,17 @@ const StrategyEditorPage = () => {
               <RailRow
                 label="Stop loss"
                 value={formatExit(exitSettings.stopLoss)}
-                valueColor={exitSettings.stopLoss ? 'var(--chart-loss)' : undefined}
+                valueColor="var(--chart-loss)"
               />
               <RailRow
                 label="Take profit"
                 value={formatExit(exitSettings.takeProfit)}
-                valueColor={exitSettings.takeProfit ? 'var(--chart-gain)' : undefined}
+                valueColor="var(--chart-gain)"
               />
-              <RailRow label="Timed exit" value={formatTimeframe(exitSettings.timedExit?.timeframe)} />
+              <RailRow label="Timed exit" value={formatTimeframe(exitSettings.timedExit.timeframe)} />
               <RailRow
                 label="Overnight"
-                value={exitSettings.timedExit ? (exitSettings.timedExit.avoidOvernight ? 'Avoided' : 'Allowed') : '—'}
+                value={exitSettings.timedExit.avoidOvernight ? 'Avoided' : 'Allowed'}
               />
             </Card>
 

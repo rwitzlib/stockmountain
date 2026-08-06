@@ -305,11 +305,30 @@ public class BacktestRepository(
         }
 
         var json = Document.FromAttributeMap(attributes).ToJson();
-        var record = JsonSerializer.Deserialize<BacktestContextRecord>(json);
+        BacktestContextRecord record;
+        try
+        {
+            record = JsonSerializer.Deserialize<BacktestContextRecord>(json);
+        }
+        catch (JsonException)
+        {
+            // Records written before the exit/cooldown required-member semantics settled can
+            // fail validation on an embedded Request map; salvage the rest of the record.
+            var withoutRequest = new Dictionary<string, AttributeValue>(attributes);
+            withoutRequest.Remove("Request");
+            record = JsonSerializer.Deserialize<BacktestContextRecord>(Document.FromAttributeMap(withoutRequest).ToJson());
+        }
 
         if (requestAttribute?.S is not null)
         {
-            record.Request = JsonSerializer.Deserialize<BacktestCreateRequest>(requestAttribute.S);
+            try
+            {
+                record.Request = JsonSerializer.Deserialize<BacktestCreateRequest>(requestAttribute.S);
+            }
+            catch (JsonException)
+            {
+                record.Request = null;
+            }
         }
 
         if (string.IsNullOrEmpty(record.Id) && item.TryGetValue("PK", out var pk))
