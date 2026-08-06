@@ -266,7 +266,7 @@ public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache
         stocksResponse.TickerInfo.TickerDetails = tickerDetails;
     }
 
-    private void MergePreviousPeriod(Timeframe timeframe, DateTimeOffset date, DateTimeOffset previousDate)
+    internal void MergePreviousPeriod(Timeframe timeframe, DateTimeOffset date, DateTimeOffset previousDate)
     {
         var tickers = marketCache.GetTickersByTimeframe(timeframe, date);
 
@@ -287,13 +287,19 @@ public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache
                 return;
             }
 
-            // The cached response is shared across Setup calls; skip if already merged.
-            if (current.Results.First().Timestamp <= previous.Results.Last().Timestamp)
+            // Yearly/monthly files overlap by one bar (each file's first bar is the
+            // previous period's final session), so dedupe by timestamp instead of
+            // treating any overlap as "already merged". The cached response is shared
+            // across Setup calls; an empty remainder means the merge already happened.
+            var firstCurrentTimestamp = current.Results.First().Timestamp;
+            var previousBars = previous.Results.Where(bar => bar.Timestamp < firstCurrentTimestamp).ToList();
+
+            if (previousBars.Count == 0)
             {
                 return;
             }
 
-            current.Results.InsertRange(0, previous.Results);
+            current.Results.InsertRange(0, previousBars);
         });
     }
 
