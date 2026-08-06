@@ -1,5 +1,6 @@
 ﻿using Amazon.Lambda;
 using Amazon.Lambda.Model;
+using FluentValidation;
 using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Backtest;
@@ -13,6 +14,7 @@ using System.Net;
 using System.Threading.Tasks;
 using MarketViewer.Infrastructure.Config;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Serialization;
 using MarketViewer.Contracts.Records.Backtest;
 using MarketViewer.Core.Auth;
@@ -24,6 +26,7 @@ public class BacktestHandler(
     AuthContext authContext,
     IAmazonLambda lambda,
     IBacktestRepository repository,
+    IValidator<BacktestCreateRequest> validator,
     ILogger<BacktestHandler> logger)
 {
     private readonly JsonSerializerOptions _options = new()
@@ -36,6 +39,19 @@ public class BacktestHandler(
     {
         try
         {
+            var validationResult = await validator.ValidateAsync(request);
+            if (!validationResult.IsValid)
+            {
+                var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                logger.LogWarning("Validation failed for backtest create request {id}: {errors}",
+                    request.Id, string.Join(", ", errors));
+                return new OperationResult<BacktestEntryResponse>
+                {
+                    Status = HttpStatusCode.BadRequest,
+                    ErrorMessages = errors
+                };
+            }
+
             logger.LogInformation("Creating backtest with ID: {id} for user {userId}", request.Id, authContext.UserId);
 
             var record = new BacktestContextRecord

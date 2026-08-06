@@ -10,42 +10,44 @@ http:
     type: json
     data: |-
       {
-        "Start": "2026-07-01",
-        "End": "2026-08-04",
-        "PositionSettings": {
-          "StartingBalance": 100000,
-          "MaxConcurrentPositions": 1000,
-          "Model": {
-            "Type": "Fixed",
-            "Size": 10000
+        "start": "2026-01-01",
+        "end": "2026-08-04",
+        "positionSettings": {
+          "startingBalance": 10000,
+          "maxConcurrentPositions": 1000,
+          "model": {
+            "type": "Fixed",
+            "size": 7500
           },
-          "Cooldown": {
-            "Multiplier": 15,
-            "Timespan": "minute"
+          "cooldown": {
+            "multiplier": 15,
+            "timespan": "minute"
           }
         },
-        "EntrySettings": {
-          "Filters": [
+        "entrySettings": {
+          "filters": [
             "rsi(30,70,14,ema) < 30 [1m]",
-            "float < 10000000",
-            "close > 1.00 [1m]",
-            "volume > 10000 [1m,5]",
-            "close > ema(100) [1d]"
+            "float < 30000000",
+            "close > 2.50 [1m]",
+            "volume > 50000 [1m,5]",
+            "volume > 1000000 [1d]",
+            "close > ema(21) [1d]"
           ]
         },
-        "ExitSettings": {
-          "StopLoss": {
-            "ExitValueType": "percent",
-            "Value": 2
+        "exitSettings": {
+          "stopLoss": {
+            "type": "percent",
+            "value": 2
           },
-          "TakeProfit": {
-            "ExitValueType": "percent",
-            "Value": 15
+          "takeProfit": {
+            "type": "percent",
+            "value": 15
           },
-          "TimedExit": {
-            "Timeframe": {
-              "Multiplier": 5,
-              "Timespan": "minute"
+          "timedExit": {
+            "avoidOvernight": true,
+            "timeframe": {
+              "multiplier": 3,
+              "timespan": "minute"
             }
           }
         }

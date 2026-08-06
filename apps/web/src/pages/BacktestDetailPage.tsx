@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FilterDisplay } from '../components/backtest/FilterDisplay';
 import { BacktestReport, BenchmarkBar, RailRow } from '../components/backtest/BacktestReport';
 import { ShareDialog } from '../components/backtest/ShareDialog';
+import { defaultExitSettings } from '../components/forms/strategy/ExitSettingsForm';
 import { backtestApi } from '../api/backtestApi';
 import { TradingData } from '../types/types';
 import { BacktestEntry, BacktestRequest } from '../types/backtest';
@@ -327,8 +328,9 @@ export function BacktestDetailPage() {
         },
       },
       exitSettings: {
-        stopLoss: toExit(exitInfo.stopLoss),
-        takeProfit: toExit(exitInfo.profitTarget),
+        // Exits are mandatory now; records predating that rule fall back to defaults.
+        stopLoss: toExit(exitInfo.stopLoss) ?? defaultExitSettings.stopLoss,
+        takeProfit: toExit(exitInfo.profitTarget) ?? defaultExitSettings.takeProfit,
         timedExit: exitInfo.timeframe
           ? {
               avoidOvernight: exitInfo.avoidOvernight ?? true,
@@ -337,7 +339,7 @@ export function BacktestDetailPage() {
                 timespan: (exitInfo.timeframe.timespan as Timespan) ?? 'minute',
               },
             }
-          : undefined,
+          : defaultExitSettings.timedExit,
       },
       entrySettings: {
         filters: requestData.filters || [],
@@ -349,52 +351,25 @@ export function BacktestDetailPage() {
     if (!data?.backtestEntry) return undefined;
 
     const { backtestEntry } = data;
-    const requestData = getRequestData(backtestEntry);
-    const positionInfo = requestData.positionInfo;
-    const exitInfo = requestData.exitInfo;
+    const { positionSettings, exitSettings, entrySettings } = mapBacktestToStrategy(backtestEntry);
 
-    const request: BacktestRequest = {
+    // The strategy mapping drops the cooldown (strategies re-enter on live signals),
+    // but a copied backtest should keep it.
+    const cooldown = backtestEntry.request?.positionSettings?.cooldown;
+    if (cooldown?.multiplier && cooldown.timespan) {
+      positionSettings.cooldown = {
+        multiplier: cooldown.multiplier,
+        timespan: cooldown.timespan as Timespan,
+      };
+    }
+
+    return {
       start: backtestEntry.start ? backtestEntry.start.slice(0, 10) : '',
       end: backtestEntry.end ? backtestEntry.end.slice(0, 10) : '',
-      PositionSettings: {
-        StartingBalance: positionInfo.startingBalance ?? 10000,
-        AllowSimultaneous: positionInfo.allowSimultaneous ?? ((positionInfo.maxConcurrentPositions ?? 1) > 1),
-        MaxConcurrentPositions: positionInfo.maxConcurrentPositions ?? 1,
-        Model: {
-          Type: positionInfo.modelType ?? 'Fixed',
-          Size: positionInfo.positionSize ?? 1000,
-        },
-      },
-      EntrySettings: {
-        Filters: requestData.filters || [],
-      },
-      ExitSettings: {},
+      positionSettings,
+      entrySettings,
+      exitSettings,
     };
-
-    if (exitInfo.profitTarget) {
-      request.ExitSettings.TakeProfit = {
-        Type: exitInfo.profitTarget.type ?? 'percent',
-        Value: exitInfo.profitTarget.value ?? 0,
-      };
-    }
-
-    if (exitInfo.stopLoss) {
-      request.ExitSettings.StopLoss = {
-        Type: exitInfo.stopLoss.type ?? 'percent',
-        Value: exitInfo.stopLoss.value ?? 0,
-      };
-    }
-
-    if (exitInfo.timeframe) {
-      request.ExitSettings.TimedExit = {
-        Timeframe: {
-          Multiplier: exitInfo.timeframe.multiplier ?? 1,
-          Timespan: exitInfo.timeframe.timespan ?? 'minute',
-        },
-      };
-    }
-
-    return request;
   };
 
   const handleCopyBacktest = () => {

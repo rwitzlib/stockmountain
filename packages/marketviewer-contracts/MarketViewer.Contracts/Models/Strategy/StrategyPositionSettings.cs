@@ -13,7 +13,7 @@ public class StrategyPositionSettings
     public int MaxConcurrentPositions { get; init; } = 1000;
     public required PositionModel Model { get; init; }
     public bool AllowSimultaneous { get; init; } = false; // Allow multiple positions in the same stock at the same time
-    public required Timeframe Cooldown { get; init; }
+    public Timeframe? Cooldown { get; init; }
 }
 
 [ExcludeFromCodeCoverage]

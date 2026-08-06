@@ -15,5 +15,10 @@ public class StrategyUpdateRequestValidator : AbstractValidator<StrategyUpdateRe
             .NotNull()
             .WithMessage("Entry settings are required.")
             .SetValidator(new StrategyEntrySettingsValidator());
+
+        RuleFor(x => x.ExitSettings)
+            .NotNull()
+            .WithMessage("Exit settings are required.")
+            .SetValidator(new StrategyExitSettingsValidator());
     }
 }
