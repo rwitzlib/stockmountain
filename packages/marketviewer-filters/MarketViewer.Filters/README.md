@@ -77,7 +77,7 @@ expression [timeframe, range]
 |----------|------------|-------|-------------|
 | `sma(n)` | `n`: period | `value` | Simple Moving Average |
 | `ema(n)` | `n`: period | `value` | Exponential Moving Average |
-| `rsi(period[, overbought, oversold, type])` | `period`: lookback (e.g., 14)<br>`overbought` (optional): e.g., 70<br>`oversold` (optional): e.g., 30<br>`type` (optional): `wilders` (default) / `ema` / `sma` | `value` | Relative Strength Index (0–100) |
+| `rsi(period, overbought, oversold, type)` | `period`: lookback (e.g., 14)<br>`overbought`: e.g., 70 (informational only — not used in computation)<br>`oversold`: e.g., 30 (informational only)<br>`type`: `wilders` / `ema` / `sma` — all 4 parameters are required | `value` | Relative Strength Index (0–100) |
 
 ### Complex Indicators (Multiple Fields)
 | Function | Parameters | Fields | Description |

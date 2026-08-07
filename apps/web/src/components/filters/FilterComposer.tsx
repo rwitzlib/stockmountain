@@ -43,7 +43,7 @@ const wordAt = (text: string, caret: number) => {
 };
 
 /** The innermost unclosed function call before the caret, for signature hints. */
-const enclosingFunction = (text: string, caret: number): string | null => {
+const enclosingFunction = (text: string, caret: number): { name: string; parenIndex: number } | null => {
   let depth = 0;
   for (let i = caret - 1; i >= 0; i--) {
     const ch = text[i];
@@ -51,12 +51,25 @@ const enclosingFunction = (text: string, caret: number): string | null => {
     if (ch === '(') {
       if (depth === 0) {
         const match = text.slice(0, i).match(/([a-zA-Z_]+)$/);
-        return match?.[1] ?? null;
+        return match ? { name: match[1], parenIndex: i } : null;
       }
       depth--;
     }
   }
   return null;
+};
+
+/** Which argument the caret sits in: top-level commas between the open paren and the caret. */
+const argIndexAt = (text: string, parenIndex: number, caret: number): number => {
+  let depth = 0;
+  let index = 0;
+  for (let i = parenIndex + 1; i < caret; i++) {
+    const ch = text[i];
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) index++;
+  }
+  return index;
 };
 
 export const FilterComposer = forwardRef(function FilterComposer(
@@ -130,9 +143,11 @@ export const FilterComposer = forwardRef(function FilterComposer(
   }, [functions, input, word]);
 
   const signatureHint = useMemo(() => {
-    const name = enclosingFunction(input, caret);
-    if (!name) return null;
-    return functions.find((f) => f.name === name)?.signature ?? null;
+    const enclosing = enclosingFunction(input, caret);
+    if (!enclosing) return null;
+    const fn = functions.find((f) => f.name === enclosing.name);
+    if (!fn) return null;
+    return { fn, activeArg: argIndexAt(input, enclosing.parenIndex, caret) };
   }, [functions, input, caret]);
 
   const applySuggestion = (suggestion: Suggestion) => {
@@ -325,7 +340,30 @@ export const FilterComposer = forwardRef(function FilterComposer(
       </div>
 
       {signatureHint && (
-        <div className="font-mono text-[11px] text-muted-foreground">{signatureHint}</div>
+        <div className="font-mono text-[11px] text-muted-foreground">
+          {signatureHint.fn.params ? (
+            <>
+              {signatureHint.fn.name}(
+              {signatureHint.fn.params.map((param, i) => (
+                <span key={param}>
+                  {i > 0 && ', '}
+                  <span
+                    className={
+                      i === signatureHint.activeArg
+                        ? 'rounded bg-sky-500/15 px-0.5 font-semibold text-sky-700 dark:text-sky-400'
+                        : undefined
+                    }
+                  >
+                    {param}
+                  </span>
+                </span>
+              ))}
+              )
+            </>
+          ) : (
+            signatureHint.fn.signature
+          )}
+        </div>
       )}
 
       {status === 'invalid' && validation?.error && (

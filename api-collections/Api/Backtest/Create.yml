@@ -26,7 +26,7 @@ http:
         },
         "entrySettings": {
           "filters": [
-            "rsi(30,70,14,ema) < 30 [1m]",
+            "rsi(14,30,70,ema) < 30 [1m]",
             "float < 50000000",
             "close > 2.50 [1m]",
             "volume > 50000 [1m,5]",

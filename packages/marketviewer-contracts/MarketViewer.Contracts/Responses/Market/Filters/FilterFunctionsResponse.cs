@@ -27,6 +27,9 @@ public class FilterFunctionInfo
 
     public required string Description { get; init; }
 
+    /// <summary>Ordered parameter names for active-argument highlighting; "?" suffix marks optional, e.g. ["series", "period?"].</summary>
+    public List<string>? Params { get; init; }
+
     /// <summary>Dot-accessible fields, e.g. macd → ["value", "signal", "histogram"].</summary>
     public List<string>? Fields { get; init; }
 }

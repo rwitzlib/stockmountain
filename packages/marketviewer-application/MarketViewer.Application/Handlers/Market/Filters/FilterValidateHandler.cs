@@ -204,14 +204,14 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
         new() { Kind = "literal", Name = "volume", Signature = "volume", Snippet = "volume", Description = "Volume series" },
         new() { Kind = "literal", Name = "float", Signature = "float", Snippet = "float", Description = "Ticker share float (scalar; fails comparison when unavailable)" },
         new() { Kind = "literal", Name = "time", Signature = "time", Snippet = "time", Description = "Candle time of day, Eastern. Compare against HH:MM, or use .hour / .minute", Fields = ["hour", "minute"] },
-        new() { Kind = "function", Name = "sma", Signature = "sma(period)", Snippet = "sma(14)", Description = "Simple moving average" },
-        new() { Kind = "function", Name = "ema", Signature = "ema(period)", Snippet = "ema(14)", Description = "Exponential moving average" },
-        new() { Kind = "function", Name = "rsi", Signature = "rsi(period[, overbought, oversold, type])", Snippet = "rsi(14)", Description = "Relative Strength Index (0–100); type: wilders (default) / ema / sma" },
-        new() { Kind = "function", Name = "macd", Signature = "macd(fast, slow, signal, type)", Snippet = "macd(12,26,9,ema)", Description = "MACD; fields: value, signal, histogram", Fields = ["value", "macd", "signal", "histogram"] },
-        new() { Kind = "function", Name = "adv", Signature = "adv()", Snippet = "adv()", Description = "Average daily volume" },
-        new() { Kind = "function", Name = "slope", Signature = "slope(series[, period])", Snippet = "slope(close, 5)", Description = "Linear regression slope over a rolling window (default 5)" },
-        new() { Kind = "function", Name = "crosses_over", Signature = "crosses_over(series1, series2)", Snippet = "crosses_over(close, sma(20))", Description = "True when series1 crosses above series2" },
-        new() { Kind = "function", Name = "crosses_under", Signature = "crosses_under(series1, series2)", Snippet = "crosses_under(close, sma(20))", Description = "True when series1 crosses below series2" },
+        new() { Kind = "function", Name = "sma", Signature = "sma(period)", Snippet = "sma(14)", Description = "Simple moving average", Params = ["period"] },
+        new() { Kind = "function", Name = "ema", Signature = "ema(period)", Snippet = "ema(14)", Description = "Exponential moving average", Params = ["period"] },
+        new() { Kind = "function", Name = "rsi", Signature = "rsi(period, overbought, oversold, type)", Snippet = "rsi(14,70,30,wilders)", Description = "Relative Strength Index (0–100). All 4 args required; overbought/oversold are informational only. Type: wilders / ema / sma", Params = ["period", "overbought", "oversold", "type"] },
+        new() { Kind = "function", Name = "macd", Signature = "macd(fast, slow, signal, type)", Snippet = "macd(12,26,9,ema)", Description = "MACD; fields: value, signal, histogram", Params = ["fast", "slow", "signal", "type"], Fields = ["value", "macd", "signal", "histogram"] },
+        new() { Kind = "function", Name = "adv", Signature = "adv([period])", Snippet = "adv()", Description = "Average daily volume; optional lookback period", Params = ["period?"] },
+        new() { Kind = "function", Name = "slope", Signature = "slope(series[, period])", Snippet = "slope(close, 5)", Description = "Linear regression slope over a rolling window (default 5)", Params = ["series", "period?"] },
+        new() { Kind = "function", Name = "crosses_over", Signature = "crosses_over(series1, series2)", Snippet = "crosses_over(close, sma(20))", Description = "True when series1 crosses above series2", Params = ["series1", "series2"] },
+        new() { Kind = "function", Name = "crosses_under", Signature = "crosses_under(series1, series2)", Snippet = "crosses_under(close, sma(20))", Description = "True when series1 crosses below series2", Params = ["series1", "series2"] },
         new()
         {
             Kind = "function",
@@ -219,6 +219,7 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
             Signature = "support_resistance(lookback, swing, cluster%, atrMult, atrPeriod, minTouches)",
             Snippet = "support_resistance()",
             Description = "Support/resistance zone mapper (alias: sr). Positive value = closer to resistance",
+            Params = ["lookback?", "swing?", "cluster%?", "atrMult?", "atrPeriod?", "minTouches?"],
             Fields =
             [
                 "value", "support", "resistance", "support_strength", "resistance_strength",

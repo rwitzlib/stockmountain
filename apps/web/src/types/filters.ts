@@ -86,5 +86,7 @@ export interface FilterFunctionInfo {
   signature: string;
   snippet: string;
   description: string;
+  /** Ordered parameter names; "?" suffix marks optional (e.g. ["series", "period?"]). */
+  params?: string[];
   fields?: string[];
 }
