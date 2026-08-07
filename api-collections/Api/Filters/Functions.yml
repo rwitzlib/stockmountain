@@ -1,0 +1,17 @@
+info:
+  name: Functions
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: https://{{base_url}}{{port}}/api/filters/functions
+  body:
+    type: none
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

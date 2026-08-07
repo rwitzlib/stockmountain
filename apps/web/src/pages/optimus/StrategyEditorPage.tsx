@@ -5,6 +5,7 @@ import { Strategy, Exit, IntegrationType, Timeframe, TradeType } from '../../typ
 import { PositionSettingsForm } from '../../components/forms/strategy/PositionSettingsForm';
 import { ExitSettingsForm, defaultExitSettings } from '../../components/forms/strategy/ExitSettingsForm';
 import { EntrySettingsForm } from '../../components/forms/strategy/EntrySettingsForm';
+import { FilterChips } from '../../components/filters/FilterChips';
 import { RailRow } from '../../components/backtest/BacktestReport';
 import { Switch } from '../../components/ui/switch';
 import { Button } from '../../components/ui/button';
@@ -462,12 +463,12 @@ const StrategyEditorPage = () => {
               {filters.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
                   {filters.map((filter, index) => (
-                    <code
+                    <div
                       key={`${filter}-${index}`}
-                      className="rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5 font-mono text-xs"
+                      className="rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5"
                     >
-                      {filter}
-                    </code>
+                      <FilterChips expression={filter} />
+                    </div>
                   ))}
                 </div>
               ) : (

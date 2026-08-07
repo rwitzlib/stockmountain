@@ -12,6 +12,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { RailRow } from '../components/backtest/BacktestReport';
 import { EntrySettingsForm } from '../components/forms/strategy/EntrySettingsForm';
+import { FilterChips } from '../components/filters/FilterChips';
 import { ExitSettingsForm, defaultExitSettings } from '../components/forms/strategy/ExitSettingsForm';
 import { PositionSettingsForm } from '../components/forms/strategy/PositionSettingsForm';
 import { toast } from '../hooks/use-toast';
@@ -297,12 +298,12 @@ export function BacktestCreatePage() {
               {filters.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
                   {filters.map((filter, index) => (
-                    <code
+                    <div
                       key={`${filter}-${index}`}
-                      className="rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5 font-mono text-xs"
+                      className="rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5"
                     >
-                      {filter}
-                    </code>
+                      <FilterChips expression={filter} />
+                    </div>
                   ))}
                 </div>
               ) : (

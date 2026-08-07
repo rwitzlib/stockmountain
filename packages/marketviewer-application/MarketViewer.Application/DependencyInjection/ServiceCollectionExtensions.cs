@@ -15,6 +15,7 @@ using MarketViewer.Application.Handlers.Management.Strategy;
 using MarketViewer.Application.Handlers.Management.Trade;
 using MarketViewer.Application.Handlers.Management.User;
 using MarketViewer.Application.Handlers.Market;
+using MarketViewer.Application.Handlers.Market.Filters;
 using MarketViewer.Application.Handlers.Market.Scan;
 using MarketViewer.Application.Handlers.Market.Tools;
 using MarketViewer.Application.Handlers.MarketData;
@@ -39,6 +40,7 @@ public static class ServiceCollectionExtensions
             }))
             .AddScoped<SnapshotHandler>()
             .AddScoped<BacktestHandler>()
+            .AddScoped<FilterValidateHandler>()
             .AddScoped<BacktestShareHandler>()
             .AddScoped<MarketDataHandler>()
             .AddScoped<StocksHandler>()

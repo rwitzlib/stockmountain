@@ -1,4 +1,5 @@
 import { Filter, ScanArgument, Operand } from '../../types/strategy';
+import { FilterChips } from '../filters/FilterChips';
 
 interface FilterDisplayProps {
   argument: ScanArgument;
@@ -61,6 +62,20 @@ function OperandDisplay({ operand }: OperandDisplayProps) {
 }
 
 function FilterItemDisplay({ filter }: { filter: Filter }) {
+  // Modern filters are DSL expression strings carried in a legacy wrapper
+  const expression = (filter as { expression?: unknown }).expression;
+  if (typeof expression === 'string' && expression) {
+    return (
+      <div className="p-3 rounded-lg border border-border/60 bg-muted/30">
+        <FilterChips expression={expression} />
+      </div>
+    );
+  }
+
+  return <StructuredFilterDisplay filter={filter} />;
+}
+
+function StructuredFilterDisplay({ filter }: { filter: Filter }) {
   const getOperatorSymbol = (operator: string) => {
     switch (operator) {
       case 'gt': return '>';

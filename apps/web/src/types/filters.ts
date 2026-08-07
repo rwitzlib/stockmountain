@@ -16,24 +16,6 @@ export type DraftArg =
       args: DraftArg[];
     };
 
-export type BuilderToken =
-  | { type: 'literal'; value: string }
-  | { type: 'func'; name: string; args: string[] }
-  | { type: 'op'; value: '>' | '<' | '>=' | '<=' | '=' | '!=' }
-  | { type: 'logic'; value: 'AND' | 'OR' }
-  | { type: 'range'; timeframe?: string; candles?: string };
-
-export interface FilterPaletteButton {
-  label: string;
-  token: BuilderToken;
-  className?: string;
-}
-
-export interface FilterPaletteGroup {
-  label: string;
-  buttons: FilterPaletteButton[];
-}
-
 export interface FilterItem {
   id: string;
   enabled: boolean;
@@ -67,3 +49,42 @@ export interface ChartFilterMatchResponse {
   metadata?: Record<string, unknown>;
 }
 
+// ---- /filters/validate + /filters/functions contracts (plan 13) ----
+
+export interface FilterTimeframe {
+  multiplier: number;
+  timespan: string;
+}
+
+export interface FilterAstNode {
+  kind: 'binary' | 'function' | 'field' | 'data' | 'literal' | 'range' | 'raw';
+  op?: string;
+  left?: FilterAstNode;
+  right?: FilterAstNode;
+  name?: string;
+  args?: FilterAstNode[];
+  field?: string;
+  target?: FilterAstNode;
+  value?: string;
+  inner?: FilterAstNode;
+  timeframe?: FilterTimeframe;
+  candles?: number;
+}
+
+export interface FilterValidationResult {
+  expression: string;
+  valid: boolean;
+  error?: string;
+  description?: string;
+  timeframe?: FilterTimeframe;
+  ast?: FilterAstNode;
+}
+
+export interface FilterFunctionInfo {
+  kind: 'function' | 'literal' | 'operator';
+  name: string;
+  signature: string;
+  snippet: string;
+  description: string;
+  fields?: string[];
+}

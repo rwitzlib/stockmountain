@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Trash2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { FilterComposer } from '../../filters/FilterComposer';
+import { FilterChips } from '../../filters/FilterChips';
 import { Button } from '../../ui/button';
 import type { EntrySettings } from '../../../types/strategy';
 
@@ -76,14 +77,11 @@ export function EntrySettingsForm({ value, onChange }: EntrySettingsFormProps) {
                   <span className="text-xs font-mono w-5">{index + 1}.</span>
                 </div>
 
-                {/* Filter Expression */}
+                {/* Filter Expression — chips when parseable, plain text fallback otherwise */}
                 <div className="flex-1 min-w-0">
-                  <input
-                    type="text"
-                    value={filter}
-                    onChange={(e) => handleEditFilter(index, e.target.value)}
-                    className="w-full bg-transparent border-none outline-none text-sm font-mono text-foreground placeholder:text-muted-foreground"
-                    placeholder="Enter filter expression..."
+                  <FilterChips
+                    expression={filter}
+                    onChange={(expression) => handleEditFilter(index, expression)}
                   />
                 </div>
 
@@ -161,33 +159,9 @@ export function EntrySettingsForm({ value, onChange }: EntrySettingsFormProps) {
             <FilterComposer
               onAddFilter={handleAddFilter}
               addButtonLabel="Add Entry Condition"
-              allowCode={true}
-              initialMode="builder"
             />
           </div>
         )}
-      </div>
-
-      {/* Quick Examples */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">Quick Add Examples:</p>
-        <div className="flex flex-wrap gap-2">
-          {[
-            'adv() > 2000000 [1d]',
-            'close > sma(50) [1d]',
-            'rsi(14) < 30 [1d]',
-            'macd(12,26,9) > 0 [1d]',
-          ].map((example) => (
-            <button
-              key={example}
-              type="button"
-              onClick={() => handleAddFilter(example)}
-              className="rounded-md border border-border/60 bg-muted/50 px-2.5 py-1.5 font-mono text-xs hover:bg-accent hover:text-foreground transition-colors"
-            >
-              {example}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );

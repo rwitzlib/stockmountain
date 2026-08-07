@@ -1,0 +1,25 @@
+info:
+  name: Validate
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: https://{{base_url}}{{port}}/api/filters/validate
+  body:
+    type: json
+    data: |-
+      {
+        "expressions": [
+          "rsi(14) < 30 [1m]",
+          "crosses_over(close, sma(20))",
+          "rsl(14) < 30"
+        ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
