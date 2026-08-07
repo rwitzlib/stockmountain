@@ -1,7 +1,7 @@
 info:
   name: List
   type: http
-  seq: 4
+  seq: 6
 
 http:
   method: GET

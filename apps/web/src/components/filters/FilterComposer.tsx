@@ -334,6 +334,11 @@ export const FilterComposer = forwardRef(function FilterComposer(
       {status === 'valid' && validation?.description && (
         <div className="text-[11px] text-muted-foreground italic">“{validation.description}”</div>
       )}
+      {status === 'unknown' && (
+        <div className="text-[11px] text-amber-600 dark:text-amber-400">
+          Validation unavailable — is the API running with the /filters endpoints? The expression will be added unchecked.
+        </div>
+      )}
     </div>
   );
 });

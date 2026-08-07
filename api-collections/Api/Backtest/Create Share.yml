@@ -1,7 +1,7 @@
 info:
   name: Create Share
   type: http
-  seq: 8
+  seq: 9
 
 http:
   method: POST
@@ -15,15 +15,6 @@ http:
       }
   auth: inherit
 
-docs: |-
-  Snapshots a completed backtest you own into a public share payload
-  (S3 shares/{shareId}.json, auto-expired after 30 days) and returns the share id.
-  With IncludeConfig=false the strategy configuration is redacted server-side to
-  counts only. Every call mints a new, independent share id.
-
-  Response: { "shareId": "...", "expiresAt": "..." }
-  Public page: https://stockmountain.io/share/{shareId}
-
 runtime:
   scripts:
     - type: after-response
@@ -34,3 +25,12 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+
+docs: |-
+  Snapshots a completed backtest you own into a public share payload
+  (S3 shares/{shareId}.json, auto-expired after 30 days) and returns the share id.
+  With IncludeConfig=false the strategy configuration is redacted server-side to
+  counts only. Every call mints a new, independent share id.
+
+  Response: { "shareId": "...", "expiresAt": "..." }
+  Public page: https://stockmountain.io/share/{shareId}

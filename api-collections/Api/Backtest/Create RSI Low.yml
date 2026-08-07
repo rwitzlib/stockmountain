@@ -1,7 +1,7 @@
 info:
-  name: Create
+  name: Create RSI Low
   type: http
-  seq: 1
+  seq: 2
 
 http:
   method: POST
@@ -10,14 +10,14 @@ http:
     type: json
     data: |-
       {
-        "start": "2024-01-01",
-        "end": "2026-08-04",
+        "start": "2026-08-01",
+        "end": "2026-08-06",
         "positionSettings": {
-          "startingBalance": 10000,
+          "startingBalance": 100000,
           "maxConcurrentPositions": 1000,
           "model": {
             "type": "Fixed",
-            "size": 7500
+            "size": 10000
           },
           "cooldown": {
             "multiplier": 15,
@@ -27,11 +27,9 @@ http:
         "entrySettings": {
           "filters": [
             "rsi(30,70,14,ema) < 30 [1m]",
-            "float < 50000000",
-            "close > 2.50 [1m]",
-            "volume > 50000 [1m,5]",
-            "volume > 1000000 [1d]",
-            "close > sma(200) [1d]"
+            "float < 10000000",
+            "close > 1.00 [1m]",
+            "volume > 10000 [1m,5]"
           ]
         },
         "exitSettings": {

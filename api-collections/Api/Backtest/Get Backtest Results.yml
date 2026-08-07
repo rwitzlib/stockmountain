@@ -1,3 +1,19 @@
+info:
+  name: Get Backtest Results
+  type: http
+  seq: 5
+
+http:
+  method: GET
+  url: https://{{base_url}}{{port}}/api/backtest/result/16297918-5fda-4b42-801c-1b8beffec3bc
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
 docs: |
   Returns the persisted backtest portfolios. Each new trade includes dollar-denominated
   maximum favorable and adverse excursion; older results may omit these fields.
@@ -26,18 +42,3 @@ docs: |
     "skippedConcurrency": 35
   }
   ```
-info:
-  name: Get Backtest Results
-  type: http
-  seq: 4
-
-http:
-  method: GET
-  url: https://{{base_url}}{{port}}/api/backtest/result/16297918-5fda-4b42-801c-1b8beffec3bc
-  auth: inherit
-
-settings:
-  encodeUrl: true
-  timeout: 0
-  followRedirects: true
-  maxRedirects: 5

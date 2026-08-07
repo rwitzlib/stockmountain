@@ -1,3 +1,19 @@
+info:
+  name: Get Backtest Results (latest)
+  type: http
+  seq: 7
+
+http:
+  method: GET
+  url: https://{{base_url}}{{port}}/api/backtest/result/{{backtest_id}}
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
 docs: |
   Returns the capital-constrained portfolio outcome for a completed backtest:
   hold/high/other strategy portfolios with stats, equity curve, and taken trades.
@@ -29,18 +45,3 @@ docs: |
     "skippedConcurrency": 35
   }
   ```
-info:
-  name: Get Backtest Results (latest)
-  type: http
-  seq: 6
-
-http:
-  method: GET
-  url: https://{{base_url}}{{port}}/api/backtest/result/{{backtest_id}}
-  auth: inherit
-
-settings:
-  encodeUrl: true
-  timeout: 0
-  followRedirects: true
-  maxRedirects: 5
