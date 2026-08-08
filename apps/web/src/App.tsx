@@ -1,9 +1,10 @@
 import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { SignIn, SignUp } from '@clerk/react';
+import { SignIn, SignUp, useUser } from '@clerk/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar } from './components/layout/Sidebar';
 import { HomePage } from './pages/HomePage';
+import { LandingPage } from './pages/LandingPage';
 import { routes } from './routes';
 import Profile from './pages/Profile';
 import { OptimusPage } from './pages/OptimusPage';
@@ -27,15 +28,36 @@ function AuthPage({ children }: { children: ReactNode }) {
   );
 }
 
+/** Sidebar + main-content shell for the app itself (everything except the marketing page). */
+function AppShell({ children }: { children?: ReactNode }) {
+  return (
+    <div className="flex">
+      <Sidebar />
+      <main className="flex-1">{children ?? <Outlet />}</main>
+    </div>
+  );
+}
+
+/** `/` — marketing landing for visitors, module launcher for signed-in users. */
+function RootRoute() {
+  const { isLoaded, isSignedIn } = useUser();
+  if (!isLoaded) return null;
+  return isSignedIn ? (
+    <AppShell>
+      <HomePage />
+    </AppShell>
+  ) : (
+    <LandingPage />
+  );
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <div className="flex">
-          <Sidebar />
-          <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<HomePage />} />
+        <Routes>
+          <Route path="/" element={<RootRoute />} />
+          <Route element={<AppShell />}>
               <Route
                 path="/sign-in/*"
                 element={(
@@ -98,9 +120,8 @@ export function App() {
                 <Route path="trades" element={<TradesPage />} />
                 <Route path="trade/:id" element={<TradeDetail />} />
               </Route>
-            </Routes>
-          </main>
-        </div>
+          </Route>
+        </Routes>
         <Toaster />
       </BrowserRouter>
     </QueryClientProvider>

@@ -120,6 +120,94 @@
   }
 }
 
+/* Landing page (marketing) */
+
+.landing-grid-bg {
+  background-image:
+    linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 25%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 25%, transparent 72%);
+}
+
+@keyframes landing-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.landing-fade-up {
+  opacity: 0;
+  animation: landing-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes landing-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.landing-fade-in {
+  opacity: 0;
+  animation: landing-fade-in 1.2s ease-out 1.2s forwards;
+}
+
+@keyframes landing-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.landing-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: landing-draw 2s cubic-bezier(0.65, 0, 0.35, 1) 0.5s forwards;
+}
+
+.landing-draw-slow {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: landing-draw 2.4s cubic-bezier(0.65, 0, 0.35, 1) 0.9s forwards;
+}
+
+@keyframes landing-pulse {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.landing-pulse {
+  opacity: 0;
+  animation:
+    landing-fade-in 0.3s ease-out 2.4s forwards,
+    landing-pulse 2.4s ease-in-out 2.7s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-fade-up,
+  .landing-fade-in,
+  .landing-draw,
+  .landing-draw-slow,
+  .landing-pulse {
+    animation: none;
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
 /* Smooth, subtle scrollbars */
 *::-webkit-scrollbar {
   width: 10px;
