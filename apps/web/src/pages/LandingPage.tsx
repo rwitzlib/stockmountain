@@ -88,6 +88,82 @@ function Reveal({
   );
 }
 
+/* Faded candlestick runs that decorate section margins — an ascending rally with pullbacks. */
+const CANDLES: { x: number; bodyY: number; bodyH: number; wickY: number; wickH: number; kind: 'gain' | 'loss' }[] = [
+  { x: 6, bodyY: 452, bodyH: 44, wickY: 440, wickH: 68, kind: 'gain' },
+  { x: 40, bodyY: 414, bodyH: 40, wickY: 402, wickH: 64, kind: 'gain' },
+  { x: 74, bodyY: 424, bodyH: 30, wickY: 414, wickH: 56, kind: 'loss' },
+  { x: 108, bodyY: 364, bodyH: 52, wickY: 350, wickH: 78, kind: 'gain' },
+  { x: 142, bodyY: 322, bodyH: 42, wickY: 310, wickH: 68, kind: 'gain' },
+  { x: 176, bodyY: 336, bodyH: 28, wickY: 326, wickH: 54, kind: 'loss' },
+  { x: 210, bodyY: 268, bodyH: 50, wickY: 254, wickH: 76, kind: 'gain' },
+  { x: 244, bodyY: 222, bodyH: 44, wickY: 210, wickH: 70, kind: 'gain' },
+  { x: 278, bodyY: 170, bodyH: 48, wickY: 156, wickH: 76, kind: 'gain' },
+];
+
+function CandleSticks({
+  direction = 'up',
+  className,
+}: {
+  direction?: 'up' | 'down';
+  className?: string;
+}) {
+  const candles =
+    direction === 'up'
+      ? CANDLES
+      : CANDLES.map(({ x, bodyY, bodyH, wickY, wickH, kind }) => ({
+          x,
+          bodyY: 560 - bodyY - bodyH,
+          bodyH,
+          wickY: 560 - wickY - wickH,
+          wickH,
+          kind: (kind === 'gain' ? 'loss' : 'gain') as 'gain' | 'loss',
+        }));
+  return (
+    <div
+      aria-hidden
+      className={cn('pointer-events-none absolute hidden lg:block', className)}
+      style={{
+        maskImage: 'linear-gradient(to bottom, transparent, black 25%, black 75%, transparent)',
+        WebkitMaskImage:
+          'linear-gradient(to bottom, transparent, black 25%, black 75%, transparent)',
+      }}
+    >
+      <svg viewBox="0 0 320 560" fill="none" className="h-full w-full" preserveAspectRatio="none">
+        {candles.map(({ x, bodyY, bodyH, wickY, wickH, kind }) => {
+          const color = kind === 'gain' ? 'var(--chart-gain)' : 'var(--chart-loss)';
+          const cx = x + 8;
+          return (
+            <g key={x}>
+              <line
+                x1={cx}
+                y1={wickY}
+                x2={cx}
+                y2={wickY + wickH}
+                stroke={color}
+                strokeOpacity="0.25"
+                strokeWidth="1.5"
+              />
+              <rect
+                x={x}
+                y={bodyY}
+                width="16"
+                height={bodyH}
+                rx="2"
+                fill={color}
+                fillOpacity="0.14"
+                stroke={color}
+                strokeOpacity="0.35"
+                strokeWidth="1.5"
+              />
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 function Eyebrow({ children }: { children: ReactNode }) {
   return (
     <div className="mb-3 font-mono text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
@@ -299,6 +375,8 @@ function Hero() {
   return (
     <section className="relative overflow-hidden pt-28 md:pt-36">
       <div className="landing-grid-bg pointer-events-none absolute inset-0" aria-hidden />
+      <CandleSticks direction="down" className="left-[-70px] top-36 h-[440px] w-[250px]" />
+      <CandleSticks className="right-[-50px] top-16 h-[560px] w-[300px]" />
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mx-auto max-w-3xl text-center">
           <div className="landing-fade-up" style={{ animationDelay: '0ms' }}>
@@ -486,8 +564,9 @@ const FEATURES = [
 
 function Features() {
   return (
-    <section id="features" className="border-y border-border/60 bg-card/40">
-      <div className="mx-auto max-w-6xl scroll-mt-24 px-4 py-20 sm:px-6 md:py-28">
+    <section id="features" className="relative overflow-hidden border-y border-border/60 bg-card/40">
+      <CandleSticks className="left-[-60px] top-24 h-[520px] w-[280px]" />
+      <div className="relative mx-auto max-w-6xl scroll-mt-24 px-4 py-20 sm:px-6 md:py-28">
         <Reveal>
           <Eyebrow>Features</Eyebrow>
           <h2 className="max-w-xl text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
@@ -581,7 +660,9 @@ const PLANS: Plan[] = [
 
 function Pricing() {
   return (
-    <section id="pricing" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-20 sm:px-6 md:py-28">
+    <section id="pricing" className="relative scroll-mt-24 overflow-hidden">
+      <CandleSticks className="right-[-70px] top-32 h-[560px] w-[300px]" />
+      <div className="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 md:py-28">
       <Reveal className="text-center">
         <Eyebrow>Pricing</Eyebrow>
         <h2 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
@@ -653,6 +734,7 @@ function Pricing() {
           simulator → paper → live.
         </p>
       </Reveal>
+      </div>
     </section>
   );
 }
@@ -715,6 +797,8 @@ function FinalCta() {
   return (
     <section className="relative overflow-hidden">
       <div className="landing-grid-bg pointer-events-none absolute inset-0 rotate-180" aria-hidden />
+      <CandleSticks direction="down" className="left-[-60px] top-8 h-[420px] w-[260px]" />
+      <CandleSticks className="right-[-60px] top-0 h-[460px] w-[280px]" />
       <div className="relative mx-auto max-w-6xl px-4 py-20 text-center sm:px-6 md:py-28">
         <Reveal>
           <h2 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
