@@ -85,6 +85,7 @@ public class UserReadHandler(
                 AvatarUrl = userRecord.AvatarUrl,
                 IsPublic = userRecord.IsPublic,
                 Credits = userRecord.Credits,
+                MaxCredits = userRecord.MaxCredits,
             };
 
             logger.LogInformation("Successfully retrieved user {UserId} with role {Role}", request.UserId, userRecord.Role);

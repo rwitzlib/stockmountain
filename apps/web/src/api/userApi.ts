@@ -6,6 +6,7 @@ export interface UserDetails {
 	id: string;
 	avatarUrl: string | null;
 	credits: number;
+	maxCredits: number;
 	isPublic: boolean;
 	role: 'Basic' | 'Advanced' | 'Premium';
 	isAdmin: boolean;

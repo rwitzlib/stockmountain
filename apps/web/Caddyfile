@@ -7,6 +7,22 @@
 	root * /srv
 	encode gzip
 
+	# Social-media crawlers fetching a share link get per-share Open Graph tags
+	# rendered by the API (plan 07's rich-preview fast-follow); humans fall through
+	# to the SPA below. Search engines are deliberately excluded — this is for link
+	# unfurls, not indexing. OG_UPSTREAM can point at Railway-internal DNS
+	# (http://api.railway.internal:8080) to skip the public round trip.
+	@shareCrawler {
+		path /share/*
+		header_regexp User-Agent (?i)(facebookexternalhit|facebot|facebookcatalog|twitterbot|slackbot|slack-imgproxy|discordbot|whatsapp|telegrambot|linkedinbot|pinterest|redditbot|skypeuripreview|snapchat|viber|iframely|embedly|vkshare)
+	}
+	handle @shareCrawler {
+		rewrite * /api/og{path}
+		reverse_proxy {$OG_UPSTREAM:https://dev.stockmountain.io} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
 	# Hashed bundles never change content under the same name — cache forever.
 	@assets path /assets/*
 	handle @assets {

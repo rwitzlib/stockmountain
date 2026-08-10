@@ -25,6 +25,7 @@ public class ClerkUserProvisioningService(
             Id = profile.Id,
             AvatarUrl = profile.AvatarUrl ?? string.Empty,
             Credits = StartingCredits,
+            MaxCredits = StartingCredits,
             IsPublic = false,
             Role = UserRole.Basic,
             IsAdmin = false,

@@ -26,6 +26,7 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             { "AvatarUrl", new AttributeValue { S = record.AvatarUrl ?? string.Empty } },
             { "IsPublic", new AttributeValue { S = record.IsPublic.ToString() } },
             { "Credits", new AttributeValue { N = record.Credits.ToString() } },
+            { "MaxCredits", new AttributeValue { N = record.MaxCredits.ToString() } },
             { "Tokens", new AttributeValue { M = (record.Tokens ?? []).ToDictionary(kvp => kvp.Key.ToString(), kvp => new AttributeValue { S = kvp.Value }) } }
         };
 
@@ -58,7 +59,7 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             {
                 { "Id", new AttributeValue { S = record.Id } }
             },
-            UpdateExpression = "SET AvatarUrl = :avatarUrl, #role = if_not_exists(#role, :role), IsAdmin = if_not_exists(IsAdmin, :isAdmin), IsPublic = if_not_exists(IsPublic, :isPublic), Credits = if_not_exists(Credits, :credits), Tokens = if_not_exists(Tokens, :tokens)",
+            UpdateExpression = "SET AvatarUrl = :avatarUrl, #role = if_not_exists(#role, :role), IsAdmin = if_not_exists(IsAdmin, :isAdmin), IsPublic = if_not_exists(IsPublic, :isPublic), Credits = if_not_exists(Credits, :credits), MaxCredits = if_not_exists(MaxCredits, :maxCredits), Tokens = if_not_exists(Tokens, :tokens)",
             ExpressionAttributeNames = new Dictionary<string, string>
             {
                 { "#role", "Role" }
@@ -70,6 +71,7 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
                 { ":isAdmin", new AttributeValue { BOOL = record.IsAdmin } },
                 { ":isPublic", new AttributeValue { S = record.IsPublic.ToString() } },
                 { ":credits", new AttributeValue { N = record.Credits.ToString() } },
+                { ":maxCredits", new AttributeValue { N = record.MaxCredits.ToString() } },
                 { ":tokens", new AttributeValue { M = (record.Tokens ?? []).ToDictionary(kvp => kvp.Key.ToString(), kvp => new AttributeValue { S = kvp.Value }) } }
             }
         };
@@ -106,6 +108,7 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             AvatarUrl = response.Item["AvatarUrl"].S,
             IsPublic = bool.Parse(response.Item["IsPublic"].S),
             Credits = float.Parse(response.Item["Credits"].N),
+            MaxCredits = response.Item.TryGetValue("MaxCredits", out var maxCredits) ? float.Parse(maxCredits.N) : 0,
             Tokens = response.Item.ContainsKey("Tokens")
                 ? response.Item["Tokens"].M.ToDictionary(
                     kvp => Enum.Parse<IntegrationType>(kvp.Key),

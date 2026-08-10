@@ -1,10 +1,12 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUser } from '@clerk/react';
 import { BacktestResultsTable } from '../components/tables/BacktestResultsTable';
-import { BacktestStatistics } from '../components/backtest/BacktestStatistics';
+import { BacktestSummary } from '../components/backtest/BacktestSummary';
 import { BacktestInsights } from '../components/backtest/BacktestInsights';
 import { BacktestEntry } from '../types/backtest';
 import { backtestApi } from '../api/backtestApi';
+import { userApi, UserDetails } from '../api/userApi';
 import { Clock } from '../components/clock/Clock';
 import { MarketStatus } from '../components/market';
 import { ApiStatus } from '../components/status';
@@ -39,6 +41,9 @@ export function BacktestPage() {
     direction: 'desc'
   });
   const hasLoadedOnce = useRef(false);
+  const { user } = useUser();
+  const userId = user?.id;
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
 
   // Filter state from URL params
   const statusFilter = (searchParams.get('status') as StatusFilter) || 'All';
@@ -48,10 +53,11 @@ export function BacktestPage() {
   const startDate = searchParams.get('startDate') || '';
   const endDate = searchParams.get('endDate') || '';
 
-  const hasInProgress = useMemo(
-    () => backtestResults.some(r => r.status === 'InProgress'),
+  const inProgressCount = useMemo(
+    () => backtestResults.filter(r => r.status === 'InProgress').length,
     [backtestResults]
   );
+  const hasInProgress = inProgressCount > 0;
 
   const fetchBacktestList = useCallback(async () => {
     if (hasLoadedOnce.current) {
@@ -82,6 +88,15 @@ export function BacktestPage() {
     const interval = setInterval(fetchBacktestList, intervalMs);
     return () => clearInterval(interval);
   }, [fetchBacktestList, hasInProgress]);
+
+  // Credits change when a backtest starts or finishes, so refetch the user
+  // when the in-progress count moves instead of on every poll tick.
+  useEffect(() => {
+    if (!userId) return;
+    userApi.getUser(userId)
+      .then(setUserDetails)
+      .catch(e => console.error('Failed to fetch user credits:', e));
+  }, [userId, inProgressCount]);
 
   const updateFilter = (key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -223,7 +238,11 @@ export function BacktestPage() {
             <BacktestPageSkeleton />
           ) : (
             <>
-              <BacktestStatistics results={backtestResults} />
+              <BacktestSummary
+                results={backtestResults}
+                credits={userDetails?.credits ?? null}
+                maxCredits={userDetails?.maxCredits ?? null}
+              />
 
               {/* Collapsible insights — collapsed by default so the table stays primary */}
               <div className="rounded-xl border border-border/80 bg-card">
@@ -385,15 +404,8 @@ export function BacktestPage() {
 function BacktestPageSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-16 rounded-xl border border-border/80 bg-muted/40" />
-        ))}
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-16 rounded-xl border border-border/80 bg-muted/40" />
-        ))}
+      <div className="flex justify-end">
+        <div className="h-16 w-full sm:w-96 rounded-xl border border-border/80 bg-muted/40" />
       </div>
       <div className="h-12 rounded-xl border border-border/80 bg-muted/40" />
       <div className="h-40 rounded-xl border border-border/80 bg-muted/40" />

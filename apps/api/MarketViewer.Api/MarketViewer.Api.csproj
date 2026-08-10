@@ -32,6 +32,8 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
     <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.18.2" />
     <PackageReference Include="Quartz.Extensions.Hosting" Version="3.18.2" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.6" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.9" />
     <PackageReference Include="Quartz" Version="3.18.2" />
@@ -39,6 +41,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\packages\alpaca-client\Alpaca.Client\Alpaca.Client.csproj" />
     <ProjectReference Include="..\..\..\packages\marketviewer-application\MarketViewer.Application\MarketViewer.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Fonts for server-rendered Open Graph share cards (SIL OFL — see Assets/Fonts/OFL.txt). -->
+    <EmbeddedResource Include="Assets\Fonts\*.ttf" />
   </ItemGroup>
   <ItemGroup>
     <None Update="local.env">
