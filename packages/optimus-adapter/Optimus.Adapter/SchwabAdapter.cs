@@ -11,7 +11,7 @@ public class SchwabAdapter : IAdapter
         throw new NotImplementedException();
     }
 
-    public Task<SellResult> Sell(TradeRecord position)
+    public Task<SellResult> Sell(TradeRecord position, float? triggerPrice)
     {
         throw new NotImplementedException();
     }

@@ -28,17 +28,19 @@ public class WorkerExitLogicUnitTests
             Value = configuredValue
         });
 
+        // 5% stop at a $100 entry puts the stop price at $95.
         var bars = new List<Bar>
         {
-            CreateBar(1000, high: 101f, low: 99f, close: 100f),   // 0%, no trigger
-            CreateBar(2000, high: 100f, low: 94f, close: 96f),    // -4%, no trigger
-            CreateBar(3000, high: 100f, low: 90f, close: 92f)     // -8%, trigger
+            CreateBar(1000, high: 101f, low: 99f, close: 100f),   // low 99, no trigger
+            CreateBar(2000, high: 100f, low: 96f, close: 97f),    // low 96, no trigger
+            CreateBar(3000, high: 100f, low: 90f, close: 92f, open: 97f)   // low 90, trigger
         };
 
-        var triggered = WorkerFunction.CheckStopLoss(request, Shares, EntryPosition, EntryPrice, bars, out var candle);
+        var triggered = WorkerFunction.CheckStopLoss(request, Shares, EntryPosition, EntryPrice, bars, out var candle, out var fillPrice);
 
         triggered.Should().BeTrue();
         candle.Timestamp.Should().Be(3000);
+        fillPrice.Should().Be(95f);
     }
 
     [Fact]
@@ -52,11 +54,11 @@ public class WorkerExitLogicUnitTests
 
         var bars = new List<Bar>
         {
-            CreateBar(1000, high: 101f, low: 97f, close: 100f),   // 0%, no trigger
+            CreateBar(1000, high: 101f, low: 97f, close: 100f),   // low above $95 stop
             CreateBar(2000, high: 102f, low: 98f, close: 101f)
         };
 
-        var triggered = WorkerFunction.CheckStopLoss(request, Shares, EntryPosition, EntryPrice, bars, out var candle);
+        var triggered = WorkerFunction.CheckStopLoss(request, Shares, EntryPosition, EntryPrice, bars, out var candle, out _);
 
         triggered.Should().BeFalse();
         candle.Should().BeNull();
@@ -65,7 +67,7 @@ public class WorkerExitLogicUnitTests
     [Fact]
     public void CheckStopLoss_Flat_TriggersOnPositionLoss()
     {
-        // $50 flat stop on a $1000 position: close of $94 means a $60 loss.
+        // $50 flat stop on a $1000 position of 10 shares: stop price is $95.
         var request = CreateRequest(stopLoss: new Exit
         {
             Type = ExitValueType.flat,
@@ -74,18 +76,19 @@ public class WorkerExitLogicUnitTests
 
         var bars = new List<Bar>
         {
-            CreateBar(1000, high: 101f, low: 96f, close: 98f),    // -$20, no trigger
-            CreateBar(2000, high: 99f, low: 93f, close: 94f)      // -$60, trigger
+            CreateBar(1000, high: 101f, low: 96f, close: 98f),               // low 96, no trigger
+            CreateBar(2000, high: 99f, low: 93f, close: 94f, open: 98f)      // low 93, trigger
         };
 
-        var triggered = WorkerFunction.CheckStopLoss(request, Shares, EntryPosition, EntryPrice, bars, out var candle);
+        var triggered = WorkerFunction.CheckStopLoss(request, Shares, EntryPosition, EntryPrice, bars, out var candle, out var fillPrice);
 
         triggered.Should().BeTrue();
         candle.Timestamp.Should().Be(2000);
+        fillPrice.Should().Be(95f);
     }
 
     [Fact]
-    public void CheckStopLoss_UsesClosePrice_NotLow()
+    public void CheckStopLoss_TriggersOnIntrabarLow_FillsAtStopPrice()
     {
         var request = CreateRequest(stopLoss: new Exit
         {
@@ -93,16 +96,39 @@ public class WorkerExitLogicUnitTests
             Value = 5f
         });
 
-        // Low dips below -5% but close recovers; stops are close-based like live's
-        // snapshot polling, so an intra-bar low must not trigger.
+        // The low wicks through the stop and the close recovers; live paper evaluates
+        // the forming websocket bar, so the wick fires the stop at the stop price.
         var bars = new List<Bar>
         {
             CreateBar(1000, high: 101f, low: 92f, close: 99f)
         };
 
-        var triggered = WorkerFunction.CheckStopLoss(request, Shares, EntryPosition, EntryPrice, bars, out _);
+        var triggered = WorkerFunction.CheckStopLoss(request, Shares, EntryPosition, EntryPrice, bars, out _, out var fillPrice);
 
-        triggered.Should().BeFalse();
+        triggered.Should().BeTrue();
+        fillPrice.Should().Be(95f);
+    }
+
+    [Fact]
+    public void CheckStopLoss_GapThroughOpen_FillsAtOpen()
+    {
+        var request = CreateRequest(stopLoss: new Exit
+        {
+            Type = ExitValueType.percent,
+            Value = 5f
+        });
+
+        // The bar opens below the $95 stop, so the fill gaps to the open — the loss
+        // exceeds the configured stop, as it would live.
+        var bars = new List<Bar>
+        {
+            CreateBar(1000, high: 93f, low: 88f, close: 90f, open: 92f)
+        };
+
+        var triggered = WorkerFunction.CheckStopLoss(request, Shares, EntryPosition, EntryPrice, bars, out _, out var fillPrice);
+
+        triggered.Should().BeTrue();
+        fillPrice.Should().Be(92f);
     }
 
     #endregion
@@ -118,23 +144,26 @@ public class WorkerExitLogicUnitTests
             Value = 10f
         });
 
+        // 10% target at a $100 entry puts the target price at $110.
         var bars = new List<Bar>
         {
-            CreateBar(1000, high: 105f, low: 99f, close: 104f),   // +4%, no trigger
-            CreateBar(2000, high: 112f, low: 103f, close: 111f)   // +11%, trigger
+            CreateBar(1000, high: 105f, low: 99f, close: 104f),               // high 105, no trigger
+            CreateBar(2000, high: 112f, low: 103f, close: 111f, open: 104f)   // high 112, trigger
         };
 
-        var triggered = WorkerFunction.CheckTakeProfit(request, Shares, EntryPosition, EntryPrice, bars, out var candle);
+        var triggered = WorkerFunction.CheckTakeProfit(request, Shares, EntryPosition, EntryPrice, bars, out var candle, out var fillPrice);
 
         triggered.Should().BeTrue();
         candle.Timestamp.Should().Be(2000);
+        fillPrice.Should().Be(110f);
     }
 
     [Fact]
-    public void CheckTakeProfit_FlatClose_UsesTakeProfitValue_NotStopLossValue()
+    public void CheckTakeProfit_Flat_UsesTakeProfitValue_NotStopLossValue()
     {
-        // Regression: the close/flat branch previously compared against StopLoss.Value.
-        // With a $1 stop-loss configured and a $100 take-profit, a $50 gain must NOT trigger.
+        // Regression: the flat branch previously compared against StopLoss.Value.
+        // With a $1 stop-loss configured and a $100 take-profit ($110 target price),
+        // a high of $106 must NOT trigger.
         var request = CreateRequest(
             takeProfit: new Exit
             {
@@ -149,16 +178,16 @@ public class WorkerExitLogicUnitTests
 
         var bars = new List<Bar>
         {
-            CreateBar(1000, high: 106f, low: 100f, close: 105f)   // +$50 on close
+            CreateBar(1000, high: 106f, low: 100f, close: 105f)
         };
 
-        var triggered = WorkerFunction.CheckTakeProfit(request, Shares, EntryPosition, EntryPrice, bars, out _);
+        var triggered = WorkerFunction.CheckTakeProfit(request, Shares, EntryPosition, EntryPrice, bars, out _, out _);
 
         triggered.Should().BeFalse();
     }
 
     [Fact]
-    public void CheckTakeProfit_FlatClose_TriggersAtTakeProfitValue()
+    public void CheckTakeProfit_Flat_TriggersAtTakeProfitValue()
     {
         var request = CreateRequest(
             takeProfit: new Exit
@@ -174,14 +203,36 @@ public class WorkerExitLogicUnitTests
 
         var bars = new List<Bar>
         {
-            CreateBar(1000, high: 106f, low: 100f, close: 105f),  // +$50, no trigger
-            CreateBar(2000, high: 112f, low: 105f, close: 111f)   // +$110, trigger
+            CreateBar(1000, high: 106f, low: 100f, close: 105f),              // high below $110 target
+            CreateBar(2000, high: 112f, low: 105f, close: 111f, open: 106f)   // high 112, trigger
         };
 
-        var triggered = WorkerFunction.CheckTakeProfit(request, Shares, EntryPosition, EntryPrice, bars, out var candle);
+        var triggered = WorkerFunction.CheckTakeProfit(request, Shares, EntryPosition, EntryPrice, bars, out var candle, out var fillPrice);
 
         triggered.Should().BeTrue();
         candle.Timestamp.Should().Be(2000);
+        fillPrice.Should().Be(110f);
+    }
+
+    [Fact]
+    public void CheckTakeProfit_GapThroughOpen_FillsAtOpen()
+    {
+        var request = CreateRequest(takeProfit: new Exit
+        {
+            Type = ExitValueType.percent,
+            Value = 10f
+        });
+
+        // The bar opens above the $110 target, so the fill gaps up to the open.
+        var bars = new List<Bar>
+        {
+            CreateBar(1000, high: 118f, low: 111f, close: 114f, open: 113f)
+        };
+
+        var triggered = WorkerFunction.CheckTakeProfit(request, Shares, EntryPosition, EntryPrice, bars, out _, out var fillPrice);
+
+        triggered.Should().BeTrue();
+        fillPrice.Should().Be(113f);
     }
 
     #endregion
@@ -341,8 +392,10 @@ public class WorkerExitLogicUnitTests
     }
 
     [Fact]
-    public void BuildEntryResult_ConfiguredFillProfit_ClampsRunupToRealizedProfit()
+    public void BuildEntryResult_TakeProfitFillsAtTargetPrice_BooksConfiguredProfit()
     {
+        // $50 flat target on a $1000 position of 10 shares: target price $105. The bar
+        // trades through it without gapping, so the fill books exactly the configured value.
         var request = CreateRequest(takeProfit: new Exit
         {
             Type = ExitValueType.flat,
@@ -352,23 +405,76 @@ public class WorkerExitLogicUnitTests
         var bars = new List<Bar>
         {
             CreateBarAt(EntryStart.AddMinutes(1), 100f),
-            // Deliberately inconsistent synthetic OHLC isolates the configured-fill clamp.
-            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 104f, low: 100f, close: 106f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 106f, low: 100f, close: 104f, open: 101f),
             CreateBarAt(entryEnd, 100f)
         };
 
         var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
 
         result.Hold.Profit.Should().Be(50f);
-        result.Hold.MaxRunup.Should().Be(50f);
-        result.High.MaxRunup.Should().Be(50f);
+        result.Hold.EndPrice.Should().Be(105f);
+        result.Hold.MaxRunup.Should().Be(60f);
+    }
+
+    [Fact]
+    public void BuildEntryResult_StopLossGapThrough_BooksLossBeyondConfiguredValue()
+    {
+        // 5% stop ($95), but the bar opens at $91 — the fill gaps to the open and the
+        // realized loss exceeds the configured stop, as it would live.
+        var request = CreateRequest(stopLoss: new Exit
+        {
+            Type = ExitValueType.percent,
+            Value = 5f
+        });
+        var entryEnd = EntryStart.AddHours(1);
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 92f, low: 89f, close: 90f, open: 91f),
+            CreateBarAt(entryEnd, 100f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+        result.Hold.Profit.Should().Be(-90f);
+        result.Hold.EndPrice.Should().Be(91f);
+    }
+
+    [Fact]
+    public void BuildEntryResult_StopAndTargetOnSameBar_StopWins()
+    {
+        // A wide bar can sweep both extremes; assume the worst case ordering.
+        var request = CreateRequest(
+            takeProfit: new Exit
+            {
+                Type = ExitValueType.percent,
+                Value = 5f
+            },
+            stopLoss: new Exit
+            {
+                Type = ExitValueType.percent,
+                Value = 5f
+            });
+        var entryEnd = EntryStart.AddHours(1);
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 110f, low: 90f, close: 100f, open: 100f),
+            CreateBarAt(entryEnd, 100.5f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+        result.Hold.Profit.Should().Be(-50f);
+        result.High.ExitReason.Should().Be(BacktestExitReason.stopLoss);
     }
 
     [Fact]
     public void BuildEntryResult_TakeProfitBeforeStopLoss_KeepsTakeProfit()
     {
-        // With close-based triggers a same-bar tie is impossible (one close cannot be
-        // both above the target and below the stop), so ordering decides.
+        // The target fires on an earlier bar than the stop, so ordering decides.
         var request = CreateRequest(
             takeProfit: new Exit
             {
@@ -517,7 +623,7 @@ public class WorkerExitLogicUnitTests
         };
     }
 
-    private static Bar CreateBar(long timestamp, float high, float low, float close)
+    private static Bar CreateBar(long timestamp, float high, float low, float close, float? open = null)
     {
         return new Bar
         {
@@ -525,7 +631,7 @@ public class WorkerExitLogicUnitTests
             High = high,
             Low = low,
             Close = close,
-            Open = close,
+            Open = open ?? close,
             Volume = 1000,
             TransactionCount = 10,
             Vwap = (close + high + low) / 3f

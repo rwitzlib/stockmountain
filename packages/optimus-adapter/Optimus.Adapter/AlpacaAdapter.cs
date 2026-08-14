@@ -148,7 +148,8 @@ public class AlpacaAdapter(
         }
     }
 
-    public async Task<SellResult> Sell(TradeRecord trade)
+    // triggerPrice is unused: real positions close at the broker's actual fill.
+    public async Task<SellResult> Sell(TradeRecord trade, float? triggerPrice)
     {
         try
         {

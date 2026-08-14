@@ -27,6 +27,7 @@ output "api_aws_environment_variables" {
     MarketDataConfig__TableName = aws_dynamodb_table.market_data.name
     SignalQueue__QueueUrl       = aws_sqs_queue.strategy_signals.url
     SignalQueue__Enabled        = "true"
+    InternalAuth__Token         = var.internal_api_token
   }
 
   sensitive = true
@@ -40,6 +41,7 @@ output "optimus_aws_environment_variables" {
     AWS_DEFAULT_REGION     = var.region
     ASPNETCORE_ENVIRONMENT = var.environment
     MASSIVE_TOKEN          = var.massive_token
+    INTERNAL_API_TOKEN     = var.internal_api_token
     ALPACA_API_KEY_ID      = var.alpaca_api_key_id
     ALPACA_API_SECRET_KEY  = var.alpaca_api_secret_key
 

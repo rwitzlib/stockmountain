@@ -14,6 +14,7 @@ using Optimus.Authorization;
 using Optimus.HostedServices;
 using Optimus.Infrastructure.DependencyInjection;
 using Optimus.Services;
+using MarketViewer.Clients.DependencyInjection;
 using Massive.Client.DependencyInjection;
 using Quartz;
 using SchwabApi.DependencyInjection;
@@ -44,7 +45,11 @@ internal class Program
             .AddSingleton<UnrealizedPnlService>()
             .AddMassiveClient(
                 Environment.GetEnvironmentVariable("MASSIVE_TOKEN")
-                ?? builder.Configuration.GetSection("Tokens").GetValue<string>("MassiveApi"));
+                ?? builder.Configuration.GetSection("Tokens").GetValue<string>("MassiveApi"))
+            .AddLivePriceClient(
+                builder.Configuration.GetSection("Urls").GetValue<string>("MarketViewer"),
+                Environment.GetEnvironmentVariable("INTERNAL_API_TOKEN")
+                ?? builder.Configuration.GetSection("Tokens").GetValue<string>("InternalApi"));
 
         // Hosted services
         builder.Services.AddHostedService<CacheWarmupService>();

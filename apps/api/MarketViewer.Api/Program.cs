@@ -136,8 +136,14 @@ public class Program
         builder.Services.AddScoped<IAuthorizationHandler, TierAuthorizationHandler>();
         builder.Services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
         builder.Services.AddScoped<IAuthorizationHandler, MetricsBearerTokenHandler>();
+        builder.Services.AddScoped<IAuthorizationHandler, InternalTokenHandler>();
         builder.Services.AddSingleton<IAuthorizationPolicyProvider, TierAuthorizationPolicyProvider>();
-        builder.Services.AddAuthorization();
+        builder.Services.AddAuthorization(options =>
+        {
+            // Shared-secret service-to-service policy (no authenticated user requirement:
+            // the internal bearer token is not a Clerk JWT).
+            options.AddPolicy(InternalTokenRequirement.PolicyName, policy => policy.AddRequirements(new InternalTokenRequirement()));
+        });
 
         builder.Services.AddHttpLogging(options => options.LoggingFields = HttpLoggingFields.All);
 

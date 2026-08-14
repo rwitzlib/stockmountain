@@ -6,7 +6,15 @@ namespace Optimus.Adapter.Interfaces;
 public interface IAdapter
 {
     public Task<BuyResult> Buy(StrategyDto strategy, string ticker);
-    public Task<SellResult> Sell(TradeRecord position);
+
+    /// <summary>
+    /// Closes the position. <paramref name="triggerPrice"/> is the price the exit
+    /// decision was made against; paper adapters fill at it (a stop fills where it
+    /// fires), broker adapters ignore it and report the actual fill. Null for exits
+    /// without a price (e.g. timed exit on a halted ticker).
+    /// </summary>
+    public Task<SellResult> Sell(TradeRecord position, float? triggerPrice);
+
     public float GetPrice(string ticker);
 }
 

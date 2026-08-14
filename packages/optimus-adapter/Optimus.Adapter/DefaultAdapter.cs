@@ -82,11 +82,15 @@ public class DefaultAdapter(
         }
     }
 
-    public async Task<SellResult> Sell(TradeRecord trade)
+    public async Task<SellResult> Sell(TradeRecord trade, float? triggerPrice)
     {
         try
         {
-            var closePrice = await GetSnapshotPrice(trade.Ticker);
+            // Fill at the price the exit decision was made against: a real stop fills
+            // where it fires, and re-fetching here would let the price drift between
+            // decision and fill. Exits without a price (e.g. a timed exit on a halted
+            // ticker) fall back to the snapshot.
+            var closePrice = triggerPrice > 0 ? triggerPrice : await GetSnapshotPrice(trade.Ticker);
 
             if (closePrice is null)
             {

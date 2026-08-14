@@ -461,28 +461,25 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         //    };
         //}
 
-        if (CheckTakeProfit(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var profitTarget))
+        if (CheckTakeProfit(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var profitTarget, out var profitTargetFill))
         {
-            var profitTargetValue = request.ExitSettings.TakeProfit.Type switch
-            {
-                ExitValueType.percent => Math.Abs(request.ExitSettings.TakeProfit.Value) / 100 * entryPosition,
-                ExitValueType.flat => Math.Abs(request.ExitSettings.TakeProfit.Value),
-                _ => throw new NotImplementedException()
-            };
+            // Book the modeled fill, not the configured target: a gap-through opens past
+            // the target and fills there.
+            var profitTargetValue = profitTargetFill * shares - entryPosition;
 
             result.Hold.StoppedOut = true;
             result.Hold.ExitReason = BacktestExitReason.takeProfit;
             result.Hold.Profit = profitTargetValue;
             result.Hold.SoldAt = ToExecutionMinute(profitTarget.Timestamp);
             result.Hold.EndPosition = result.StartPosition + profitTargetValue;
-            result.Hold.EndPrice = profitTarget.Close;
+            result.Hold.EndPrice = profitTargetFill;
 
             result.High.StoppedOut = true;
             result.High.ExitReason = BacktestExitReason.takeProfit;
             result.High.Profit = profitTargetValue;
             result.High.SoldAt = ToExecutionMinute(profitTarget.Timestamp);
             result.High.EndPosition = result.StartPosition + profitTargetValue;
-            result.High.EndPrice = profitTarget.Close;
+            result.High.EndPrice = profitTargetFill;
 
             //if (passesExitFiltersTimestamp is null || profitTarget.Timestamp < passesExitFiltersTimestamp.Value.ToUnixTimeMilliseconds())
             //{
@@ -497,14 +494,11 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             //}
         }
 
-        if (CheckStopLoss(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var stopLoss))
+        if (CheckStopLoss(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var stopLoss, out var stopLossFill))
         {
-            var stopLossValue = request.ExitSettings.StopLoss.Type switch
-            {
-                ExitValueType.percent => -Math.Abs(request.ExitSettings.StopLoss.Value) / 100 * entryPosition,
-                ExitValueType.flat => -Math.Abs(request.ExitSettings.StopLoss.Value),
-                _ => throw new NotImplementedException()
-            };
+            // Book the modeled fill: the stop price, or the open when a bar gaps through
+            // the stop — losses can exceed the configured value, matching live behavior.
+            var stopLossValue = stopLossFill * shares - entryPosition;
 
             // On a same-bar tie, assume the worst case: the stop fills before the target.
             if (profitTarget is null || stopLoss.Timestamp <= profitTarget.Timestamp)
@@ -514,14 +508,14 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 result.Hold.Profit = stopLossValue;
                 result.Hold.SoldAt = ToExecutionMinute(stopLoss.Timestamp);
                 result.Hold.EndPosition = result.StartPosition + stopLossValue;
-                result.Hold.EndPrice = stopLoss.Close;
+                result.Hold.EndPrice = stopLossFill;
 
                 result.High.StoppedOut = true;
                 result.High.ExitReason = BacktestExitReason.stopLoss;
                 result.High.Profit = stopLossValue;
                 result.High.SoldAt = ToExecutionMinute(stopLoss.Timestamp);
                 result.High.EndPosition = result.StartPosition + stopLossValue;
-                result.High.EndPrice = stopLoss.Close;
+                result.High.EndPrice = stopLossFill;
             }
 
             //if (passesExitFiltersTimestamp is null || stopLoss.Timestamp < passesExitFiltersTimestamp.Value.ToUnixTimeMilliseconds())
@@ -590,52 +584,77 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         return (runup, drawdown);
     }
 
-    internal static bool CheckStopLoss(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar stopLossCandle)
+    internal static bool CheckStopLoss(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar stopLossCandle, out float fillPrice)
     {
         var stopLoss = request.ExitSettings.StopLoss;
         stopLossCandle = null;
+        fillPrice = 0f;
 
-        if (stopLoss is null)
+        if (stopLoss is null || shares <= 0)
         {
             return false;
         }
 
         // A stop loss is always a loss, regardless of the sign the user entered.
-        var threshold = -Math.Abs(stopLoss.Value);
-
-        // Close-based only: live's exit evaluator polls the snapshot price, which is the
-        // close of the last completed bar — an intra-bar low can never trigger it.
-        stopLossCandle = stopLoss.Type switch
+        var stopPrice = stopLoss.Type switch
         {
-            ExitValueType.flat => results.FirstOrDefault(bar => bar.Close * shares - entryPosition <= threshold),
-            ExitValueType.percent => results.FirstOrDefault(bar => (bar.Close - entryPrice) / entryPrice * 100 <= threshold),
-            _ => null
+            ExitValueType.percent => entryPrice * (1 - Math.Abs(stopLoss.Value) / 100),
+            ExitValueType.flat => entryPrice - Math.Abs(stopLoss.Value) / shares,
+            _ => (float?)null
         };
 
-        return stopLossCandle is not null;
-    }
-
-    internal static bool CheckTakeProfit(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar profitTargetCandle)
-    {
-        var takeProfit = request.ExitSettings.TakeProfit;
-        profitTargetCandle = null;
-
-        if (takeProfit is null)
+        if (stopPrice is null)
         {
             return false;
         }
 
-        var threshold = Math.Abs(takeProfit.Value);
+        // Intrabar trigger: live paper exits evaluate the forming websocket bar, so any
+        // dip through the stop fires — modeled here by the bar low. A bar that opens
+        // through the stop gaps the fill to its open; otherwise the stop price fills.
+        stopLossCandle = results.FirstOrDefault(bar => bar.Low <= stopPrice);
 
-        // Close-based only — see CheckStopLoss.
-        profitTargetCandle = takeProfit.Type switch
+        if (stopLossCandle is null)
         {
-            ExitValueType.flat => results.FirstOrDefault(bar => bar.Close * shares - entryPosition >= threshold),
-            ExitValueType.percent => results.FirstOrDefault(bar => (bar.Close - entryPrice) / entryPrice * 100 >= threshold),
-            _ => null
+            return false;
+        }
+
+        fillPrice = Math.Min(stopLossCandle.Open, stopPrice.Value);
+        return true;
+    }
+
+    internal static bool CheckTakeProfit(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar profitTargetCandle, out float fillPrice)
+    {
+        var takeProfit = request.ExitSettings.TakeProfit;
+        profitTargetCandle = null;
+        fillPrice = 0f;
+
+        if (takeProfit is null || shares <= 0)
+        {
+            return false;
+        }
+
+        var targetPrice = takeProfit.Type switch
+        {
+            ExitValueType.percent => entryPrice * (1 + Math.Abs(takeProfit.Value) / 100),
+            ExitValueType.flat => entryPrice + Math.Abs(takeProfit.Value) / shares,
+            _ => (float?)null
         };
 
-        return profitTargetCandle is not null;
+        if (targetPrice is null)
+        {
+            return false;
+        }
+
+        // Intrabar trigger with gap-through fills — see CheckStopLoss.
+        profitTargetCandle = results.FirstOrDefault(bar => bar.High >= targetPrice);
+
+        if (profitTargetCandle is null)
+        {
+            return false;
+        }
+
+        fillPrice = Math.Max(profitTargetCandle.Open, targetPrice.Value);
+        return true;
     }
 
     //private async Task<DateTimeOffset?> WhenPassesExitFilters(StrategyEntry entry, WorkerRequest request)

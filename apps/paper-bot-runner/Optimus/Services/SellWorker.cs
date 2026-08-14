@@ -1,8 +1,10 @@
 using Alpaca.Client;
+using MarketViewer.Clients.Interfaces;
 using MarketViewer.Contracts.Dtos;
 using MarketViewer.Contracts.Enums.Strategy;
 using MarketViewer.Contracts.Records;
 using MarketViewer.Contracts.Records.Strategy;
+using MarketViewer.Contracts.Requests.Market;
 using Massive.Client.Interfaces;
 using Optimus.Adapter;
 using Optimus.Infrastructure.Repositories;
@@ -17,12 +19,17 @@ public class SellWorker(
     StrategyStateRepository stateRepository,
     TradeRepository tradeRepository,
     IMassiveClient massiveClient,
+    ILivePriceClient livePriceClient,
     MarketCalendarService marketCalendar,
     AdapterFactory adapterFactory,
     MarketDataClock dataClock,
     ILogger<SellWorker> logger) : IJob
 {
     private const int SnapshotBatchSize = 500;
+
+    // Live prices older than this (in data time) mean the feed missed the ticker;
+    // fall back to the snapshot rather than exit-evaluate against a dead quote.
+    private const int MaxLivePriceAgeMinutes = 5;
 
     public async Task Execute(IJobExecutionContext context)
     {
@@ -62,7 +69,7 @@ public class SellWorker(
             }
 
             var distinctTickers = openPositions.Select(p => p.Trade.Ticker).Distinct().ToList();
-            var priceMap = await GetCurrentPrices(distinctTickers);
+            var priceMap = await GetCurrentPrices(distinctTickers, dataNow);
 
             var sellTasks = openPositions.Select(p => SellPositionIfApplicable(p.Strategy, p.Trade, priceMap, dataNow));
             await Task.WhenAll(sellTasks);
@@ -74,14 +81,34 @@ public class SellWorker(
     }
 
     /// <summary>
-    /// Fetches current prices for all tickers in batched snapshot calls.
-    /// Tickers missing from the result (e.g. halted) are simply absent from the map.
+    /// Fetches current prices for all tickers: the forming websocket bar from the API
+    /// first, batched snapshot calls as fallback. Tickers missing from both (e.g.
+    /// halted) are simply absent from the map.
     /// </summary>
-    private async Task<Dictionary<string, float>> GetCurrentPrices(List<string> tickers)
+    private async Task<Dictionary<string, float>> GetCurrentPrices(List<string> tickers, DateTimeOffset dataNow)
     {
         var prices = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var chunk in tickers.Chunk(SnapshotBatchSize))
+        // Prefer the forming bar: it moves tick-by-tick (in data time), so stops fire
+        // when price crosses the threshold instead of up to a minute later on the
+        // completed snapshot bar. Prices are canonical intra-minute; only volume
+        // undercounts (ADR 0003), which exits don't read.
+        var liveResponse = await livePriceClient.GetPricesAsync(new LivePricesRequest { Tickers = tickers });
+        var staleCutoffMs = dataNow.AddMinutes(-MaxLivePriceAgeMinutes).ToUnixTimeMilliseconds();
+
+        foreach (var livePrice in liveResponse?.Prices ?? [])
+        {
+            if (livePrice.Price > 0 && livePrice.Timestamp >= staleCutoffMs)
+            {
+                prices[livePrice.Ticker] = livePrice.Price;
+            }
+        }
+
+        // Snapshot fallback: the close of the last completed delayed minute bar —
+        // covers thin tickers the live feed hasn't seen recently and API outages.
+        var missingTickers = tickers.Where(ticker => !prices.ContainsKey(ticker)).ToList();
+
+        foreach (var chunk in missingTickers.Chunk(SnapshotBatchSize))
         {
             var response = await massiveClient.GetAllTickersSnapshot(string.Join(',', chunk));
 
@@ -123,7 +150,7 @@ public class SellWorker(
         trade.ExitReason = exitReason;
 
         var adapter = adapterFactory.GetAdaptor(strategy.Integration);
-        var sellResult = await adapter.Sell(trade);
+        var sellResult = await adapter.Sell(trade, currentPrice);
 
         if (!sellResult.IsSuccess)
         {

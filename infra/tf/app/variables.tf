@@ -171,6 +171,13 @@ variable "massive_token" {
   description = "Massive API token."
 }
 
+variable "internal_api_token" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Shared secret for service-to-service API endpoints (Optimus -> MarketViewer live prices). Endpoints deny all requests while unset."
+}
+
 variable "alpaca_api_key_id" {
   type        = string
   default     = ""
