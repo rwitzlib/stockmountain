@@ -52,6 +52,15 @@ public class FilterSession
 
     public bool EvaluateIncremental(StocksResponse stockData, Timeframe timeframe, Dictionary<string, object>? parameters = null, DateTimeOffset? evaluationTime = null)
     {
+        return ToBool(EvaluateIncrementalRaw(stockData, timeframe, parameters, evaluationTime));
+    }
+
+    /// <summary>
+    /// Incremental evaluation that returns the root node's raw value (a series, scalar or bool)
+    /// instead of coercing to bool. Used by golden tests to compare incremental and full series.
+    /// </summary>
+    public object EvaluateIncrementalRaw(StocksResponse stockData, Timeframe timeframe, Dictionary<string, object>? parameters = null, DateTimeOffset? evaluationTime = null)
+    {
         var count = stockData.Results.Count;
         var lastTs = count > 0 ? stockData.Results[^1].Timestamp : 0;
 
@@ -59,15 +68,15 @@ public class FilterSession
         bool canAppend = count >= _lastDataCount && lastTs >= _lastTimestamp;
         if (!canAppend)
         {
-            return Evaluate(stockData, timeframe, parameters, evaluationTime);
+            Reset();
         }
 
         var ctx = new ExpressionContext { StockData = stockData, Timeframe = timeframe, Parameters = parameters, EvaluationTime = evaluationTime };
-        var value = EvaluateNode(_root, ctx, incremental: true);
+        var value = EvaluateNode(_root, ctx, incremental: canAppend);
 
         _lastDataCount = count;
         _lastTimestamp = lastTs;
-        return ToBool(value);
+        return value;
     }
 
     private static bool ToBool(object result)

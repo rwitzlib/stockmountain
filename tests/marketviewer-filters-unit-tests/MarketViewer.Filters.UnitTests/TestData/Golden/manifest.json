@@ -1,0 +1,95 @@
+{
+  "fixtures": {
+    "AAPL_1m_2025-06-02_2025-06-06": {
+      "source": "massive.com aggregates v2",
+      "query": "/v2/aggs/ticker/AAPL/range/1/minute/2025-06-02/2025-06-06?adjusted=true&sort=asc&limit=50000",
+      "ticker": "AAPL",
+      "timeframe": "1m",
+      "from": "2025-06-02",
+      "to": "2025-06-06",
+      "adjusted": true,
+      "barCount": 3822,
+      "fetchedAtUtc": "2026-08-16T20:00:45+00:00",
+      "file": "bars/AAPL_1m_2025-06-02_2025-06-06.json",
+      "sha256": "eb9cdea7ba745c2cad573dad9ceef89626c04d0ddbc2489ff0ad6e8fb7de82e1"
+    },
+    "AAPL_1d_2023-06-01_2025-06-06": {
+      "source": "massive.com aggregates v2",
+      "query": "/v2/aggs/ticker/AAPL/range/1/day/2023-06-01/2025-06-06?adjusted=true&sort=asc&limit=50000",
+      "ticker": "AAPL",
+      "timeframe": "1d",
+      "from": "2023-06-01",
+      "to": "2025-06-06",
+      "adjusted": true,
+      "barCount": 506,
+      "fetchedAtUtc": "2026-08-16T20:00:47+00:00",
+      "file": "bars/AAPL_1d_2023-06-01_2025-06-06.json",
+      "sha256": "8eb768f548e05eeb9fc72a9b4c13e7f94377cf9e9b692995bcebdbc5d841a824"
+    },
+    "TSLA_1m_2025-03-07_2025-03-11": {
+      "source": "massive.com aggregates v2",
+      "query": "/v2/aggs/ticker/TSLA/range/1/minute/2025-03-07/2025-03-11?adjusted=true&sort=asc&limit=50000",
+      "ticker": "TSLA",
+      "timeframe": "1m",
+      "from": "2025-03-07",
+      "to": "2025-03-11",
+      "adjusted": true,
+      "barCount": 2853,
+      "fetchedAtUtc": "2026-08-16T20:15:50+00:00",
+      "file": "bars/TSLA_1m_2025-03-07_2025-03-11.json",
+      "sha256": "9176568ff41e9af7184b67261e85e046502fdce08dedfadbf859f0a80f3f551b"
+    },
+    "SPY_1m_2024-11-27_2024-12-02": {
+      "source": "massive.com aggregates v2",
+      "query": "/v2/aggs/ticker/SPY/range/1/minute/2024-11-27/2024-12-02?adjusted=true&sort=asc&limit=50000",
+      "ticker": "SPY",
+      "timeframe": "1m",
+      "from": "2024-11-27",
+      "to": "2024-12-02",
+      "adjusted": true,
+      "barCount": 1926,
+      "fetchedAtUtc": "2026-08-16T20:15:51+00:00",
+      "file": "bars/SPY_1m_2024-11-27_2024-12-02.json",
+      "sha256": "20b683726c031323033b63937d7c015e18b15e22d15c5fb9387cc0a940273d8f"
+    },
+    "SPY_1h_2025-05-01_2025-05-30": {
+      "source": "massive.com aggregates v2",
+      "query": "/v2/aggs/ticker/SPY/range/1/hour/2025-05-01/2025-05-30?adjusted=true&sort=asc&limit=50000",
+      "ticker": "SPY",
+      "timeframe": "1h",
+      "from": "2025-05-01",
+      "to": "2025-05-30",
+      "adjusted": true,
+      "barCount": 337,
+      "fetchedAtUtc": "2026-08-16T20:15:52+00:00",
+      "file": "bars/SPY_1h_2025-05-01_2025-05-30.json",
+      "sha256": "9db0353f20df9bd0aae1ab3efd4d820b45f3976e6077ba4127166012c0170ea3"
+    },
+    "NVDA_1m_2025-06-02_2025-06-06": {
+      "source": "massive.com aggregates v2",
+      "query": "/v2/aggs/ticker/NVDA/range/1/minute/2025-06-02/2025-06-06?adjusted=true&sort=asc&limit=50000",
+      "ticker": "NVDA",
+      "timeframe": "1m",
+      "from": "2025-06-02",
+      "to": "2025-06-06",
+      "adjusted": true,
+      "barCount": 4784,
+      "fetchedAtUtc": "2026-08-16T20:15:53+00:00",
+      "file": "bars/NVDA_1m_2025-06-02_2025-06-06.json",
+      "sha256": "4455019f767fd6a4a4d9d782798ad802d648467b5dd9126200d9e76d86fc6054"
+    },
+    "NVDA_1d_2023-06-01_2025-06-06": {
+      "source": "massive.com aggregates v2",
+      "query": "/v2/aggs/ticker/NVDA/range/1/day/2023-06-01/2025-06-06?adjusted=true&sort=asc&limit=50000",
+      "ticker": "NVDA",
+      "timeframe": "1d",
+      "from": "2023-06-01",
+      "to": "2025-06-06",
+      "adjusted": true,
+      "barCount": 506,
+      "fetchedAtUtc": "2026-08-16T20:15:54+00:00",
+      "file": "bars/NVDA_1d_2023-06-01_2025-06-06.json",
+      "sha256": "5961521c459bb26cf65d1e62da6a2dd971b11a667263383a88a0f261a1e3a291"
+    }
+  }
+}

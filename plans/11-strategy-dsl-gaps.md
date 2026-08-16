@@ -115,9 +115,14 @@ decent proxy for "real" participation vs a few big prints.
 
 ## Known bugs that skew existing/future backtests (fix before trusting results)
 
-- **`adv()` averages the whole series, not the last `period` bars**
-  (`Functions/Indicators/AdvFunction.cs:30`). Any strategy already using `adv()` — including
-  volume-restricted variants — has been comparing against a wrong number.
+- ~~**`adv()` averages the whole series, not the last `period` bars**~~ — **FIXED 2026-08-16**
+  (`AdvFunction.cs` is now a rolling volume SMA with incremental support; guarded by
+  `GoldenIndicatorTests` `adv(*)` cases in plan 14). Any strategy that used `adv()` before this
+  date was comparing against a wrong number and should be re-run.
+- **`macd(...).signal` / `.histogram` emit `0` (not "no value") for bars before the signal line
+  has warmed up** (`MacdFunction.cs` sets `Signal = 0, Histogram = 0` and still adds the bar).
+  `histogram < 0.5`-style filters can fire on warm-up bars. Found by plan-14 golden tests
+  (tolerated via `WarmupPlaceholderKeys` in `GoldenIndicatorTests`; remove that set when fixed).
 - **No parenthesized logical grouping** — `ParseExpression` is a flat fold with no AND/OR
   precedence (`ExpressionParser.cs:299-324`); `a AND (b OR c)` silently mis-parses. Either add
   grouping or reject `(` after a logical operator.

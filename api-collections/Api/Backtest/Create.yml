@@ -10,14 +10,14 @@ http:
     type: json
     data: |-
       {
-        "start": "2026-08-01",
+        "start": "2024-01-01",
         "end": "2026-08-13",
         "positionSettings": {
           "startingBalance": 10000,
           "maxConcurrentPositions": 1000,
           "model": {
             "type": "Fixed",
-            "size": 7500
+            "size": 5000
           },
           "cooldown": {
             "multiplier": 15,
@@ -31,7 +31,8 @@ http:
             "close > 2.50 [1m]",
             "volume > 50000 [1m,5]",
             "volume > 1000000 [1d]",
-            "close > sma(200) [1d]"
+            "close > sma(200) [1d]",
+            "time < 14:00"
           ]
         },
         "exitSettings": {
@@ -41,7 +42,7 @@ http:
           },
           "takeProfit": {
             "type": "percent",
-            "value": 15
+            "value": 10
           },
           "timedExit": {
             "avoidOvernight": true,

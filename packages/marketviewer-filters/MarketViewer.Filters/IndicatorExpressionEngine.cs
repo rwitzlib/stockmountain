@@ -74,6 +74,81 @@ public class IndicatorExpressionEngine
     }
 
     /// <summary>
+    /// Evaluates a series-producing script (e.g. "sma(20)", "macd(12,26,9,ema).histogram",
+    /// "slope(close,5)") and returns one value per bar in <paramref name="stockData"/>, aligned by
+    /// index; <c>null</c> where the indicator has no value yet (warm-up).
+    /// Used by golden tests and entry-snapshot capture; not part of the boolean filter path.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The script does not evaluate to a series or scalar.</exception>
+    public double?[] EvaluateSeries(string script, StocksResponse stockData, Timeframe timeframe, DateTimeOffset? evaluationTime = null)
+    {
+        var expression = ParseExpression(script);
+        if (expression is Expressions.TimeframeRangeExpression tf)
+        {
+            timeframe = tf.GetTimeframe() ?? timeframe;
+            expression = tf.GetInnerExpression();
+        }
+
+        var context = new ExpressionContext
+        {
+            StockData = stockData,
+            Timeframe = timeframe,
+            EvaluationTime = evaluationTime
+        };
+
+        var bars = stockData.Results;
+        var output = new double?[bars.Count];
+        var result = expression.Evaluate(context);
+
+        switch (result)
+        {
+            case List<IIndicatorResult> series:
+            {
+                // Align by timestamp so a function that skips bars still lands on the right index.
+                var indexByTimestamp = new Dictionary<long, int>(bars.Count);
+                for (int i = 0; i < bars.Count; i++)
+                {
+                    indexByTimestamp[bars[i].Timestamp] = i;
+                }
+
+                foreach (var point in series)
+                {
+                    if (!indexByTimestamp.TryGetValue(point.Timestamp, out var index))
+                    {
+                        throw new InvalidOperationException($"Series point at {point.Timestamp} does not match any bar in the input.");
+                    }
+                    output[index] = point.GetFieldValue("value");
+                }
+                break;
+            }
+            case List<double> values:
+            {
+                // Field-access and transform results carry no timestamps; they are right-aligned to the input.
+                if (values.Count > bars.Count)
+                {
+                    throw new InvalidOperationException($"Series has {values.Count} points for {bars.Count} bars.");
+                }
+                var offset = bars.Count - values.Count;
+                for (int i = 0; i < values.Count; i++)
+                {
+                    output[offset + i] = values[i];
+                }
+                break;
+            }
+            case double scalar:
+                if (bars.Count > 0) output[^1] = scalar;
+                break;
+            case IIndicatorResult single:
+                if (bars.Count > 0) output[^1] = single.GetFieldValue("value");
+                break;
+            default:
+                throw new InvalidOperationException($"Script '{script}' evaluated to {result?.GetType().Name ?? "null"}, not a series.");
+        }
+
+        return output;
+    }
+
+    /// <summary>
     /// Compiles a script into a reusable session that supports incremental evaluation.
     /// </summary>
     public Sessions.FilterSession Compile(string script)

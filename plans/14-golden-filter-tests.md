@@ -1,0 +1,328 @@
+# Plan 14 — Golden filter tests: real Massive data + independent reference values
+
+> **Status 2026-08-16 — Phase 1 implemented (uncommitted).** `tools/golden/{fetch_fixtures,compute_reference}.py`,
+> AAPL 1m (2025-06-02..06, 3,822 bars incl. extended hours) + AAPL 1d (2023-06-01..2025-06-06, 506 bars) fixtures,
+> `IndicatorExpressionEngine.EvaluateSeries` + `FilterSession.EvaluateIncrementalRaw` hooks,
+> `Golden/GoldenFixture.cs`, `GoldenIndicatorTests.cs` (96 cases: 24 keys × 2 fixtures × {reference, incremental}),
+> `GoldenManifestTests.cs`. First run: every sma/ema/rsi/macd/slope case passed against the independent
+> reference; every `adv()` case failed → `AdvFunction.cs` rewritten as a rolling volume SMA (plan-11 bug closed).
+> Findings recorded below (§Findings). Phases 2–3 not started.
+
+## Context
+
+Entry filters (`rsi(14) < 30 [5m,3]`, `close crosses over sma(200) [1d]`, …) are the core of
+every scan, backtest and live strategy. They are evaluated by `IndicatorExpressionEngine` in
+`packages/marketviewer-filters/MarketViewer.Filters` (~4.6k lines: parser, planner, 7 indicator
+functions, comparison/logical operators, `FilterSession` incremental evaluation), and wired into
+the backtester by `apps/backtester/Backtest.Lambda/Services/ScannerService.cs` +
+`DataCache.cs` (multi-timeframe candle rebuild, `MergePreviousPeriod`, `UpdateLatestCandle`).
+
+Test coverage today (`tests/marketviewer-filters-unit-tests`, 53 tests) is almost entirely
+5-bar synthetic series (`Close = 100, 102, 104…`) with hand-picked thresholds. Exactly one test
+loads real data (`TestData/tsla_1_minute_2025-09-27.json`) and it is commented out. Synthetic
+tests have not caught the bugs that actually mattered:
+
+- `adv()` averages the whole series instead of the last `period` bars (plan 11).
+- `MergePreviousPeriod` one-bar-overlap guard broke `sma(200) [1d]` (fixed 2026-08-06, memory
+  `backtest-reliability-2026-07`).
+- VWAP study resets at UTC midnight instead of the ET session boundary (plan 11).
+- Flat AND/OR parsing with no precedence/grouping (plan 11).
+- The warm-Lambda stale-data leak and S3 cache key bugs — all in the wiring, not the math.
+
+None of those surface with 5 bars, one timeframe and no session boundaries. This plan adds a
+**golden test suite**: real Massive bar data committed as fixtures, indicator values computed
+by an *independent* implementation, and recorded filter outcomes as a regression net.
+
+## Decisions (locked 2026-08-16 — do not re-litigate)
+
+- **Three layers, in priority order**: (1) golden indicator values vs an independent reference,
+  (2) golden filter outcomes (snapshot/regression), (3) session-boundary + multi-timeframe
+  fixtures through the backtester's `DataCache`/`ScannerService` path. Layer 1 is what earns
+  the word "golden" — a self-generated expected value only enshrines current bugs.
+- **Fixtures are Massive-format verbatim** (`StocksResponse` JSON as returned by
+  `MassiveClient.GetAggregates`), so tests exercise the same deserialization the Lambda uses.
+  No hand-built models. Provenance (ticker, range, timeframe, fetch date, adjusted flag) is
+  embedded in each fixture file.
+- **Reference values are computed in Python** (`pandas` + `ta`/`pandas-ta`; TA-Lib optional)
+  by a script committed alongside the fixtures, run manually, output committed as JSON. The
+  C# tests never call Python. Tolerances are explicit per indicator (see §1c).
+- **Fixture budget is small and fixed**: ~4 tickers, 1-minute for ~5 trading days each plus 1-day
+  for ~2 years, one 1-hour month. Target < 15 MB total in `TestData/Golden/`. Do not commit
+  months of minute data; if a test needs more, it's an integration test, not a golden test.
+- **Layer 2 outcomes are blessed only after known plan-11 bugs are fixed** or the affected
+  cases are annotated `KnownBug` and asserted against the *correct* value with `Skip`. Never
+  bless a wrong result silently.
+- **Re-blessing is an explicit flag** (`GOLDEN_UPDATE=1`), never automatic. A diff in blessed
+  output must be reviewed like a code change.
+- Fixture fetch script lives in the repo and is one command; refreshing fixtures is a reviewed
+  PR that regenerates both bars and reference values together.
+
+## Layout
+
+```
+tests/marketviewer-filters-unit-tests/MarketViewer.Filters.UnitTests/
+  Golden/
+    GoldenFixture.cs                 # loads bars + reference JSON, exposes indexed access
+    GoldenIndicatorTests.cs          # layer 1
+    GoldenFilterOutcomeTests.cs      # layer 2
+    GoldenSessionBoundaryTests.cs    # layer 3 (filters-package portion)
+  TestData/Golden/
+    manifest.json                    # list of fixtures + provenance + git-tracked hash
+    bars/
+      AAPL_1m_2025-06-02_2025-06-06.json
+      AAPL_1d_2023-06-01_2025-06-06.json
+      TSLA_1m_2025-03-07_2025-03-11.json     # DST change 2025-03-09
+      SPY_1m_2024-11-27_2024-12-02.json      # half day 2024-11-29 (day after Thanksgiving)
+      SPY_1h_2025-05-01_2025-05-30.json
+      NVDA_1m_2025-06-02_2025-06-06.json     # heavy pre-market volume / gaps
+      NVDA_1d_2023-06-01_2025-06-06.json
+    reference/
+      AAPL_1m_2025-06-02_2025-06-06.indicators.json
+      ...                                     # one per bars file
+    outcomes/
+      filters.json                            # layer 2: script → list of true timestamps per fixture
+
+tests/backtest-lambda-unit-tests/Backtest.Lambda.UnitTests/
+  Golden/
+    GoldenScannerTests.cs            # layer 3 (backtester wiring portion)
+
+tools/golden/                        # new folder at repo root
+  fetch_fixtures.py                  # Massive REST → bars/*.json (uses MASSIVE_API_KEY)
+  compute_reference.py               # bars/*.json → reference/*.indicators.json
+  requirements.txt
+  README.md
+```
+
+Add `<None Update="TestData\Golden\**\*.json"><CopyToOutputDirectory>PreserveNewest` to the
+filters test csproj (the existing TSLA fixture uses `Always`; `PreserveNewest` is fine and
+faster). Backtest.Lambda tests reference the same folder via a `<Content Include=…Link=…>` so
+there is one copy of the data.
+
+## Fixture selection (why each one)
+
+| Fixture | Stress target |
+|---|---|
+| AAPL 1m, 5 normal days | baseline; enough bars for `sma(200)`, `rsi(14)`, `macd(12,26,9)` warm-up |
+| AAPL/NVDA 1d, 2 years | `sma(200) [1d]`, `adv(20) [1d]`, previous-period merge |
+| TSLA 1m across 2025-03-09 DST | ET offset change mid-fixture; `evaluationTime` math in `ScannerService` |
+| SPY 1m incl. 2024-11-29 half day | 1pm close; `HasNextCandle` loop, VWAP session length |
+| SPY 1h, one month | hourly candle rebuild from minutes, `MergePreviousPeriod(hour)` |
+| NVDA 1m | pre-market bars present in Massive response — session-open detection, VWAP anchor |
+
+Fetch with `adjusted=true`, `sort=asc`, `limit=50000`, and include extended hours for the
+1-minute sets (that is what `IMarketCache.Initialize` receives). Record the exact query in
+`manifest.json`.
+
+## Layer 1 — Golden indicator values
+
+### 1a. `compute_reference.py`
+
+For every bars fixture, compute and emit per-bar values (aligned by `t` timestamp, `null` during
+warm-up) for the functions in `MarketViewer.Filters/Functions`:
+
+| DSL | Reference | Notes |
+|---|---|---|
+| `sma(n)` | `close.rolling(n).mean()` | n ∈ {5, 20, 50, 200} |
+| `ema(n)` | hand-rolled loop: SMA seed at bar n−1, then α = 2/(n+1) | **not** pandas `ewm` default (first-close seed) — see 1c |
+| `rsi(n, _, _, wilders)` | Wilder's smoothing (`ta.momentum.RSIIndicator` / `pandas_ta.rsi`) | default type in `RsiFunction.cs`; SMA seed + α = 1/n |
+| `rsi(n, _, _, ema)` / `sma` | explicit EMA/SMA gain-loss variants | implement inline in the script (few lines) |
+| `macd(12,26,9,ema)` | `.value`, `.signal`, `.histogram` | |
+| `adv(n)` | `volume.rolling(n).mean()` | **shifted so it excludes the current bar if that is the C# contract — check `AdvFunction.cs` and document** |
+| `slope(close, n)` | least-squares slope over last n closes | matches `SlopeFunction.cs` definition; document formula |
+| `vwap` (via `DataAccessExpression`) | **per-bar** Massive `vw` field, passed through (`DataAccessExpression.CreateBarResult`) — *not* a session VWAP; reference is identity on `vw` | the session-anchored VWAP lives in `MarketViewer.Studies/VWAP.cs` (chart study, plan-11 UTC-midnight bug) and is out of scope for the filters DSL until a `vwap()` function exists |
+| `support_resistance` | *skip* — heuristic, no canonical reference | covered by layer 2 only |
+
+Also emit **aggregated series** for the 1m fixtures: 5m, 15m, 1h and 1d candles built by
+pandas `resample` with ET session alignment (`origin` at 09:30, label=left), so layer 3 can
+compare the C# candle rebuild against them.
+
+Output shape (one file per fixture):
+
+```jsonc
+{
+  "source": "AAPL_1m_2025-06-02_2025-06-06.json",
+  "generatedBy": "compute_reference.py@<git sha>", "libs": {"pandas": "…", "ta": "…"},
+  "series": {
+    "sma(20)":   [null, null, …, 201.31, …],
+    "rsi(14,70,30,wilders)": [...],
+    "macd(12,26,9,ema).histogram": [...],
+    ...
+  },
+  "aggregates": { "5m": [ {t,o,h,l,c,v}, … ], "1d": [...] }
+}
+```
+
+Keys are literal DSL fragments so the C# test can evaluate the *same string* — no mapping table.
+
+### 1b. `GoldenIndicatorTests.cs`
+
+`[Theory]` over `(fixture, dslKey)` from the manifest. For each, evaluate the series via the
+engine and compare bar-by-bar against `reference.series[dslKey]`.
+
+The engine currently exposes only boolean evaluation (`EvaluateScript`, `Evaluate`,
+`EvaluateIncremental`). Add a small **internal** hook (`InternalsVisibleTo` the test project)
+that returns the planned series for a `FunctionCallExpression`/`FieldAccessExpression` — e.g.
+`IndicatorExpressionEngine.EvaluateSeries(string script, StocksResponse, Timeframe) →
+IReadOnlyList<float?>`. Plan 05 (entry snapshot) needs the same accessor, so build it once.
+
+Assert three things per series:
+
+1. **Warm-up length** — first non-null index matches the reference (catches off-by-one
+   window bugs like the `adv()` one directly).
+2. **Values** — `Math.Abs(actual - expected) <= tol` for every non-null bar (§1c).
+3. **Incremental == full** — evaluate the same series through `FilterSession.EvaluateIncremental`
+   appending one bar at a time from index 200 on; last value must equal the full evaluation.
+   (Generalises the existing `Session_Incremental_Yields_Same_Result_As_Full` to real data.)
+
+### 1c. Tolerances and seeds
+
+- Bars are `float` in `Massive.Client.Models.Bar`; the reference is float64. Use relative
+  tolerance `1e-4` for sma/adv/vwap, `1e-3` for ema/macd/rsi (recursive, error accumulates),
+  absolute `1e-6` floor.
+- **Seeds (verified in code 2026-08-16 — the C# conventions are the contract; the reference is
+  written to match them, not the other way round):**
+  - `ema(n)`: SMA seed — `ema[n-1] = mean(close[0..n-1])`, then `α = 2/(n+1)`
+    (`EmaFunction.cs:33,40`). Matches TA-Lib/TradingView. **Not** pandas `ewm(span=n)` default,
+    which seeds with `close[0]` and would disagree for hundreds of bars on `ema(200)`; the script
+    must implement the loop by hand (~5 lines).
+  - `rsi(n,…,wilders)`: SMA seed of first n gains/losses, then `avg = (avg·(n−1)+x)/n`
+    (α = 1/n) (`RsiFunction.cs:51-68,112-113`). Matches `pandas_ta.rsi` / `ta.momentum.RSIIndicator`.
+  - `rsi(n,…,ema)`: SMA seed, then α = 2/(n+1) on gains/losses (`RsiFunction.cs:86,116`) —
+    non-standard combination, no library computes it; implement by hand and comment in both files.
+  - `rsi(n,…,sma)`: plain rolling means (`RsiFunction.cs:128-129`).
+  - Layer 1 asserts the first non-null index (`n−1` for ema/sma, `n` for rsi) as well as the
+    values — the warm-up length is where off-by-one window bugs show up.
+- Any deliberate deviation from the standard definition gets a comment in the C# function *and*
+  in `compute_reference.py`; the golden test is the executable form of that contract.
+
+## Layer 2 — Golden filter outcomes (regression net)
+
+### 2a. `outcomes/filters.json`
+
+A committed list of ~25 filter scripts, each with the fixture(s) it runs against and the
+blessed list of bar timestamps where the filter is `true`:
+
+```jsonc
+[
+  { "id": "rsi-oversold-5m",
+    "script": "rsi(14) < 30 [5m, 3]",
+    "fixture": "AAPL_1m_2025-06-02_2025-06-06",
+    "trueAt": [1748872200000, …],
+    "knownBug": null },
+  { "id": "and-or-grouping",
+    "script": "close > sma(20) AND (rsi(14) < 30 OR rsi(14) > 70)",
+    "fixture": "AAPL_1m_2025-06-02_2025-06-06",
+    "trueAt": [...],
+    "knownBug": "plan-11: parser has no grouping; expected list computed by hand from reference series" }
+]
+```
+
+Script set must cover: every function name; every comparison operator; `AND`/`OR`/`NOT`;
+`[tf]`, `[tf, n]`, `[, n]` range forms and each `RangeEvaluationMode`; dot-field access
+(`macd(…).histogram`, `.signal`); `crosses_over`/`crosses_under` with a series on both sides;
+literal-vs-series and series-vs-series comparisons; a scalar-only filter (`float < 50000000`);
+`vwap`; a 1d filter that needs previous-period history (`close > sma(200) [1d]`).
+
+### 2b. `GoldenFilterOutcomeTests.cs`
+
+Drives the fixture through the **same loop shape as `ScannerService.GetResultsFromFilter`**:
+seed the `StocksResponse` up to the first session open, then for each subsequent minute bar
+call `UpdateLatestCandle` + `EvaluateIncremental(evaluationTime: …)` and record timestamps
+where the result is `true`. Compare to `trueAt` as sets, reporting the symmetric difference
+in the failure message. Cases with `knownBug != null` are `[Fact(Skip = …)]`-style until fixed
+(xunit: use a `GoldenTheoryAttribute` that reads the flag) so they show up as *skipped*, not
+green.
+
+Blessing: when `GOLDEN_UPDATE=1`, the test rewrites `filters.json` in place with the observed
+`trueAt` and fails with a message telling you to review the diff. Initial bless happens
+per-case only after the author has spot-checked ≥3 true timestamps against the layer-1
+reference series by hand (note that in the PR).
+
+## Layer 3 — Session boundaries + multi-timeframe through the backtester path
+
+### 3a. Candle rebuild vs pandas resample (filters test project)
+
+For each 1m fixture and each of 5m/15m/1h/1d: build candles the way the Lambda does
+(`IMarketCache.Initialize` → cached minute response → the candle rebuild in `DataCache.Setup`;
+extract the rebuild into a pure static helper if it isn't already so it's callable without S3)
+and compare o/h/l/c/v and bar count against `reference.aggregates`. This is where the DST,
+half-day and pre-market fixtures do their work: bucket boundaries at 09:30 ET, last bucket on
+the half day ends 13:00, and pre-market minutes land in (or are excluded from) the buckets the
+same way the reference chose — decide and document which.
+
+### 3b. `MergePreviousPeriod` + `UpdateLatestCandle` (Backtest.Lambda tests)
+
+Extend `DataCacheMergeUnitTests` with the AAPL/NVDA 1d fixtures: merge a "previous year"
+response into a "current day" response and assert (a) no duplicate timestamps, (b) the last bar
+of the previous period is dropped **only** when it overlaps the current day (the 2026-08-06
+bug), (c) `sma(200) [1d]` evaluates to a value matching the layer-1 reference for the current
+day. Then simulate one full session with `UpdateLatestCandle` per minute and assert the forming
+1d/1h candle's o/h/l/c/v after each update matches a straightforward re-aggregation of the
+minutes seen so far.
+
+### 3c. `GoldenScannerTests.cs`
+
+Wire `ScannerService` with a fake `IMarketCache` fed from the fixtures (no S3, no Massive) and
+run `GetResultsFromFilter` for 3–4 scripts from `filters.json`; assert the `StrategyEntry`
+timestamps equal the layer-2 `trueAt` set. This closes the gap between "engine is right" and
+"the Lambda produces the right entries" — the loop bounds, `HasNextCandle` gating and
+`evaluationTime` all live here.
+
+## Tooling
+
+- `tools/golden/fetch_fixtures.py --ticker AAPL --from 2025-06-02 --to 2025-06-06 --tf 1m`
+  writes `TestData/Golden/bars/…json` verbatim from Massive's aggregates endpoint and updates
+  `manifest.json`. Reads `MASSIVE_API_KEY` from env / `local.env`.
+- `tools/golden/compute_reference.py` (no args) regenerates every `reference/*.json` from every
+  `bars/*.json`; idempotent; prints library versions.
+- `tools/golden/README.md`: the two commands, the tolerance table, and "how to add a fixture".
+- CI: golden tests run in the normal `dotnet test`; no Python in CI. Add a CI check that
+  `manifest.json` hashes match the fixture files so a fixture can't drift without regenerating
+  reference values.
+
+## Phasing
+
+1. **Phase 1 (do first)** — fetch script, AAPL 1m + 1d fixtures, `compute_reference.py` for
+   `sma/ema/rsi/adv/macd`, `EvaluateSeries` hook, `GoldenIndicatorTests`. Expected to fail on
+   `adv()` immediately; fix `AdvFunction.cs` as part of this phase (plan 11 item).
+2. **Phase 2** — remaining fixtures (TSLA DST, SPY half-day, SPY 1h, NVDA), `slope`, `vwap`
+   reference, `filters.json` + `GoldenFilterOutcomeTests` with `knownBug` annotations for
+   grouping/VWAP.
+3. **Phase 3** — layer 3: candle rebuild helper extraction, `DataCacheMergeUnitTests`
+   extension, `GoldenScannerTests` with fake `IMarketCache`.
+4. **Then** — use the suite as the safety net for the plan-11 parser work (parenthesised
+   grouping) and VWAP session fix; flip the `knownBug` cases to live as each is fixed.
+
+## Acceptance
+
+- `dotnet test tests/marketviewer-filters-unit-tests` and `tests/backtest-lambda-unit-tests`
+  pass with the golden suite included; skipped-with-reason count equals the number of open
+  `knownBug` entries and nothing else.
+- Deleting any single fixture file or editing one bar value fails the build/tests (manifest
+  hash check + at least one dependent test).
+- Introducing the old `adv()` whole-series bug, or the `MergePreviousPeriod` unconditional
+  drop, fails a golden test — verify by temporarily reverting each once during phase 1/3.
+- `plans/11-strategy-dsl-gaps.md` "Known bugs" section links each item to the golden test
+  that guards it.
+
+## Findings (from running the suite)
+
+- **`adv()` whole-series bug confirmed and fixed** (2026-08-16). Old implementation returned a
+  single point at the last bar; new one is a rolling volume mean with `Append` support.
+- **MACD signal/histogram warm-up placeholders**: `MacdFunction` emits `Signal=0, Histogram=0`
+  for bars between the MACD-line warm-up (bar `slow−1`) and the signal warm-up (bar
+  `slow+signal−2`). Golden tests tolerate this via `WarmupPlaceholderKeys`; logged in plan 11.
+- **`vwap` in the DSL is per-bar `vw`, not session VWAP** — see 1a table; the layer-3
+  session-anchor fixture rationale for VWAP applies to the study, not the filter.
+- **Reference must feed float32-rounded inputs** (`compute_reference.py` casts `c`/`v` through
+  `float32`) — bars are `float` in `Massive.Client.Models.Bar`, so without this the two sides
+  disagree at ~1e-6 relative on raw prices, which compounds in `ema(200)`.
+- Slope of an EMA-derived series (`slope(ema(20),10)`) passes at 1e-3; slope of raw price at
+  1e-4 — tolerances in `GoldenIndicatorTests.RelTolFor` are keyed off the DSL prefix.
+
+## Out of scope
+
+- Studies package (`MarketViewer.Studies`) beyond VWAP as consumed by filters.
+- Live/`ScanHandler` path in `apps/api` (plan 10 territory) — layer 3c is backtester only.
+- Performance benchmarks (`PerformanceTests.cs` stays as is).
+- Options/futures data; only equity aggregates.
