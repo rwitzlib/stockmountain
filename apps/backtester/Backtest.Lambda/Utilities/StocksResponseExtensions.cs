@@ -35,8 +35,32 @@ public static class StocksResponseExtensions
 
         if (nextCandle.Timestamp >= lastCandleEnd.ToUnixTimeMilliseconds())
         {
-            // New candle
-            stocksResponse.Results.Add(nextCandle);
+            // New candle. Anchor it to the timeframe grid implied by the previous candle rather
+            // than to the arriving minute: if minutes are missing (illiquid names, after-hours),
+            // "16:41" must still open the 16:40 candle or every later candle drifts off the
+            // boundaries Massive uses for the same timeframe.
+            var candleStart = lastCandleEnd;
+            while (true)
+            {
+                var candleEnd = timeframe.Timespan switch
+                {
+                    Timespan.minute => candleStart.AddMinutes(timeframe.Multiplier),
+                    Timespan.hour => candleStart.AddHours(timeframe.Multiplier),
+                    Timespan.day => candleStart.AddDays(timeframe.Multiplier),
+                    _ => throw new NotSupportedException($"Timespan {timeframe.Timespan} is not supported."),
+                };
+
+                if (nextCandle.Timestamp < candleEnd.ToUnixTimeMilliseconds())
+                {
+                    break;
+                }
+
+                candleStart = candleEnd;
+            }
+
+            var newCandle = nextCandle.Clone();
+            newCandle.Timestamp = candleStart.ToUnixTimeMilliseconds();
+            stocksResponse.Results.Add(newCandle);
             return;
         }
 

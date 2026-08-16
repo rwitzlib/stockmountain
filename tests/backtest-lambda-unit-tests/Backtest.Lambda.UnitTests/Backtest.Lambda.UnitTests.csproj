@@ -32,4 +32,9 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Golden fixtures are owned by the filters test project (plans/14); link them so there is one copy. -->
+    <Content Include="..\..\marketviewer-filters-unit-tests\MarketViewer.Filters.UnitTests\TestData\Golden\bars\*.json" Link="TestData\Golden\bars\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\marketviewer-filters-unit-tests\MarketViewer.Filters.UnitTests\TestData\Golden\reference\*.json" Link="TestData\Golden\reference\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

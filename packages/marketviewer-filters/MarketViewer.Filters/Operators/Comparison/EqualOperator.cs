@@ -17,6 +17,8 @@ public class EqualOperator : IComparisonOperator
 
     public object Execute(object? left, object right, ExpressionContext context)
     {
+        RangeEvaluationHelper.NormalizeMixedSeries(ref left, ref right);
+
         if (left == null)
         {
             return right == null;

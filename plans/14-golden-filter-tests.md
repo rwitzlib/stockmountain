@@ -1,12 +1,15 @@
 # Plan 14 — Golden filter tests: real Massive data + independent reference values
 
-> **Status 2026-08-16 — Phase 1 implemented (uncommitted).** `tools/golden/{fetch_fixtures,compute_reference}.py`,
-> AAPL 1m (2025-06-02..06, 3,822 bars incl. extended hours) + AAPL 1d (2023-06-01..2025-06-06, 506 bars) fixtures,
-> `IndicatorExpressionEngine.EvaluateSeries` + `FilterSession.EvaluateIncrementalRaw` hooks,
-> `Golden/GoldenFixture.cs`, `GoldenIndicatorTests.cs` (96 cases: 24 keys × 2 fixtures × {reference, incremental}),
-> `GoldenManifestTests.cs`. First run: every sma/ema/rsi/macd/slope case passed against the independent
-> reference; every `adv()` case failed → `AdvFunction.cs` rewritten as a rolling volume SMA (plan-11 bug closed).
-> Findings recorded below (§Findings). Phases 2–3 not started.
+> **Status 2026-08-16 — ALL THREE PHASES IMPLEMENTED (uncommitted).**
+> Tooling: `tools/golden/{fetch_fixtures,compute_reference,compute_outcomes}.py` + README. Fixtures: 7
+> (AAPL/NVDA 1m+1d, TSLA 1m across DST, SPY 1m half-day, SPY 1h; 5.4 MB incl. reference/outcomes).
+> Filters project (`Golden/`): `GoldenIndicatorTests` (338 cases), `GoldenFilterOutcomeTests` (41 scripts,
+> expected outcomes computed independently in Python; 2 S/R snapshot cases blessed; 1 `knownBug` held as an
+> expected-failure), `GoldenManifestTests`, `GoldenReplay` — 493 tests. Backtest.Lambda project (`Golden/`):
+> `GoldenCandleFormingTests` (33), `GoldenScannerTests` (7, real `DataCache.Setup` + `ScannerService` over a
+> preloaded `IMarketCache`). Bugs found and fixed along the way are listed under §Findings; plan-11 updated.
+> Acceptance probes done: re-introducing the old `adv()`, no-clone `UpdateLatestCandle`, and the pre-08-06
+> `MergePreviousPeriod` guard each fail multiple golden tests.
 
 ## Context
 
@@ -307,18 +310,45 @@ timestamps equal the layer-2 `trueAt` set. This closes the gap between "engine i
 
 ## Findings (from running the suite)
 
-- **`adv()` whole-series bug confirmed and fixed** (2026-08-16). Old implementation returned a
-  single point at the last bar; new one is a rolling volume mean with `Append` support.
-- **MACD signal/histogram warm-up placeholders**: `MacdFunction` emits `Signal=0, Histogram=0`
-  for bars between the MACD-line warm-up (bar `slow−1`) and the signal warm-up (bar
-  `slow+signal−2`). Golden tests tolerate this via `WarmupPlaceholderKeys`; logged in plan 11.
-- **`vwap` in the DSL is per-bar `vw`, not session VWAP** — see 1a table; the layer-3
-  session-anchor fixture rationale for VWAP applies to the study, not the filter.
-- **Reference must feed float32-rounded inputs** (`compute_reference.py` casts `c`/`v` through
-  `float32`) — bars are `float` in `Massive.Client.Models.Bar`, so without this the two sides
-  disagree at ~1e-6 relative on raw prices, which compounds in `ema(200)`.
-- Slope of an EMA-derived series (`slope(ema(20),10)`) passes at 1e-3; slope of raw price at
-  1e-4 — tolerances in `GoldenIndicatorTests.RelTolFor` are keyed off the DSL prefix.
+Fixed in this work (each guarded by a golden test named in parentheses):
+
+- **`adv()` whole-series bug** — returned one point at the last bar; now a rolling volume SMA with
+  `Append` (`GoldenIndicatorTests adv(*)`).
+- **`NOT` bound to the primary, not the comparison** — `NOT close > sma(20)` threw
+  `InvalidCastException`; `NOT` could only negate boolean function calls. Parser now takes a
+  comparison as the operand (`GoldenFilterOutcomeTests not-unary`).
+- **Mixed series operand types crashed comparisons** — a data-access/indicator series
+  (`List<IIndicatorResult>`) vs a dot-field/transform series (`List<double>`), e.g.
+  `close > support_resistance().support` or `close > macd(...).signal`, fell through to
+  `Convert.ToDouble(list)`. `RangeEvaluationHelper.NormalizeMixedSeries` now projects
+  (`sr-close-above-support-1d`, `close-gt-macd-signal-mixed`).
+- **`UpdateLatestCandle` mis-anchored candles after a gap** — a new candle was stamped with the
+  arriving minute (16:41) instead of the grid boundary (16:40) so every later candle drifted off
+  Massive's boundaries; only liquid names with no missing session minutes were unaffected. Now
+  anchored to the previous candle's grid (`GoldenCandleFormingTests`).
+- **`UpdateLatestCandle` mutated cached minute bars** — the cached `NextCandlesCache` bar object was
+  added as the forming 5m/1h/1d candle and then merged into in place, corrupting the 09:30, 09:35 …
+  minutes for concurrent `[1m]` filters (filters scan in parallel `Task.Run`s) and for downstream fill
+  pricing. New candles are now clones (`GoldenScannerTests Scanning_A_Larger_Timeframe_Filter_Must_Not_Mutate…`).
+- **`DataCache` overlap rebuild extracted** to `RebuildOverlappingCandle` (pure, static) so it is testable.
+
+Still open (documented, not fixed here):
+
+- **MACD signal/histogram warm-up placeholders**: `MacdFunction` emits `Signal=0, Histogram=0` for
+  bars between the MACD-line warm-up and the signal warm-up. Golden tests tolerate this via
+  `WarmupPlaceholderKeys`; plan 11.
+- **No parenthesised logical grouping** (`and-or-grouped` is a `knownBug` case; the
+  `Known_Bug_Still_Reproduces` theory will fail — telling you to drop the annotation — once fixed).
+- **`vwap` in the DSL is per-bar `vw`, not session VWAP** — see 1a table.
+- **Backtest 1-minute history is same-day only** (per-day minute file): `sma(200) [1m]` warms up on
+  the scan date's pre-market. Live scans have multi-day minute history — a parity gap for plan 10.
+  `GoldenScannerTests.Scanner_1m_Filter_Sees_Only_The_Scan_Dates_Minutes_As_History` pins the current behaviour.
+- **`ScannerService` never evaluates the 15:59 bar** (`i < totalMinutes - 1`); pinned by
+  `Scanner_Emits_An_Entry_For_Every_Session_Minute…`. Intentional? Decide in plan 10/11.
+- **`Bar.Volume` is float32** — daily/hourly volume sums above 2^24 lose integer precision (tolerated
+  in `GoldenCandleFormingTests`). Cosmetic for filters, but `volume > adv()` on mega-caps compares
+  rounded numbers.
+- Reference must feed float32-rounded inputs; `slope(ema(20),10)` needs 1e-3, raw-price slope 1e-4.
 
 ## Out of scope
 

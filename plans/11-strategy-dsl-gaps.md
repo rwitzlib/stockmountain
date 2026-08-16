@@ -123,6 +123,13 @@ decent proxy for "real" participation vs a few big prints.
   has warmed up** (`MacdFunction.cs` sets `Signal = 0, Histogram = 0` and still adds the bar).
   `histogram < 0.5`-style filters can fire on warm-up bars. Found by plan-14 golden tests
   (tolerated via `WarmupPlaceholderKeys` in `GoldenIndicatorTests`; remove that set when fixed).
+- ~~**`NOT` binds to the primary, not the comparison**~~ — **FIXED 2026-08-16** (`ExpressionParser.ParseComparison`;
+  guarded by plan-14 `GoldenFilterOutcomeTests not-unary`).
+- ~~**Comparing a data/indicator series with a dot-field series throws**~~ (`close > macd(...).signal`) —
+  **FIXED 2026-08-16** (`RangeEvaluationHelper.NormalizeMixedSeries`; plan-14 outcome cases).
+- ~~**Backtester `UpdateLatestCandle` mis-anchors candles after a missing minute and mutates cached minute
+  bars shared with concurrent filters**~~ — **FIXED 2026-08-16** (plan-14 `GoldenCandleFormingTests`,
+  `GoldenScannerTests`). Backtests of illiquid names or multi-timeframe strategies before this date are suspect.
 - **No parenthesized logical grouping** — `ParseExpression` is a flat fold with no AND/OR
   precedence (`ExpressionParser.cs:299-324`); `a AND (b OR c)` silently mis-parses. Either add
   grouping or reject `(` after a logical operator.

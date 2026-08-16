@@ -16,6 +16,8 @@ public class GreaterThanOrEqualOperator : IComparisonOperator
 
     public object Execute(object? left, object right, ExpressionContext context)
     {
+        RangeEvaluationHelper.NormalizeMixedSeries(ref left, ref right);
+
         ArgumentNullException.ThrowIfNull(left);
 
         var range = context.CandleRange ?? 1;

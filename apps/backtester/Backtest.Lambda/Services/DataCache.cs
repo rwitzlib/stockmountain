@@ -131,8 +131,6 @@ public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache
                         // If timeframe would overlap with market open, we should remove that candle and all after it.  Then we should rebuild that candle from the candles up until market open.
                         if (CheckIfCurrentCandleOverlapsMarketOpen(stocksResponse, marketOpen, timeframe, out var lastCandle))
                         {
-                            var startOfLastCandle = DateTimeOffset.FromUnixTimeMilliseconds(lastCandle.Timestamp);
-
                             var minuteStocksResponse = GetStocksResponse(ticker, new Timeframe(1, Timespan.minute));
 
                             if (minuteStocksResponse is null)
@@ -140,27 +138,7 @@ public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache
                                 return;
                             }
 
-                            var candles = minuteStocksResponse.Results.Where(q => q.Timestamp >= startOfLastCandle.ToUnixTimeMilliseconds() && q.Timestamp < marketOpen.ToUnixTimeMilliseconds()).ToList();
-
-                            if (candles.Count <= 0)
-                            {
-                                lastCandle.Open = 0;
-                                lastCandle.Close = 0;
-                                lastCandle.High = 0;
-                                lastCandle.Low = 0;
-                                lastCandle.Vwap = 0;
-                                lastCandle.Volume = 0;
-                                lastCandle.TransactionCount = 0;
-                                return;
-                            }
-
-                            lastCandle.Open = candles.First().Open;
-                            lastCandle.Close = candles.Last().Close;
-                            lastCandle.High = candles.Max(q => q.High);
-                            lastCandle.Low = candles.Min(q => q.Low);
-                            lastCandle.Vwap = (lastCandle.Close + lastCandle.High + lastCandle.Low) / 3; // TODO: How to do a more precise VWAP?
-                            lastCandle.Volume = candles.Sum(q => q.Volume);
-                            lastCandle.TransactionCount = candles.Sum(q => q.TransactionCount);
+                            RebuildOverlappingCandle(lastCandle, minuteStocksResponse.Results, marketOpen);
                         }
 
                         lock (StocksResponses)
@@ -301,6 +279,40 @@ public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache
 
             current.Results.InsertRange(0, previousBars);
         });
+    }
+
+    /// <summary>
+    /// The last candle of a larger-timeframe response (e.g. today's daily bar, or the 09:00 hourly
+    /// bar) spans market open and, as stored, already contains post-open data. Rebuild it from the
+    /// 1-minute bars in [candle start, market open) so the scan starts with pre-open state only;
+    /// intraday minutes are then merged back in by <see cref="Utilities.StocksResponseExtensions.UpdateLatestCandle"/>.
+    /// Zeroes the candle when there are no pre-open minutes.
+    /// </summary>
+    public static void RebuildOverlappingCandle(Bar lastCandle, IEnumerable<Bar> minuteBars, DateTimeOffset marketOpen)
+    {
+        var startOfLastCandle = lastCandle.Timestamp;
+        var openMs = marketOpen.ToUnixTimeMilliseconds();
+        var candles = minuteBars.Where(q => q.Timestamp >= startOfLastCandle && q.Timestamp < openMs).ToList();
+
+        if (candles.Count <= 0)
+        {
+            lastCandle.Open = 0;
+            lastCandle.Close = 0;
+            lastCandle.High = 0;
+            lastCandle.Low = 0;
+            lastCandle.Vwap = 0;
+            lastCandle.Volume = 0;
+            lastCandle.TransactionCount = 0;
+            return;
+        }
+
+        lastCandle.Open = candles.First().Open;
+        lastCandle.Close = candles.Last().Close;
+        lastCandle.High = candles.Max(q => q.High);
+        lastCandle.Low = candles.Min(q => q.Low);
+        lastCandle.Vwap = (lastCandle.Close + lastCandle.High + lastCandle.Low) / 3; // TODO: How to do a more precise VWAP?
+        lastCandle.Volume = candles.Sum(q => q.Volume);
+        lastCandle.TransactionCount = candles.Sum(q => q.TransactionCount);
     }
 
     public static bool CheckIfCurrentCandleOverlapsMarketOpen(StocksResponse stocksResponse, DateTimeOffset marketOpen, Timeframe timeframe, out Bar lastCandle)

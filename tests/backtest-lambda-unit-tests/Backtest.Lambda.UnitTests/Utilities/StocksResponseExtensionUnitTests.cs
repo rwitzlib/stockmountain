@@ -74,7 +74,7 @@ public class StocksResponseExtensionUnitTests
 
         // Assert
         stocksResponse.Results.Should().HaveCount(2);
-        stocksResponse.Results.Last().Should().Be(nextCandle);
+        stocksResponse.Results.Last().Should().BeEquivalentTo(nextCandle).And.NotBeSameAs(nextCandle, "the cached minute bar must never become the forming candle instance");
         stocksResponse.Results.First().Should().Be(lastCandle);
     }
 
@@ -97,7 +97,7 @@ public class StocksResponseExtensionUnitTests
 
         // Assert
         stocksResponse.Results.Should().HaveCount(2);
-        stocksResponse.Results.Last().Should().Be(nextCandle);
+        stocksResponse.Results.Last().Should().BeEquivalentTo(nextCandle).And.NotBeSameAs(nextCandle, "the cached minute bar must never become the forming candle instance");
     }
 
     #endregion
@@ -194,7 +194,7 @@ public class StocksResponseExtensionUnitTests
 
         // Assert
         stocksResponse.Results.Should().HaveCount(2);
-        stocksResponse.Results.Last().Should().Be(nextCandle);
+        stocksResponse.Results.Last().Should().BeEquivalentTo(nextCandle).And.NotBeSameAs(nextCandle, "the cached minute bar must never become the forming candle instance");
     }
 
     [Fact]
@@ -240,7 +240,7 @@ public class StocksResponseExtensionUnitTests
 
         // Assert
         stocksResponse.Results.Should().HaveCount(2);
-        stocksResponse.Results.Last().Should().Be(nextCandle);
+        stocksResponse.Results.Last().Should().BeEquivalentTo(nextCandle).And.NotBeSameAs(nextCandle, "the cached minute bar must never become the forming candle instance");
     }
 
     [Fact]

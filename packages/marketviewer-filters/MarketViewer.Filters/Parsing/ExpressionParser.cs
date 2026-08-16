@@ -325,6 +325,17 @@ public class ExpressionParser : IExpressionParser
 
     private (IExpression expression, int nextIndex) ParseComparison(List<string> tokens, int index)
     {
+        // Unary NOT binds tighter than AND/OR but looser than a comparison:
+        // "NOT close > sma(20)" negates the whole comparison, "NOT crosses_over(a, b)" negates the call.
+        if (index < tokens.Count && tokens[index].Equals("NOT", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_operators.TryGetValue("NOT", out var notOp))
+                throw new InvalidOperationException("Unknown operator: NOT");
+
+            var (operand, afterOperand) = ParseComparison(tokens, index + 1);
+            return (new UnaryExpression(notOp, operand), afterOperand);
+        }
+
         // Parse comparison expressions (>, <, =)
         var (left, nextIndex) = ParseTerm(tokens, index);
 
@@ -349,17 +360,6 @@ public class ExpressionParser : IExpressionParser
     private (IExpression expression, int nextIndex) ParseTerm(List<string> tokens, int index)
     {
         var token = tokens[index];
-
-        // Check for NOT
-        if (token.Equals("NOT", StringComparison.OrdinalIgnoreCase))
-        {
-            if (!_operators.TryGetValue("NOT", out var op))
-                throw new InvalidOperationException("Unknown operator: NOT");
-
-            var (operand, nextIndex) = ParseTerm(tokens, index + 1);
-            // For unary NOT, we create a special case
-            return (new UnaryExpression(op, operand), nextIndex);
-        }
 
         // Check for function calls
         if (index + 1 < tokens.Count && tokens[index + 1] == "(")

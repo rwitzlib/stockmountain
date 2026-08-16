@@ -19,7 +19,8 @@ Semantics mirrored from MarketViewer.Filters (must stay in sync — these ARE th
   * `crosses_over(a,b)` in range r: some bar j in the last r bars has a[j-1] <= b[j-1] and a[j] > b[j].
   * `time` is minutes since midnight America/New_York of the *evaluation clock*
     (the replay passes the current bar's timestamp).
-  * Logical AND/OR are a flat left-to-right fold with no precedence; NOT is unary.
+  * Logical AND/OR are a flat left-to-right fold with no precedence. NOT is unary and takes the
+    following comparison as its operand (`NOT close > sma(20)` == NOT(close > sma(20))).
 
 Replay window (mirrored in GoldenReplay.cs):
   * 1-minute fixtures: for every ET trading date in the fixture except the first, seed with all
@@ -177,6 +178,9 @@ CASES: list[Case] = [
     Case("close-gt-sma20", "close > sma(20) [1m]", M1_ALL, lambda f: cmp(f, "close", ">", "sma(20)")),
     Case("sma-stack", "sma(20) > sma(50) [1m]", M1, lambda f: cmp(f, "sma(20)", ">", "sma(50)")),
     Case("volume-gt-adv", "volume > adv(20) [1m]", M1, lambda f: cmp(f, "volume", ">", "adv(20)")),
+    Case("close-gt-macd-signal-mixed", "close > macd(12,26,9,ema).signal [1m]", M1,
+         lambda f: cmp(f, "close", ">", "macd(12,26,9,ema).signal"),
+         note="mixed operand types: data-access series vs dot-field series"),
     Case("macd-value-gt-signal", "macd(12,26,9,ema).value > macd(12,26,9,ema).signal [1m]", M1,
          lambda f: cmp(f, "macd(12,26,9,ema).value", ">", "macd(12,26,9,ema).signal")),
     # --- dot fields / implicit .value
@@ -218,7 +222,9 @@ CASES: list[Case] = [
     Case("close-gt-sma20-1h", "close > sma(20) [1h]", H1, lambda f: cmp(f, "close", ">", "sma(20)")),
     Case("rsi-overbought-1h-r2", f"{RSI} > 70 [1h, 2]", H1, lambda f: cmp(f, RSI, ">", 70, r=2)),
     # --- snapshot only (no independent reference): blessed by the C# test with GOLDEN_UPDATE=1
-    Case("sr-near-support", "support_resistance().near_support > 0 [1m]", ["AAPL_1m_2025-06-02_2025-06-06"], kind="snapshot"),
+    # (support_resistance is non-incremental and O(bars*lookback); a 1m replay takes minutes, so use the daily fixtures)
+    Case("sr-near-support-1d", "support_resistance().near_support > 0 [1d]", D1, kind="snapshot"),
+    Case("sr-close-above-support-1d", "close > support_resistance().support [1d]", D1, kind="snapshot"),
 ]
 
 

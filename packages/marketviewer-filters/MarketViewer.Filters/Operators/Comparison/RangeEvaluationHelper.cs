@@ -5,6 +5,25 @@ namespace MarketViewer.Filters.Operators.Comparison;
 
 internal static class RangeEvaluationHelper
 {
+    /// <summary>
+    /// Comparison operands can arrive as <c>List&lt;IIndicatorResult&gt;</c> (data access, indicator
+    /// functions) or <c>List&lt;double&gt;</c> (dot-field access, transforms). When one side is each,
+    /// project the indicator side to its "value" field so both are <c>List&lt;double&gt;</c>;
+    /// otherwise the operators fall through to a scalar cast and throw. Golden case:
+    /// "close &gt; support_resistance().support", "close &gt; macd(12,26,9,ema).signal".
+    /// </summary>
+    public static void NormalizeMixedSeries(ref object? left, ref object right)
+    {
+        if (left is List<Interfaces.IIndicatorResult> leftSeries && right is List<double>)
+        {
+            left = leftSeries.Select(r => r.GetFieldValue("value")).ToList();
+        }
+        else if (right is List<Interfaces.IIndicatorResult> rightSeries && left is List<double>)
+        {
+            right = rightSeries.Select(r => r.GetFieldValue("value")).ToList();
+        }
+    }
+
     public static bool Evaluate(int count, RangeEvaluationMode mode, Func<int, bool> predicate)
     {
         if (count <= 0)
