@@ -393,10 +393,25 @@ Ordered by my read of impact. Each has enough context to be picked up cold.
 2. ~~**Stored strategies that use removed/changed DSL will now fail or differ.**~~ **Not needed
    (2026-08-17):** no stored strategies or backtests use `NOT`, parentheses or `vwap` yet, so there is
    nothing to migrate; `adv()`/MACD warm-up changes only affect results computed before 2026-08-16.
-3. **Backtest 1-minute history is same-day only.** The per-day minute file means `[1m]` indicators warm up
-   on the scan date's pre-market (`sma(200) [1m]` is meaningless before ~13:00 on a thin name); live scans
-   see multi-day minute history. Pinned by `GoldenScannerTests.Scanner_1m_Filter_Sees_Only_The_Scan_Dates_
-   Minutes_As_History`. Decide (plan 10 parity): load the previous day's minute file too, or accept and document.
+3. ~~**Backtest 1-minute history is same-day only.**~~ **DONE 2026-08-17 — load the previous session.**
+   `DataCache.Setup` now downloads the prior session's per-day minute file and prepends it via
+   `MergePreviousPeriod` (same dedupe-by-timestamp path as hour/day), so `[1m]` indicators are warm at
+   09:30. Decisions: (a) `DataCache.PreviousMinuteSessions = 1`, a constant not a config knob — the live
+   cache holds 5 sessions (`MarketCacheWarmer.MinuteFileCount`) but the 3GB worker clones every response
+   and a per-day minute file is ~185MB of JSON, so 5 is not affordable; one full extended-hours session
+   (~960 bars) covers any realistic `[1m]` warm-up. Residual live/backtest difference: EMA-style
+   indicators seeded from 5 vs 2 sessions of history differ slightly. (b) "Previous session" =
+   walk back up to 10 calendar days skipping weekends and dates whose file 404s (holidays,
+   pre-bucket); a non-404 S3 error fails `Setup` (loud) rather than silently scanning with less
+   history — nondeterminism lesson from plan 14 findings. (c) The S3 filter-entry cache key gained a
+   version segment (`strategyEntries/v2/...`, `ScannerService.CacheVersion`) so results computed under
+   same-day-only history are never reused; bump it with any future change to `PreviousMinuteSessions`.
+   Tests: `GoldenScannerTests.Minute_History_Is_The_Previous_Session_Plus_The_Scan_Dates_PreMarket`,
+   `Scanner_1m_Filter_Warms_Up_On_The_Previous_Sessions_Minutes` (replaces the pinning test; `sma(400)
+   [1m]` fires at 09:30 only with history), `DataCachePreviousMinuteSessionsUnitTests` (weekend, holiday
+   404, none-in-lookback, idempotent warm container, non-404 fails). `PreloadedMarketCache.Initialize`
+   now throws the same NotFound `AmazonS3Exception` as S3. Deploy note: worker memory rises by roughly
+   one minute file; watch the REPORT max-memory line on the first multi-day backtest after deploy.
 4. **`ScannerService` never evaluates the 15:59 bar** (`i < totalMinutes - 1`). Pinned by
    `Scanner_Emits_An_Entry_For_Every_Session_Minute…`. Decide whether intentional (no entries in the last
    minute) and make it explicit either way.

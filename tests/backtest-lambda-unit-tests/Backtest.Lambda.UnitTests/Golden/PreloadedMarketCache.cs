@@ -1,16 +1,20 @@
+using Amazon.S3;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Responses.Market;
 using Massive.Client.Models;
 using Massive.Client.Responses;
 using Microsoft.Extensions.Caching.Memory;
+using System.Net;
 
 namespace Backtest.Lambda.UnitTests.Golden;
 
 /// <summary>
 /// An <see cref="IMarketCache"/> for golden tests: behaves like <see cref="MemoryMarketCache"/> but
 /// <see cref="Initialize"/> never touches S3 — it just returns whatever was preloaded with
-/// <see cref="Preload"/> under the same (timeframe, date) key the backtester will ask for.
+/// <see cref="Preload"/> under the same (timeframe, date) key the backtester will ask for, and
+/// throws the same NotFound <see cref="AmazonS3Exception"/> S3 does for a file that was never
+/// written (weekend, holiday, before the bucket's first day).
 /// Mirrors what the real cache holds after downloading the market-data files:
 ///   1-minute → one file per day; 1-hour → one file per month; 1-day → one file per year.
 /// </summary>
@@ -30,7 +34,7 @@ internal sealed class PreloadedMarketCache : IMarketCache
     {
         if (!_preloaded.TryGetValue(Key(timeframe, date), out var responses))
         {
-            throw new InvalidOperationException($"No preloaded market data for {timeframe.Multiplier}/{timeframe.Timespan} @ {date:yyyy-MM-dd}");
+            throw new AmazonS3Exception($"No preloaded market data for {timeframe.Multiplier}/{timeframe.Timespan} @ {date:yyyy-MM-dd}") { StatusCode = HttpStatusCode.NotFound };
         }
 
         SetTickersByTimeframe(date, timeframe, responses.Select(r => r.Ticker).ToList());

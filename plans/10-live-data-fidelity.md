@@ -246,6 +246,11 @@ so staleness is visible in every event, not just the snapshot probe's `dataLagSe
 - **End-of-day dump** of the live minute cache to S3 in warmup-file format for canonical diffing.
 - Any change to entry semantics (completed-bar-only entries) — decide after B2/C data lands.
 - Removing the snapshot-replacement design in favor of websocket bars — same.
+- **Minute-history depth parity** (noted 2026-08-17, plan 14 follow-up 3): live holds 5 sessions of
+  1-minute bars (`MarketCacheWarmer.MinuteFileCount`); the backtester loads the scan date plus 1 prior
+  session (`DataCache.PreviousMinuteSessions`, memory-bound in the 3GB worker). Warm-ups under ~960
+  bars are equivalent; long EMA-style seeds differ slightly. Revisit if the worker's memory model
+  changes (streaming deserialize / no clones).
 
 ## Tests
 

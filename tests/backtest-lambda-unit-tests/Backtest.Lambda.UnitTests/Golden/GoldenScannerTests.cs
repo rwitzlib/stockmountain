@@ -16,7 +16,10 @@ namespace Backtest.Lambda.UnitTests.Golden;
 /// preloaded market cache (no S3, no Massive). This is where the loop bounds, the per-date minute
 /// file, <c>HasNextCandle</c>, <c>MergePreviousPeriod</c> and the forming daily candle all meet.
 ///
-/// Scenario: scan 2025-06-04 for AAPL and NVDA with 1-minute and 1-day timeframes loaded.
+/// Scenario: scan 2025-06-04 for AAPL and NVDA with 1-minute and 1-day timeframes loaded. The
+/// per-day minute files for 06-02 and 06-03 are preloaded too, so <see cref="DataCache.Setup"/> can
+/// prepend the previous session (<see cref="DataCache.PreviousMinuteSessions"/>) exactly as it
+/// would from S3.
 /// </summary>
 public class GoldenScannerTests : IAsyncLifetime
 {
@@ -24,6 +27,7 @@ public class GoldenScannerTests : IAsyncLifetime
     private static readonly Timeframe FiveMinute = new(5, Timespan.minute);
     private static readonly Timeframe Day = new(1, Timespan.day);
     private static readonly DateOnly ScanDate = new(2025, 6, 4);
+    private static readonly DateOnly PreviousSession = new(2025, 6, 3);
     private static readonly string[] Tickers = ["AAPL", "NVDA"];
 
     private readonly DateTimeOffset _date = GoldenData.EasternTime(ScanDate, 0, 0);
@@ -46,10 +50,11 @@ public class GoldenScannerTests : IAsyncLifetime
             _minuteFixture[ticker] = minutes;
             _dailyFixture[ticker] = daily;
 
-            // Per-day minute file: only the scan date's bars (all sessions).
-            var dayStart = _date.ToUnixTimeMilliseconds();
-            var dayEnd = GoldenData.EasternTime(ScanDate.AddDays(1), 0, 0).ToUnixTimeMilliseconds();
-            var minuteFile = new StocksResponse { Ticker = ticker, Status = "OK", Results = minutes.Results.Where(b => b.Timestamp >= dayStart && b.Timestamp < dayEnd).Select(b => b.Clone()).ToList() };
+            // Per-day minute files (all sessions of that day). 06-02/06-03 are there for the previous-session
+            // history load; 06-05/06-06 deliberately are not, so nothing after the scan date can leak in.
+            var minuteFile = MinuteFile(ticker, minutes, ScanDate);
+            Add(Minute, GoldenData.EasternTime(PreviousSession, 0, 0), MinuteFile(ticker, minutes, PreviousSession));
+            Add(Minute, GoldenData.EasternTime(PreviousSession.AddDays(-1), 0, 0), MinuteFile(ticker, minutes, PreviousSession.AddDays(-1)));
 
             // Yearly daily files, overlapping by one bar exactly like the real aggregator output:
             // the 2025 file starts with 2024's final session.
@@ -76,6 +81,13 @@ public class GoldenScannerTests : IAsyncLifetime
         (await _dataCache.Setup(_date, [Minute, FiveMinute, Day])).Should().BeTrue("DataCache.Setup must succeed against the preloaded cache");
 
         _scanner = new ScannerService(_engine, _dataCache, null!, new BacktestConfig(), NullLogger<ScannerService>.Instance);
+    }
+
+    private static StocksResponse MinuteFile(string ticker, StocksResponse allMinutes, DateOnly day)
+    {
+        var dayStart = GoldenData.EasternTime(day, 0, 0).ToUnixTimeMilliseconds();
+        var dayEnd = GoldenData.EasternTime(day.AddDays(1), 0, 0).ToUnixTimeMilliseconds();
+        return new StocksResponse { Ticker = ticker, Status = "OK", Results = allMinutes.Results.Where(b => b.Timestamp >= dayStart && b.Timestamp < dayEnd).Select(b => b.Clone()).ToList() };
     }
 
     private readonly Dictionary<(Timeframe, DateTimeOffset), List<StocksResponse>> _pending = new();
@@ -166,20 +178,54 @@ public class GoldenScannerTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Scanner_1m_Filter_Sees_Only_The_Scan_Dates_Minutes_As_History()
+    public void Minute_History_Is_The_Previous_Session_Plus_The_Scan_Dates_PreMarket()
     {
-        // The per-day minute file means an intraday indicator warms up on today's pre-market only.
-        // Replaying the same data through the engine directly must give the same signal minutes —
-        // this pins the wiring (per-date trim, HasNextCandle mapping, evaluationTime, loop bounds).
-        const string filter = "rsi(14,70,30,wilders) < 30 [1m]";
-        var entries = await _scanner.GetResultsFromFilter(filter, _date);
+        // Plan 14 follow-up 3: the per-day minute file alone made [1m] indicators warm up on the scan
+        // date's pre-market only. Setup now prepends PreviousMinuteSessions (=1) sessions, and only
+        // that many — 06-02 is preloaded and must not be picked up.
+        DataCache.PreviousMinuteSessions.Should().Be(1, "this test's expectations are written for one prior session");
+        var previousStart = GoldenData.EasternTime(PreviousSession, 0, 0).ToUnixTimeMilliseconds();
 
-        var expected = new List<(string, DateTimeOffset)>();
         foreach (var ticker in Tickers)
         {
-            var dayBars = _minuteFixture[ticker].Results.Where(b => b.Timestamp >= _date.ToUnixTimeMilliseconds()).OrderBy(b => b.Timestamp).ToList();
-            var response = new StocksResponse { Ticker = ticker, Results = dayBars.Where(b => b.Timestamp < _open.ToUnixTimeMilliseconds()).Select(b => b.Clone()).ToList() };
-            var byTimestamp = dayBars.ToDictionary(b => b.Timestamp);
+            var history = _dataCache.GetStocksResponse(ticker, Minute).Results;
+            var expected = _minuteFixture[ticker].Results
+                .Where(b => b.Timestamp >= previousStart && b.Timestamp < _open.ToUnixTimeMilliseconds())
+                .Select(b => b.Timestamp)
+                .ToList();
+
+            history.Select(b => b.Timestamp).Should().Equal(expected, ticker);
+            history.Select(b => b.Timestamp).Should().BeInAscendingOrder(ticker).And.OnlyHaveUniqueItems(ticker);
+            GoldenData.EasternDate(history[0].Timestamp).Should().Be(PreviousSession, ticker);
+        }
+    }
+
+    [Fact]
+    public async Task Scanner_1m_Filter_Warms_Up_On_The_Previous_Sessions_Minutes()
+    {
+        // Replaying the same data through the engine directly must give the same signal minutes — this
+        // pins the wiring (previous-session merge, per-date trim, HasNextCandle mapping, evaluationTime,
+        // loop bounds) and proves the previous session actually feeds the indicator: sma(400) needs more
+        // bars than one pre-market has (~330 on AAPL), so with same-day history it cannot fire at 09:30.
+        const string filter = "close > sma(400) [1m]";
+        var entries = await _scanner.GetResultsFromFilter(filter, _date);
+
+        var withHistory = Replay(filter, GoldenData.EasternTime(PreviousSession, 0, 0));
+        var sameDayOnly = Replay(filter, _date);
+
+        entries.Select(e => (e.Ticker, e.Start)).Should().BeEquivalentTo(withHistory);
+        withHistory.Should().NotBeEmpty();
+        withHistory.Should().NotBeEquivalentTo(sameDayOnly, "the previous session's minutes must change the indicator's warm-up");
+    }
+
+    private List<(string, DateTimeOffset)> Replay(string filter, DateTimeOffset historyStart)
+    {
+        var results = new List<(string, DateTimeOffset)>();
+        foreach (var ticker in Tickers)
+        {
+            var bars = _minuteFixture[ticker].Results.Where(b => b.Timestamp >= historyStart.ToUnixTimeMilliseconds()).OrderBy(b => b.Timestamp).ToList();
+            var response = new StocksResponse { Ticker = ticker, Results = bars.Where(b => b.Timestamp < _open.ToUnixTimeMilliseconds()).Select(b => b.Clone()).ToList() };
+            var byTimestamp = bars.ToDictionary(b => b.Timestamp);
             var session = _engine.Compile(filter);
             for (int i = 0; i < 389; i++)
             {
@@ -188,13 +234,11 @@ public class GoldenScannerTests : IAsyncLifetime
                 response.Results.Add(bar.Clone());
                 if (session.EvaluateIncremental(response, Minute, evaluationTime: t))
                 {
-                    expected.Add((ticker, t));
+                    results.Add((ticker, t));
                 }
             }
         }
-
-        entries.Select(e => (e.Ticker, e.Start)).Should().BeEquivalentTo(expected);
-        expected.Should().NotBeEmpty();
+        return results;
     }
 
     [Fact]

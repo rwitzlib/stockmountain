@@ -8,12 +8,30 @@ using MarketViewer.Contracts.Responses.Market;
 using Microsoft.Extensions.Logging;
 using Massive.Client.Models;
 using System.Diagnostics;
+using System.Net;
 using System.Text.Json;
 
 namespace Backtest.Lambda.Services;
 
 public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache> logger)
 {
+    /// <summary>
+    /// How many prior sessions' 1-minute files are prepended to the scan date's minute history so
+    /// intraday indicators (<c>sma(200) [1m]</c>, <c>rsi(14) [1m]</c>, …) are warm at 09:30 instead of
+    /// starting from the scan date's pre-market. The live scanner (plan 10 parity) holds five sessions;
+    /// the worker Lambda cannot afford that (each per-day minute file is ~185MB of JSON and every
+    /// response is cloned), so it uses one — enough for any warm-up under a full extended-hours session
+    /// (~960 bars on a liquid name). Changing this changes backtest results: bump
+    /// <c>ScannerService.CacheVersion</c> at the same time.
+    /// </summary>
+    public const int PreviousMinuteSessions = 1;
+
+    /// <summary>
+    /// Calendar days to walk back when looking for prior sessions. Covers a long weekend plus a
+    /// holiday; anything further back and the scan date is treated as having no prior history.
+    /// </summary>
+    private const int PreviousMinuteSessionLookbackDays = 10;
+
     private List<string> Tickers { get; set; } = [];
     private Dictionary<string, StocksResponse> StocksResponses { get; set; } = [];
     private Dictionary<string, Bar[]> NextCandlesCache { get; set; } = [];
@@ -59,9 +77,16 @@ public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache
 
             // Load ticker details in parallel with aggregates so float filters can resolve.
             var tickerDetailsTask = LoadTickerDetailsAsync();
-            await Task.WhenAll(initializeTasks.Cast<Task>().Append(tickerDetailsTask));
+            var previousMinuteSessionsTask = LoadPreviousMinuteSessions(date);
+            await Task.WhenAll(initializeTasks.Cast<Task>().Append(tickerDetailsTask).Append(previousMinuteSessionsTask));
 
             var sp = Stopwatch.StartNew();
+
+            // Newest first so each earlier session lands in front of the one merged before it.
+            foreach (var previousSession in previousMinuteSessionsTask.Result)
+            {
+                MergePreviousPeriod(new Timeframe(1, Timespan.minute), date, previousSession);
+            }
 
             if (timeframes.Any(q => q.Timespan == Timespan.day))
             {
@@ -232,6 +257,45 @@ public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache
         }
     }
 
+    /// <summary>
+    /// Downloads the minute files for the <see cref="PreviousMinuteSessions"/> sessions before
+    /// <paramref name="date"/>, walking back over weekends and holidays (a missing per-day file is a
+    /// non-session). Returns the session dates newest first. Any S3 failure other than NotFound is
+    /// rethrown: falling back to same-day history would silently change the day's results.
+    /// </summary>
+    internal async Task<List<DateTimeOffset>> LoadPreviousMinuteSessions(DateTimeOffset date)
+    {
+        var sessions = new List<DateTimeOffset>();
+        var minute = new Timeframe(1, Timespan.minute);
+
+        for (var daysBack = 1; daysBack <= PreviousMinuteSessionLookbackDays && sessions.Count < PreviousMinuteSessions; daysBack++)
+        {
+            var candidate = date.AddDays(-daysBack);
+            if (candidate.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            {
+                continue;
+            }
+
+            try
+            {
+                await marketCache.Initialize(candidate, minute);
+                sessions.Add(candidate);
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                // Holiday (or the bucket does not reach back this far) — keep walking.
+            }
+        }
+
+        if (sessions.Count < PreviousMinuteSessions)
+        {
+            logger.LogWarning("Found {Found} of {Wanted} prior minute sessions within {Days} days before {Date:yyyy-MM-dd}; 1-minute indicators warm up on less history.",
+                sessions.Count, PreviousMinuteSessions, PreviousMinuteSessionLookbackDays, date);
+        }
+
+        return sessions;
+    }
+
     private void AttachTickerDetails(StocksResponse stocksResponse)
     {
         var tickerDetails = marketCache.GetTickerDetails(stocksResponse.Ticker);
@@ -267,8 +331,9 @@ public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache
 
             // Yearly/monthly files overlap by one bar (each file's first bar is the
             // previous period's final session), so dedupe by timestamp instead of
-            // treating any overlap as "already merged". The cached response is shared
-            // across Setup calls; an empty remainder means the merge already happened.
+            // treating any overlap as "already merged"; per-day minute files are
+            // disjoint and the same rule holds. The cached response is shared across
+            // Setup calls; an empty remainder means the merge already happened.
             var firstCurrentTimestamp = current.Results.First().Timestamp;
             var previousBars = previous.Results.Where(bar => bar.Timestamp < firstCurrentTimestamp).ToList();
 

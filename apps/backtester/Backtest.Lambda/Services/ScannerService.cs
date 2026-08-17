@@ -325,13 +325,21 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
     }
 
     /// <summary>
+    /// Segment of the S3 filter-cache key; bump whenever a change alters which minutes a filter
+    /// matches for the same filter string and date, so results computed under the old semantics
+    /// are never reused. History: v1 (implicit) same-day 1-minute history; v2 2026-08-17 the
+    /// previous session's minutes are prepended (<see cref="DataCache.PreviousMinuteSessions"/>).
+    /// </summary>
+    internal const string CacheVersion = "v2";
+
+    /// <summary>
     /// Filter strings contain characters that break S3 requests (&lt;, &gt;, spaces), which
     /// made every cache read/write fail. Key on a stable hash of the filter instead.
     /// </summary>
     private static string BuildCacheKey(DateTimeOffset date, string filter)
     {
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(filter)));
-        return $"strategyEntries/{date:yyyy/MM/dd}/{hash[..16]}";
+        return $"strategyEntries/{CacheVersion}/{date:yyyy/MM/dd}/{hash[..16]}";
     }
 
     #endregion
