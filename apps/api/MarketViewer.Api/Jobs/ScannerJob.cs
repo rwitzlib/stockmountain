@@ -19,9 +19,6 @@ public class ScannerJob(
     MarketCalendarService marketCalendar,
     CacheWarmupState warmupState) : IJob
 {
-    // No new entries in the final minutes before close.
-    private static readonly TimeSpan CloseBuffer = TimeSpan.FromMinutes(2);
-
     public async Task Execute(IJobExecutionContext context)
     {
         // Scans run on the data clock: on a delayed data plan the newest bars are
@@ -31,7 +28,7 @@ public class ScannerJob(
         // scanned. DelayMinutes = 0 makes this the wall clock again.
         var dataTime = DateTimeOffset.UtcNow.AddMinutes(-marketDataConfig.DelayMinutes);
 
-        if (!warmupState.IsReady || !await marketCalendar.IsMarketOpen(CloseBuffer, dataTime))
+        if (!warmupState.IsReady || !await marketCalendar.IsMarketOpen(dataTime))
         {
             return;
         }

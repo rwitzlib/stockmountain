@@ -155,8 +155,8 @@ public class GoldenScannerTests : IAsyncLifetime
         foreach (var ticker in Tickers)
         {
             var byTimestamp = _minuteFixture[ticker].Results.ToDictionary(b => b.Timestamp);
-            // ScannerService iterates i in [0, 389): the 15:59 bar is never a signal minute.
-            for (int i = 0; i < 389; i++)
+            // ScannerService iterates every session minute [0, 390): the 15:59 bar is a signal minute too.
+            for (int i = 0; i < 390; i++)
             {
                 var t = _open.AddMinutes(i);
                 if (byTimestamp.TryGetValue(t.ToUnixTimeMilliseconds(), out var bar) && bar.Close > bar.Open)
@@ -227,7 +227,7 @@ public class GoldenScannerTests : IAsyncLifetime
             var response = new StocksResponse { Ticker = ticker, Results = bars.Where(b => b.Timestamp < _open.ToUnixTimeMilliseconds()).Select(b => b.Clone()).ToList() };
             var byTimestamp = bars.ToDictionary(b => b.Timestamp);
             var session = _engine.Compile(filter);
-            for (int i = 0; i < 389; i++)
+            for (int i = 0; i < 390; i++)
             {
                 var t = _open.AddMinutes(i);
                 if (!byTimestamp.TryGetValue(t.ToUnixTimeMilliseconds(), out var bar)) continue;
@@ -284,7 +284,7 @@ public class GoldenScannerTests : IAsyncLifetime
             var previousSum = previousCloses.Sum();
 
             var byTimestamp = _minuteFixture[ticker].Results.ToDictionary(b => b.Timestamp);
-            for (int i = 0; i < 389; i++)
+            for (int i = 0; i < 390; i++)
             {
                 var t = _open.AddMinutes(i);
                 if (!byTimestamp.TryGetValue(t.ToUnixTimeMilliseconds(), out var bar)) continue;

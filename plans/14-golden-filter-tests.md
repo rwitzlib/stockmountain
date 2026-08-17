@@ -359,8 +359,8 @@ Still open (documented, not fixed here):
 - **Backtest 1-minute history is same-day only** (per-day minute file): `sma(200) [1m]` warms up on
   the scan date's pre-market. Live scans have multi-day minute history — a parity gap for plan 10.
   `GoldenScannerTests.Scanner_1m_Filter_Sees_Only_The_Scan_Dates_Minutes_As_History` pins the current behaviour.
-- **`ScannerService` never evaluates the 15:59 bar** (`i < totalMinutes - 1`); pinned by
-  `Scanner_Emits_An_Entry_For_Every_Session_Minute…`. Intentional? Decide in plan 10/11.
+- ~~**`ScannerService` never evaluates the 15:59 bar** (`i < totalMinutes - 1`)~~ — RESOLVED 2026-08-17, see
+  follow-up 4: the scanner now evaluates all 390 session minutes.
 - **`Bar.Volume` is float32** — daily/hourly volume sums above 2^24 lose integer precision (tolerated
   in `GoldenCandleFormingTests`). Cosmetic for filters, but `volume > adv()` on mega-caps compares
   rounded numbers.
@@ -412,9 +412,14 @@ Ordered by my read of impact. Each has enough context to be picked up cold.
    404, none-in-lookback, idempotent warm container, non-404 fails). `PreloadedMarketCache.Initialize`
    now throws the same NotFound `AmazonS3Exception` as S3. Deploy note: worker memory rises by roughly
    one minute file; watch the REPORT max-memory line on the first multi-day backtest after deploy.
-4. **`ScannerService` never evaluates the 15:59 bar** (`i < totalMinutes - 1`). Pinned by
-   `Scanner_Emits_An_Entry_For_Every_Session_Minute…`. Decide whether intentional (no entries in the last
-   minute) and make it explicit either way.
+4. ~~**`ScannerService` never evaluates the 15:59 bar** (`i < totalMinutes - 1`).~~ **DONE 2026-08-17.**
+   Decided: not intentional — a filter may legitimately buy in the last minute of the day. Both per-ticker
+   loops in `GetResultsFromFilter` (scalar and incremental) now iterate `[0, 390)`; the pinning test and the
+   `Replay`/sma(200) helpers in `GoldenScannerTests` were widened to 390. Downstream a 15:59 signal executes
+   at 16:00: `WorkerFunction` prices it at the 15:59 close and holds it from the next session's 09:30 bar
+   (or drops it via `BuildEntryResult` → null when the timed exit ends the same day). Live matched
+   the same day: `ScannerJob.CloseBuffer` (2 min) and the `closingBuffer` parameter on
+   `MarketCalendarService.IsMarketOpen` were removed, so live scans run right up to the session close.
 5. **Comparison operators align by position, not timestamp.** With every series contiguous to the last bar
    this is fine; a series that legitimately stops early (the first `vwap()` cut, or a future indicator that
    emits nothing for some bars) silently compares against a stale point. Options: align

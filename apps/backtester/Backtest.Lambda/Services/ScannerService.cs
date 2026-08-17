@@ -103,6 +103,9 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
         var offset = TimeZoneInfo.FindSystemTimeZoneById("America/New_York").GetUtcOffset(date);
         var marketOpen = new DateTimeOffset(date.Year, date.Month, date.Day, 9, 30, 0, offset);
         var marketClose = new DateTimeOffset(date.Year, date.Month, date.Day, 16, 0, 0, offset);
+        // Every session minute is a signal minute, including the 15:59 bar (a filter may
+        // legitimately buy in the last minute of the day; execution is signal + 1 minute).
+        var totalMinutes = (int)(marketClose - marketOpen).TotalMinutes;
 
         var expression = engine.ParseExpression(filter);
         var timeframe = engine.ExtractTimeframe(expression) ?? new Timeframe(1, Timespan.minute);
@@ -131,7 +134,7 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
                         return;
                     }
 
-                    for (int i = 0; i < (marketClose - marketOpen).TotalMinutes - 1; i++)
+                    for (int i = 0; i < totalMinutes; i++)
                     {
                         if (!dataCache.HasNextCandle(ticker, i, out _))
                         {
@@ -151,7 +154,7 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
                     return;
                 }
 
-                for (int i = 0; i < (marketClose - marketOpen).TotalMinutes - 1; i++)
+                for (int i = 0; i < totalMinutes; i++)
                 {
                     if (!dataCache.HasNextCandle(ticker, i, out var nextCandle))
                     {

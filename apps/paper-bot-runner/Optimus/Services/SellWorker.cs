@@ -39,7 +39,7 @@ public class SellWorker(
         // DelayMinutes of each session were never exit-evaluated until the next open.
         var dataNow = dataClock.Now;
 
-        if (!await marketCalendar.IsMarketOpen(asOf: dataNow))
+        if (!await marketCalendar.IsMarketOpen(dataNow))
         {
             return;
         }
