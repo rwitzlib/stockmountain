@@ -41,7 +41,8 @@ bool crossover = engine.EvaluateScript("crosses_over(close, sma(20))", stockData
 
 ### Basic Operators
 - **Comparison**: `>`, `<`, `>=`, `<=`, `=`, `!=` (supports series-vs-series, series-vs-scalar, and scalar-vs-series)
-- **Logical**: `AND`, `OR`, `NOT`
+- **Logical**: `AND`, `OR`, `NOT` — standard precedence: `NOT` binds to the comparison/call after it,
+  `AND` binds tighter than `OR` (`a OR b AND c` == `a OR (b AND c)`); use parentheses to group otherwise.
 
 ### Function Calls
 ```javascript

@@ -19,7 +19,8 @@ Semantics mirrored from MarketViewer.Filters (must stay in sync — these ARE th
   * `crosses_over(a,b)` in range r: some bar j in the last r bars has a[j-1] <= b[j-1] and a[j] > b[j].
   * `time` is minutes since midnight America/New_York of the *evaluation clock*
     (the replay passes the current bar's timestamp).
-  * Logical AND/OR are a flat left-to-right fold with no precedence; parentheses group explicitly.
+  * Logical AND binds tighter than OR (standard precedence, "a OR b AND c" == "a OR (b AND c)");
+    parentheses group explicitly. NOT binds to the single comparison/call after it.
     NOT is unary and takes the following comparison (or parenthesised group) as its operand.
 
 Replay window (mirrored in GoldenReplay.cs):
@@ -205,9 +206,15 @@ CASES: list[Case] = [
     Case("or-two", f"sma(20) > sma(50) OR {RSI} < 30 [1m]", M1,
          lambda f: cmp(f, "sma(20)", ">", "sma(50)") | cmp(f, RSI, "<", 30)),
     Case("not-unary", "NOT close > sma(20) [1m]", M1, lambda f: ~cmp(f, "close", ">", "sma(20)")),
-    Case("and-or-flat-fold", f"close > sma(20) AND {RSI} < 30 OR {RSI} > 70 [1m]", M1,
+    Case("and-then-or", f"close > sma(20) AND {RSI} < 30 OR {RSI} > 70 [1m]", M1,
          lambda f: (cmp(f, "close", ">", "sma(20)") & cmp(f, RSI, "<", 30)) | cmp(f, RSI, ">", 70),
-         note="left-to-right fold: (a AND b) OR c — the documented (if surprising) contract"),
+         note="(a AND b) OR c — same under AND-over-OR and a flat fold, so not a precedence witness on its own"),
+    Case("or-then-and-precedence", f"{RSI} > 70 OR close > sma(20) AND {RSI} < 30 [1m]", M1,
+         lambda f: cmp(f, RSI, ">", 70) | (cmp(f, "close", ">", "sma(20)") & cmp(f, RSI, "<", 30)),
+         note="a OR (b AND c): AND binds tighter than OR; a flat left-to-right fold would give (a OR b) AND c"),
+    Case("or-and-or-precedence", f"{RSI} < 30 OR close > sma(20) AND {RSI} > 50 OR {RSI} > 70 [1m]", M1,
+         lambda f: cmp(f, RSI, "<", 30) | (cmp(f, "close", ">", "sma(20)") & cmp(f, RSI, ">", 50)) | cmp(f, RSI, ">", 70),
+         note="a OR (b AND c) OR d"),
     Case("and-or-grouped", f"close > sma(20) AND ({RSI} < 30 OR {RSI} > 70) [1m]", M1,
          lambda f: cmp(f, "close", ">", "sma(20)") & (cmp(f, RSI, "<", 30) | cmp(f, RSI, ">", 70))),
     Case("or-and-grouped-left", f"({RSI} < 30 OR {RSI} > 70) AND close > sma(20) [1m]", M1,

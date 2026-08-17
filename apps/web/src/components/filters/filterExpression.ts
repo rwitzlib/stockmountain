@@ -45,9 +45,10 @@ export const isLogical = (node: FilterAstNode | undefined): boolean =>
   !!node && node.kind === 'binary' && (node.op === 'AND' || node.op === 'OR');
 
 /**
- * Parentheses are only needed where the parser would otherwise regroup: without them AND/OR
- * fold flat left-to-right, so a logical operand whose operator differs from the parent's must
- * be wrapped ("a AND (b OR c)", "(a OR b) AND c"). Same-operator chains stay flat.
+ * The parser gives AND precedence over OR, so strictly only an OR nested under an AND needs
+ * parentheses ("a AND (b OR c)", "(a OR b) AND c"). We also wrap an AND nested under an OR
+ * ("a OR (b AND c)") — redundant for the parser but it keeps the round-tripped text unambiguous
+ * to a reader. Same-operator chains stay flat.
  */
 function serializeOperand(operand: FilterAstNode, parent: FilterAstNode): string {
   const text = serializeAst(operand);

@@ -23,7 +23,10 @@ public class ParserGroupingUnitTests
     [InlineData("close > 50 AND (close > 500 OR close > 90)", true)]      // a AND (b OR c): b false, c true
     [InlineData("close > 500 AND (close > 50 OR close > 90)", false)]     // a false
     [InlineData("(close > 500 OR close > 90) AND close > 50", true)]      // (b OR c) AND a
-    [InlineData("close > 500 OR close > 90 AND close > 500", false)]      // flat fold: (false OR true) AND false
+    [InlineData("close > 500 OR close > 90 AND close > 500", false)]      // AND-over-OR: false OR (true AND false)
+    [InlineData("close > 90 OR close > 500 AND close > 500", true)]       // AND-over-OR: true OR (false AND false); flat fold would give false
+    [InlineData("close > 500 AND close > 500 OR close > 90", true)]       // (false AND false) OR true — same under either rule
+    [InlineData("close > 90 AND close > 50 OR close > 500 AND close > 500", true)] // (T AND T) OR (F AND F)
     [InlineData("close > 500 OR (close > 90 AND close > 500)", false)]    // grouped: false OR (true AND false)
     [InlineData("(close > 90 OR close > 500) AND close > 500", false)]
     [InlineData("NOT (close > 500 OR close > 90)", false)]                // NOT (false OR true)
@@ -43,6 +46,24 @@ public class ParserGroupingUnitTests
         Assert.Equal("AND", and.Operator.Symbol);
         var or = Assert.IsType<BinaryExpression>(and.Right);
         Assert.Equal("OR", or.Operator.Symbol);
+    }
+
+    [Fact]
+    public void Unparenthesised_Or_And_Binds_And_Tighter()
+    {
+        // a OR b AND c  ==  a OR (b AND c)
+        var expr = _engine.ParseExpression("close > 1 OR close > 2 AND close > 3");
+        var or = Assert.IsType<BinaryExpression>(expr);
+        Assert.Equal("OR", or.Operator.Symbol);
+        var and = Assert.IsType<BinaryExpression>(or.Right);
+        Assert.Equal("AND", and.Operator.Symbol);
+
+        // a AND b OR c  ==  (a AND b) OR c
+        expr = _engine.ParseExpression("close > 1 AND close > 2 OR close > 3");
+        or = Assert.IsType<BinaryExpression>(expr);
+        Assert.Equal("OR", or.Operator.Symbol);
+        and = Assert.IsType<BinaryExpression>(or.Left);
+        Assert.Equal("AND", and.Operator.Symbol);
     }
 
     [Fact]

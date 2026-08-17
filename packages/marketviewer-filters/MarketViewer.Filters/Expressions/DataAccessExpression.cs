@@ -32,12 +32,14 @@ public class DataAccessExpression(string fieldName) : IExpression
 
         var data = context.StockData.Results;
 
-        var series = new List<IIndicatorResult>();
+        var series = new List<IIndicatorResult>(data.Count);
 
         foreach (var bar in data)
         {
             series.Add(CreateBarResult(bar));
         }
+
+        SeriesAlignment.AssertTail(series, context, _fieldName);
 
         return series;
     }

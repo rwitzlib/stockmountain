@@ -133,8 +133,8 @@ decent proxy for "real" participation vs a few big prints.
 - ~~**No parenthesized logical grouping**~~ — **FIXED 2026-08-16**: `( … )` groups any expression
   (`a AND (b OR c)`, `NOT (a OR b)`, nested); the parser now also rejects leftover tokens (it used
   to silently drop everything after an unexpected token, e.g. `x [1d] AND y [1m]` validated as `x [1m]`).
-  AND/OR still fold flat left-to-right without parentheses (unchanged; pinned by the plan-14
-  `and-or-flat-fold` case). Validate endpoint maps `NOT` as a `unary` AST node and keeps parentheses
+  AND/OR folded flat left-to-right without parentheses until 2026-08-17, when standard AND-over-OR
+  precedence was adopted (plan-14 follow-up 6; `or-then-and-precedence` golden case). Validate endpoint maps `NOT` as a `unary` AST node and keeps parentheses
   in the English echo; web `serializeAst`/chips round-trip groups. Guarded by `ParserGroupingUnitTests`,
   `FilterValidateHandlerUnitTests`, and 7 plan-14 outcome cases.
 - ~~**VWAP study resets at UTC midnight** (20:00 ET)~~ — **SUPERSEDED 2026-08-16**: new `vwap()` indicator

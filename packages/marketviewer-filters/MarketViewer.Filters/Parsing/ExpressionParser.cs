@@ -305,26 +305,40 @@ public class ExpressionParser : IExpressionParser
 
     private (IExpression expression, int nextIndex) ParseExpression(List<string> tokens, int index)
     {
-        // Parse logical expressions (AND, OR)
+        // Logical expressions use standard precedence: NOT binds tightest, then AND, then OR —
+        // "a OR b AND c" is "a OR (b AND c)" (SQL/Python rules). Parentheses (ParseTerm) group explicitly.
+        return ParseOr(tokens, index);
+    }
+
+    private (IExpression expression, int nextIndex) ParseOr(List<string> tokens, int index)
+    {
+        var (left, nextIndex) = ParseAnd(tokens, index);
+
+        while (nextIndex < tokens.Count && tokens[nextIndex].Equals("OR", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_operators.TryGetValue("OR", out var op))
+                throw new InvalidOperationException("Unknown operator: OR");
+
+            var (right, newIndex) = ParseAnd(tokens, nextIndex + 1);
+            left = new BinaryExpression(left, op, right);
+            nextIndex = newIndex;
+        }
+
+        return (left, nextIndex);
+    }
+
+    private (IExpression expression, int nextIndex) ParseAnd(List<string> tokens, int index)
+    {
         var (left, nextIndex) = ParseComparison(tokens, index);
 
-        while (nextIndex < tokens.Count)
+        while (nextIndex < tokens.Count && tokens[nextIndex].Equals("AND", StringComparison.OrdinalIgnoreCase))
         {
-            var token = tokens[nextIndex];
-            if (token.Equals("AND", StringComparison.OrdinalIgnoreCase) ||
-                token.Equals("OR", StringComparison.OrdinalIgnoreCase))
-            {
-                if (!_operators.TryGetValue(token.ToUpper(), out var op))
-                    throw new InvalidOperationException($"Unknown operator: {token}");
+            if (!_operators.TryGetValue("AND", out var op))
+                throw new InvalidOperationException("Unknown operator: AND");
 
-                var (right, newIndex) = ParseComparison(tokens, nextIndex + 1);
-                left = new BinaryExpression(left, op, right);
-                nextIndex = newIndex;
-            }
-            else
-            {
-                break;
-            }
+            var (right, newIndex) = ParseComparison(tokens, nextIndex + 1);
+            left = new BinaryExpression(left, op, right);
+            nextIndex = newIndex;
         }
 
         return (left, nextIndex);
@@ -373,8 +387,8 @@ public class ExpressionParser : IExpressionParser
 
         // Parenthesised group: "(" expression ")". Lets AND/OR be grouped explicitly —
         // "close > sma(20) AND (rsi(14) < 30 OR rsi(14) > 70)" — and NOT applied to a
-        // whole logical expression: "NOT (a OR b)". Without parentheses AND/OR still fold
-        // flat, left to right.
+        // whole logical expression: "NOT (a OR b)". Without parentheses AND binds tighter
+        // than OR (see ParseExpression).
         if (token == "(")
         {
             var (inner, afterInner) = ParseExpression(tokens, index + 1);

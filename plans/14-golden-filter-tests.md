@@ -420,13 +420,34 @@ Ordered by my read of impact. Each has enough context to be picked up cold.
    (or drops it via `BuildEntryResult` → null when the timed exit ends the same day). Live matched
    the same day: `ScannerJob.CloseBuffer` (2 min) and the `closingBuffer` parameter on
    `MarketCalendarService.IsMarketOpen` were removed, so live scans run right up to the session close.
-5. **Comparison operators align by position, not timestamp.** With every series contiguous to the last bar
-   this is fine; a series that legitimately stops early (the first `vwap()` cut, or a future indicator that
-   emits nothing for some bars) silently compares against a stale point. Options: align
-   `List<IIndicatorResult>` operands by timestamp, or enforce "series must end at the last bar" in the planner.
-6. **AND/OR precedence.** Grouping exists now; the flat left-to-right fold remains (`a OR b AND c` ==
-   `(a OR b) AND c`, pinned by the `and-or-flat-fold` golden case). Switching to standard AND-over-OR is a
-   semantics change for stored filters — decide, and if switching, migrate stored filters by inserting parens.
+5. ~~**Comparison operators align by position, not timestamp.**~~ **DONE 2026-08-17 — enforce the invariant,
+   loud, at the producer.** Decisions: (a) keep positional pairing (timestamp alignment is impossible for the
+   bare `List<double>` operands — `.signal`, `slope()`, mixed-series normalization — without re-typing every
+   series path, and would add per-eval allocations on the backtest hot path); instead every timestamped
+   series must be right-aligned with the context bars for the tail a comparison can touch: the last
+   `min(range, count)` points, checked point-by-point against `bars[^k]` (O(range), covers `[tf, r]` gaps,
+   not just "ends at the last bar"). Warm-up (starting late) and empty series are legal. (b) It throws
+   `InvalidOperationException` naming the producer — a violation is a function bug, not user/data error, and
+   plan 14 exists because silent fallbacks hid exactly this class of drift. (c) Producer side, one helper
+   (`MarketViewer.Filters/SeriesAlignment.AssertTail`), on both evaluation paths:
+   `FunctionCallExpression.Evaluate` + `DataAccessExpression.Evaluate` (direct/live) and
+   `FilterSession.EvaluateFunctionCall/EvaluateDataAccess` (compiled/incremental, i.e. after `Append`).
+   Bare double series inherit the guarantee from the timestamped series they derive from; `time` is exempt
+   (single point stamped with the evaluation clock, not a bar). All current producers stamp `bar.Timestamp`
+   per bar (sma/ema/rsi/macd/adv/vwap/support_resistance/data access), so the check only fires on a
+   regression. Tests: `SeriesAlignmentUnitTests` (helper: warm-up/empty pass, stops-early throws, interior
+   gap caught iff inside range; direct path stub function throws / aligned passes; FilterSession full +
+   incremental throw; real indicators stay aligned through incremental growth + forming-bar mutation; `time`
+   exempt) plus every existing golden/incremental test now runs under the check.
+6. ~~**AND/OR precedence.**~~ **DONE 2026-08-17 — standard AND-over-OR.** `a OR b AND c` == `a OR (b AND c)`
+   (`ExpressionParser.ParseExpression` → `ParseOr` → `ParseAnd` → `ParseComparison`; NOT still binds to the
+   single comparison/call after it; parentheses group). No migration: no stored strategy or backtest filter
+   uses AND or OR at all (user-confirmed), so no stored meaning changed. Note the old pinning case
+   `a AND b OR c` evaluates identically under both rules; it was renamed `and-then-or` and two real witnesses
+   added: `or-then-and-precedence` (`a OR b AND c`) and `or-and-or-precedence` (`a OR b AND c OR d`), plus
+   `ParserGroupingUnitTests.Unparenthesised_Or_And_Binds_And_Tighter` and new theory rows. Python reference
+   header, filters README, and web `serializeOperand` comment updated (the web serializer still wraps an AND
+   under an OR — redundant for the parser now, kept for readability).
 7. **Forming-candle `Vwap` is a typical-price approximation.** `UpdateLatestCandle` and
    `RebuildOverlappingCandle` set `Vwap = (c+h+l)/3`; `vwap()` on 5m+ in the backtester therefore weights
    the forming candle by typical price while completed candles use Massive's `vw`. Track Σ(vw·v)/Σv from

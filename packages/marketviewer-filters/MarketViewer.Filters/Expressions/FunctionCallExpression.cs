@@ -28,6 +28,12 @@ public class FunctionCallExpression : IExpression
             argumentValues[i] = _arguments[i].Evaluate(context);
         }
 
-        return _function.Execute(argumentValues, context);
+        var result = _function.Execute(argumentValues, context);
+        if (result is List<IIndicatorResult> series)
+        {
+            SeriesAlignment.AssertTail(series, context, _function.Name);
+        }
+
+        return result;
     }
 }

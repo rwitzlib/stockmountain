@@ -194,6 +194,7 @@ public class FilterSession
 
         entry.DataCount = data.Count;
         entry.LastTimestamp = data.LastOrDefault()?.Timestamp ?? 0;
+        SeriesAlignment.AssertTail(prevSeries, ctx, expr.GetFieldName());
         return prevSeries;
     }
 
@@ -270,6 +271,13 @@ public class FilterSession
         else
         {
             result = func.Execute(argValues, ctx);
+        }
+
+        // The direct path checks inside FunctionCallExpression.Evaluate; here Execute/Append are
+        // called straight on the function, so check the result once (covers the incremental path).
+        if (result is List<IIndicatorResult> series)
+        {
+            SeriesAlignment.AssertTail(series, ctx, func.Name);
         }
 
         _cache[key] = new NodeCache { Result = result, DataCount = ctx.StockData.Results.Count, LastTimestamp = ctx.StockData.Results.LastOrDefault()?.Timestamp ?? 0 };
