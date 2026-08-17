@@ -119,10 +119,10 @@ decent proxy for "real" participation vs a few big prints.
   (`AdvFunction.cs` is now a rolling volume SMA with incremental support; guarded by
   `GoldenIndicatorTests` `adv(*)` cases in plan 14). Any strategy that used `adv()` before this
   date was comparing against a wrong number and should be re-run.
-- **`macd(...).signal` / `.histogram` emit `0` (not "no value") for bars before the signal line
-  has warmed up** (`MacdFunction.cs` sets `Signal = 0, Histogram = 0` and still adds the bar).
-  `histogram < 0.5`-style filters can fire on warm-up bars. Found by plan-14 golden tests
-  (tolerated via `WarmupPlaceholderKeys` in `GoldenIndicatorTests`; remove that set when fixed).
+- ~~**`macd(...).signal` / `.histogram` emit `0` for bars before the signal line has warmed up**~~ —
+  **FIXED 2026-08-16**: `MacdFunction` now emits its first point at bar `slow+signal−2` with all three
+  fields real (TA-Lib convention); `Append` rewritten to match. Guarded by plan-14 `GoldenIndicatorTests`
+  (`macd(12,26,9,{ema,sma,wilders}).*`, strict warm-up length) and outcome cases.
 - ~~**`NOT` binds to the primary, not the comparison**~~ — **FIXED 2026-08-16** (`ExpressionParser.ParseComparison`;
   guarded by plan-14 `GoldenFilterOutcomeTests not-unary`).
 - ~~**Comparing a data/indicator series with a dot-field series throws**~~ (`close > macd(...).signal`) —
@@ -130,9 +130,13 @@ decent proxy for "real" participation vs a few big prints.
 - ~~**Backtester `UpdateLatestCandle` mis-anchors candles after a missing minute and mutates cached minute
   bars shared with concurrent filters**~~ — **FIXED 2026-08-16** (plan-14 `GoldenCandleFormingTests`,
   `GoldenScannerTests`). Backtests of illiquid names or multi-timeframe strategies before this date are suspect.
-- **No parenthesized logical grouping** — `ParseExpression` is a flat fold with no AND/OR
-  precedence (`ExpressionParser.cs:299-324`); `a AND (b OR c)` silently mis-parses. Either add
-  grouping or reject `(` after a logical operator.
+- ~~**No parenthesized logical grouping**~~ — **FIXED 2026-08-16**: `( … )` groups any expression
+  (`a AND (b OR c)`, `NOT (a OR b)`, nested); the parser now also rejects leftover tokens (it used
+  to silently drop everything after an unexpected token, e.g. `x [1d] AND y [1m]` validated as `x [1m]`).
+  AND/OR still fold flat left-to-right without parentheses (unchanged; pinned by the plan-14
+  `and-or-flat-fold` case). Validate endpoint maps `NOT` as a `unary` AST node and keeps parentheses
+  in the English echo; web `serializeAst`/chips round-trip groups. Guarded by `ParserGroupingUnitTests`,
+  `FilterValidateHandlerUnitTests`, and 7 plan-14 outcome cases.
 - **VWAP study resets at UTC midnight** (20:00 ET) — wrong session boundary (`Studies/VWAP.cs:19,23`).
 - **Frontend indicator params contradict backend**: MACD `source` offers `close` (invalid),
   RSI offers only `sma|ema` — `wilders` unreachable (`apps/web/src/config/indicators.ts:59,77`

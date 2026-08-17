@@ -24,7 +24,10 @@ export function serializeAst(node: FilterAstNode): string {
       return inner;
     }
     case 'binary':
-      return `${serializeAst(node.left!)} ${node.op} ${serializeAst(node.right!)}`;
+      return `${serializeOperand(node.left!, node)} ${node.op} ${serializeOperand(node.right!, node)}`;
+    case 'unary':
+      // NOT takes a single comparison; a logical operand must stay grouped.
+      return `NOT ${isLogical(node.inner!) ? `(${serializeAst(node.inner!)})` : serializeAst(node.inner!)}`;
     case 'function':
       return `${node.name}(${(node.args ?? []).map(serializeAst).join(', ')})`;
     case 'field':
@@ -36,6 +39,19 @@ export function serializeAst(node: FilterAstNode): string {
     default:
       return node.value ?? '';
   }
+}
+
+export const isLogical = (node: FilterAstNode | undefined): boolean =>
+  !!node && node.kind === 'binary' && (node.op === 'AND' || node.op === 'OR');
+
+/**
+ * Parentheses are only needed where the parser would otherwise regroup: without them AND/OR
+ * fold flat left-to-right, so a logical operand whose operator differs from the parent's must
+ * be wrapped ("a AND (b OR c)", "(a OR b) AND c"). Same-operator chains stay flat.
+ */
+function serializeOperand(operand: FilterAstNode, parent: FilterAstNode): string {
+  const text = serializeAst(operand);
+  return isLogical(parent) && isLogical(operand) && operand.op !== parent.op ? `(${text})` : text;
 }
 
 // ---- Recents / pinned library (localStorage, phase 3) ----

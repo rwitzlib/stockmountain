@@ -67,7 +67,13 @@ public class ExpressionParser : IExpressionParser
         var tokens = Tokenize(expressionScript);
 
         // Parse the expression
-        var expression = ParseExpression(tokens, 0).expression;
+        var (expression, consumed) = ParseExpression(tokens, 0);
+        if (consumed < tokens.Count)
+        {
+            throw new InvalidOperationException(tokens[consumed] == ")"
+                ? "Unexpected ')' — no matching '('"
+                : $"Unexpected token: {tokens[consumed]}");
+        }
 
         // If timeframe/range specified, wrap in a context-aware expression
         if (timeframe != null || range.HasValue || evaluationMode.HasValue)
@@ -359,7 +365,22 @@ public class ExpressionParser : IExpressionParser
 
     private (IExpression expression, int nextIndex) ParseTerm(List<string> tokens, int index)
     {
+        if (index >= tokens.Count)
+            throw new InvalidOperationException("Unexpected end of expression");
+
         var token = tokens[index];
+
+        // Parenthesised group: "(" expression ")". Lets AND/OR be grouped explicitly —
+        // "close > sma(20) AND (rsi(14) < 30 OR rsi(14) > 70)" — and NOT applied to a
+        // whole logical expression: "NOT (a OR b)". Without parentheses AND/OR still fold
+        // flat, left to right.
+        if (token == "(")
+        {
+            var (inner, afterInner) = ParseExpression(tokens, index + 1);
+            if (afterInner >= tokens.Count || tokens[afterInner] != ")")
+                throw new InvalidOperationException("Expected closing parenthesis for grouped expression");
+            return (inner, afterInner + 1);
+        }
 
         // Check for function calls
         if (index + 1 < tokens.Count && tokens[index + 1] == "(")

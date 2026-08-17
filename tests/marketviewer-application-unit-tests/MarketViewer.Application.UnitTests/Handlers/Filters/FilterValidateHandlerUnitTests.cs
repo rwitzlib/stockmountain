@@ -27,7 +27,8 @@ public class FilterValidateHandlerUnitTests
     [InlineData("adv() > 2000000 [1d]")]
     [InlineData("volume > 50000 [1m,5]")]
     [InlineData("float < 20000000")]
-    [InlineData("close > sma(50) [1d] AND rsi(14) < 30 [1m]")]
+    [InlineData("close > sma(50) AND (rsi(14) < 30 OR rsi(14) > 70) [1m]")]
+    [InlineData("NOT (close > sma(50) OR close > sma(200)) [1d]")]
     public void Validate_KnownGoodExpressions_AreValid(string expression)
     {
         var result = ValidateOne(expression);
@@ -43,6 +44,10 @@ public class FilterValidateHandlerUnitTests
     [InlineData("close > > 5")]
     [InlineData("close >")]
     [InlineData("")]
+    // A per-clause timeframe is not supported (the [tf] suffix applies to the whole expression);
+    // the parser used to stop silently at the first "[1d]" and validate only "close > sma(50) [1m]".
+    [InlineData("close > sma(50) [1d] AND rsi(14) < 30 [1m]")]
+    [InlineData("close > 5 ) AND close > 6")]
     public void Validate_BadExpressions_ReturnError(string expression)
     {
         var result = ValidateOne(expression);
@@ -91,6 +96,51 @@ public class FilterValidateHandlerUnitTests
         var result = ValidateOne("crosses_over(close, sma(20))");
 
         Assert.Equal("close crosses above sma(20)", result.Description);
+    }
+
+    [Fact]
+    public void Validate_GroupedLogic_KeepsParenthesesInDescriptionAndNestsAst()
+    {
+        var result = ValidateOne("close > sma(20) AND (rsi(14) < 30 OR rsi(14) > 70) [5m]");
+
+        Assert.True(result.Valid, result.Error);
+        Assert.Equal("close is above sma(20) and (rsi(14) is below 30 or rsi(14) is above 70) on the 5m chart", result.Description);
+
+        var and = result.Ast!.Inner!;
+        Assert.Equal("AND", and.Op);
+        Assert.Equal("OR", and.Right!.Op);
+    }
+
+    [Fact]
+    public void Validate_SameOperatorChain_HasNoParentheses()
+    {
+        var result = ValidateOne("close > 1 AND close > 2 AND close > 3");
+
+        Assert.Equal("close is above 1 and close is above 2 and close is above 3", result.Description);
+    }
+
+    [Fact]
+    public void Validate_Not_MapsToUnaryNodeAndParenthesisesLogicalOperand()
+    {
+        var single = ValidateOne("NOT close > sma(20)");
+        Assert.True(single.Valid, single.Error);
+        Assert.Equal("unary", single.Ast!.Kind);
+        Assert.Equal("NOT", single.Ast.Op);
+        Assert.Equal("binary", single.Ast.Inner!.Kind);
+        Assert.Equal("not close is above sma(20)", single.Description);
+
+        var grouped = ValidateOne("NOT (close > 1 OR close > 2)");
+        Assert.True(grouped.Valid, grouped.Error);
+        Assert.Equal("not (close is above 1 or close is above 2)", grouped.Description);
+    }
+
+    [Fact]
+    public void Validate_UnbalancedParenthesis_IsInvalid()
+    {
+        var result = ValidateOne("close > 1 AND (close > 2 OR close > 3");
+
+        Assert.False(result.Valid);
+        Assert.Contains("parenthesis", result.Error, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

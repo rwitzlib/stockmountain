@@ -26,9 +26,16 @@ public class GoldenFilterOutcomeTests
         Outcomes.Value.Cases.Where(c => c.KnownBug is null)
             .SelectMany(c => c.Expected.Keys.Select(fixture => new object[] { c.Id, fixture }));
 
-    public static IEnumerable<object[]> KnownBugCases() =>
-        Outcomes.Value.Cases.Where(c => c.KnownBug is not null)
-            .SelectMany(c => c.Expected.Keys.Select(fixture => new object[] { c.Id, fixture }));
+    public static IEnumerable<object[]> KnownBugCases()
+    {
+        var cases = Outcomes.Value.Cases.Where(c => c.KnownBug is not null)
+            .SelectMany(c => c.Expected.Keys.Select(fixture => new object[] { c.Id, fixture }))
+            .ToList();
+        // xunit rejects a theory with no data; when there are no known bugs, run one no-op case.
+        return cases.Count > 0 ? cases : [[NoKnownBugs, ""]];
+    }
+
+    private const string NoKnownBugs = "<no known bugs>";
 
     [Theory]
     [MemberData(nameof(Cases))]
@@ -42,6 +49,7 @@ public class GoldenFilterOutcomeTests
     [MemberData(nameof(KnownBugCases))]
     public void Known_Bug_Still_Reproduces(string caseId, string fixtureName)
     {
+        if (caseId == NoKnownBugs) return;
         var c = Outcomes.Value.Cases.Single(x => x.Id == caseId);
         bool stillBroken;
         try

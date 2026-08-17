@@ -330,15 +330,25 @@ Fixed in this work (each guarded by a golden test named in parentheses):
   added as the forming 5m/1h/1d candle and then merged into in place, corrupting the 09:30, 09:35 …
   minutes for concurrent `[1m]` filters (filters scan in parallel `Task.Run`s) and for downstream fill
   pricing. New candles are now clones (`GoldenScannerTests Scanning_A_Larger_Timeframe_Filter_Must_Not_Mutate…`).
+- **MACD warm-up placeholders** — `Signal=0/Histogram=0` points before the signal was seeded made
+  band filters (`histogram < 0.5`), `.value > .signal` and `crosses_over(value, signal)` fire
+  spuriously in the first 8 bars; points now start when the signal does (`GoldenIndicatorTests macd(*)`).
+- **Parenthesised grouping** — was a hard parse error; now supported end-to-end. Also found that the
+  parser ignored trailing tokens after the first unparseable one (`close > sma(50) [1d] AND rsi(14) < 30 [1m]`
+  "validated" as `close > sma(50) [1m]`); it now rejects them (`ParserGroupingUnitTests`,
+  `FilterValidateHandlerUnitTests`).
 - **`DataCache` overlap rebuild extracted** to `RebuildOverlappingCandle` (pure, static) so it is testable.
 
 Still open (documented, not fixed here):
 
-- **MACD signal/histogram warm-up placeholders**: `MacdFunction` emits `Signal=0, Histogram=0` for
-  bars between the MACD-line warm-up and the signal warm-up. Golden tests tolerate this via
-  `WarmupPlaceholderKeys`; plan 11.
-- **No parenthesised logical grouping** (`and-or-grouped` is a `knownBug` case; the
-  `Known_Bug_Still_Reproduces` theory will fail — telling you to drop the annotation — once fixed).
+- ~~MACD signal/histogram warm-up placeholders~~ — **fixed 2026-08-16**: no `MacdResult` is emitted
+  before the signal is seeded (first point at bar `slow+signal−2`, all fields real); `Append`
+  rewritten (SMA-type signal recomputed from price, EMA/Wilders by recurrence); reference now nulls
+  `.value` until the same bar; `WarmupPlaceholderKeys` removed; `wilders` MACD type added to the reference.
+- ~~No parenthesised logical grouping~~ — **fixed 2026-08-16** (parser group + leftover-token
+  check, `unary` AST node, web round-trip). `and-or-grouped` un-flagged; `or-and-grouped-left/right`,
+  `nested-groups`, `not-grouped`, `not-then-and`, `group-with-range` added. No `known_bug` cases remain
+  (the theory runs a no-op sentinel when the list is empty).
 - **`vwap` in the DSL is per-bar `vw`, not session VWAP** — see 1a table.
 - **Backtest 1-minute history is same-day only** (per-day minute file): `sma(200) [1m]` warms up on
   the scan date's pre-market. Live scans have multi-day minute history — a parity gap for plan 10.

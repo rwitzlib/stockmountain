@@ -19,8 +19,8 @@ Semantics mirrored from MarketViewer.Filters (must stay in sync — these ARE th
   * `crosses_over(a,b)` in range r: some bar j in the last r bars has a[j-1] <= b[j-1] and a[j] > b[j].
   * `time` is minutes since midnight America/New_York of the *evaluation clock*
     (the replay passes the current bar's timestamp).
-  * Logical AND/OR are a flat left-to-right fold with no precedence. NOT is unary and takes the
-    following comparison as its operand (`NOT close > sma(20)` == NOT(close > sma(20))).
+  * Logical AND/OR are a flat left-to-right fold with no precedence; parentheses group explicitly.
+    NOT is unary and takes the following comparison (or parenthesised group) as its operand.
 
 Replay window (mirrored in GoldenReplay.cs):
   * 1-minute fixtures: for every ET trading date in the fixture except the first, seed with all
@@ -203,8 +203,21 @@ CASES: list[Case] = [
          lambda f: (cmp(f, "close", ">", "sma(20)") & cmp(f, RSI, "<", 30)) | cmp(f, RSI, ">", 70),
          note="left-to-right fold: (a AND b) OR c — the documented (if surprising) contract"),
     Case("and-or-grouped", f"close > sma(20) AND ({RSI} < 30 OR {RSI} > 70) [1m]", M1,
-         lambda f: cmp(f, "close", ">", "sma(20)") & (cmp(f, RSI, "<", 30) | cmp(f, RSI, ">", 70)),
-         known_bug="plan-11: parser has no parenthesised logical grouping"),
+         lambda f: cmp(f, "close", ">", "sma(20)") & (cmp(f, RSI, "<", 30) | cmp(f, RSI, ">", 70))),
+    Case("or-and-grouped-left", f"({RSI} < 30 OR {RSI} > 70) AND close > sma(20) [1m]", M1,
+         lambda f: (cmp(f, RSI, "<", 30) | cmp(f, RSI, ">", 70)) & cmp(f, "close", ">", "sma(20)")),
+    Case("or-and-grouped-right", f"{RSI} < 30 OR (close > sma(20) AND {RSI} > 70) [1m]", M1,
+         lambda f: cmp(f, RSI, "<", 30) | (cmp(f, "close", ">", "sma(20)") & cmp(f, RSI, ">", 70))),
+    Case("nested-groups", f"(close > sma(20) AND (slope(close,5) > 0 OR {RSI} > 70)) OR {RSI} < 30 [1m]", M1,
+         lambda f: (cmp(f, "close", ">", "sma(20)") & (cmp(f, "slope(close,5)", ">", 0) | cmp(f, RSI, ">", 70))) | cmp(f, RSI, "<", 30)),
+    Case("not-grouped", f"NOT ({RSI} < 30 OR {RSI} > 70) [1m]", M1,
+         lambda f: ~(cmp(f, RSI, "<", 30) | cmp(f, RSI, ">", 70))),
+    Case("not-then-and", f"NOT close > sma(20) AND {RSI} < 50 [1m]", M1,
+         lambda f: ~cmp(f, "close", ">", "sma(20)") & cmp(f, RSI, "<", 50),
+         note="NOT binds to the comparison: (NOT a) AND b"),
+    Case("group-with-range", "(close > sma(20) OR close > sma(50)) AND rsi(14,70,30,wilders) > 50 [1m, 3]", M1,
+         lambda f: (cmp(f, "close", ">", "sma(20)", r=3) | cmp(f, "close", ">", "sma(50)", r=3)) & cmp(f, RSI, ">", 50, r=3),
+         note="the [tf, r] suffix applies to every comparison inside the group"),
     # --- crosses
     Case("cross-over-close-sma20", "crosses_over(close, sma(20)) [1m]", M1, lambda f: crosses(f, "close", "sma(20)")),
     Case("cross-under-close-sma20-r5", "crosses_under(close, sma(20)) [1m, 5]", M1, lambda f: crosses(f, "close", "sma(20)", r=5, over=False)),

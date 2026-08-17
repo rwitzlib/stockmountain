@@ -5,6 +5,7 @@ using MarketViewer.Contracts.Responses.Market.Filters;
 using MarketViewer.Filters;
 using MarketViewer.Filters.Expressions;
 using MarketViewer.Filters.Interfaces;
+using MarketViewer.Filters.Parsing;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -86,6 +87,12 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
             Left = MapNode(binary.Left),
             Right = MapNode(binary.Right),
         },
+        UnaryExpression unary => new FilterAstNode
+        {
+            Kind = "unary",
+            Op = unary.Operator.Symbol,
+            Inner = MapNode(unary.Operand),
+        },
         FunctionCallExpression function => new FilterAstNode
         {
             Kind = "function",
@@ -129,7 +136,9 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
     private static string Describe(FilterAstNode node) => node.Kind switch
     {
         "range" => DescribeRange(node),
-        "binary" when IsLogical(node.Op) => $"{Describe(node.Left!)} {node.Op!.ToLowerInvariant()} {Describe(node.Right!)}",
+        "binary" when IsLogical(node.Op) =>
+            $"{DescribeOperand(node.Left!, node.Op!)} {node.Op!.ToLowerInvariant()} {DescribeOperand(node.Right!, node.Op!)}",
+        "unary" => $"not {(IsLogicalNode(node.Inner!) ? $"({Describe(node.Inner!)})" : Describe(node.Inner!))}",
         "binary" => $"{Describe(node.Left!)} is {OpPhrase(node.Op!)} {Describe(node.Right!)}",
         "function" when node.Name is "crosses_over" && node.Args is { Count: 2 } =>
             $"{Describe(node.Args[0])} crosses above {Describe(node.Args[1])}",
@@ -141,6 +150,18 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
         "literal" => node.Value ?? "",
         _ => node.Value ?? "",
     };
+
+    /// <summary>
+    /// A logical operand that is itself a logical expression with a different operator was
+    /// grouped by the user — keep the parentheses in the echo so "a and (b or c)" reads as written.
+    /// </summary>
+    private static string DescribeOperand(FilterAstNode operand, string parentOp) =>
+        IsLogicalNode(operand) && !string.Equals(operand.Op, parentOp, StringComparison.OrdinalIgnoreCase)
+            ? $"({Describe(operand)})"
+            : Describe(operand);
+
+    private static bool IsLogicalNode(FilterAstNode node) =>
+        node.Kind == "binary" && IsLogical(node.Op);
 
     private static string DescribeRange(FilterAstNode node)
     {

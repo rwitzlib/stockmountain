@@ -57,7 +57,8 @@ export interface FilterTimeframe {
 }
 
 export interface FilterAstNode {
-  kind: 'binary' | 'function' | 'field' | 'data' | 'literal' | 'range' | 'raw';
+  kind: 'binary' | 'unary' | 'function' | 'field' | 'data' | 'literal' | 'range' | 'raw';
+  /** binary operator, or 'NOT' for unary */
   op?: string;
   left?: FilterAstNode;
   right?: FilterAstNode;
@@ -66,6 +67,7 @@ export interface FilterAstNode {
   field?: string;
   target?: FilterAstNode;
   value?: string;
+  /** range: the wrapped expression; unary: the negated operand */
   inner?: FilterAstNode;
   timeframe?: FilterTimeframe;
   candles?: number;

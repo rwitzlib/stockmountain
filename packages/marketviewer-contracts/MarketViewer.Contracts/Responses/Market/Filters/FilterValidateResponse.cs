@@ -30,10 +30,10 @@ public class FilterValidationResult
 [ExcludeFromCodeCoverage]
 public class FilterAstNode
 {
-    /// <summary>binary | function | field | data | literal | range</summary>
+    /// <summary>binary | unary | function | field | data | literal | range</summary>
     public required string Kind { get; init; }
 
-    public string? Op { get; init; }                  // binary
+    public string? Op { get; init; }                  // binary / unary (NOT)
     public FilterAstNode? Left { get; init; }         // binary
     public FilterAstNode? Right { get; init; }        // binary
 
@@ -45,7 +45,7 @@ public class FilterAstNode
 
     public string? Value { get; init; }               // literal
 
-    public FilterAstNode? Inner { get; init; }        // range
+    public FilterAstNode? Inner { get; init; }        // range / unary
     public Timeframe? Timeframe { get; init; }        // range
     public int? Candles { get; init; }                // range
 }

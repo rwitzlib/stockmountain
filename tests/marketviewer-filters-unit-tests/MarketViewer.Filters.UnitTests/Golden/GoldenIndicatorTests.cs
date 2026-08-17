@@ -20,16 +20,6 @@ public class GoldenIndicatorTests
     private const double RecursiveRelTol = 1e-3;  // ema, macd, rsi and anything derived from them
     private const double AbsFloor = 1e-6;
 
-    // Where the reference series has values but the C# emits a placeholder instead of omitting the bar.
-    // macd(...).signal / .histogram: MacdFunction writes Signal=0/Histogram=0 for bars before the
-    // signal line has warmed up. Values are compared only where the reference is non-null; the
-    // warm-up-length assertion is relaxed for these keys and the quirk is tracked in plan 11.
-    private static readonly HashSet<string> WarmupPlaceholderKeys = new(StringComparer.Ordinal)
-    {
-        "macd(12,26,9,ema).signal", "macd(12,26,9,ema).histogram",
-        "macd(12,26,9,sma).signal", "macd(12,26,9,sma).histogram",
-    };
-
     public static IEnumerable<object[]> Cases()
     {
         foreach (var name in GoldenFixture.Names())
@@ -57,16 +47,8 @@ public class GoldenIndicatorTests
         var expectedFirst = Array.FindIndex(expected, v => v.HasValue);
         var actualFirst = Array.FindIndex(actual, v => v.HasValue);
         Assert.True(expectedFirst >= 0, $"reference for {key} has no values");
-        if (!WarmupPlaceholderKeys.Contains(key))
-        {
-            Assert.True(expectedFirst == actualFirst,
-                $"{fixtureName} {key}: first value at bar {actualFirst}, reference at bar {expectedFirst}");
-        }
-        else
-        {
-            Assert.True(actualFirst >= 0 && actualFirst <= expectedFirst,
-                $"{fixtureName} {key}: first value at bar {actualFirst}, reference at bar {expectedFirst}");
-        }
+        Assert.True(expectedFirst == actualFirst,
+            $"{fixtureName} {key}: first value at bar {actualFirst}, reference at bar {expectedFirst}");
 
         // 2. Values within tolerance wherever the reference has a value.
         var relTol = RelTolFor(key);

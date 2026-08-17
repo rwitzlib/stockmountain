@@ -17,8 +17,9 @@ Seed / smoothing conventions are deliberately written to match the C# contract
   - rsi(n,..,wilders): SMA seed of first n gains/losses, alpha=1/n  (RsiFunction.cs)
   - rsi(n,..,ema):     SMA seed, alpha = 2/(n+1)  (non-standard, but the C# contract)
   - rsi(n,..,sma):     rolling means of gains/losses
-  - macd(f,s,sig,ema): fast/slow as ema() above; macd from bar s-1; signal = ema() over macd values
-                       (SMA seed of the first `sig` macd values); histogram = macd - signal
+  - macd(f,s,sig,ema): fast/slow as ema() above; signal = ema() over macd values (SMA seed of the
+                       first `sig` macd values); histogram = macd - signal. ALL THREE fields start at
+                       bar s+sig-2 — no point is emitted before the signal is seeded.
   - macd(f,s,sig,sma): rolling means throughout
   - adv(n):  rolling mean of volume over the last n bars INCLUDING the current bar
   - slope(x,n): least-squares slope of the last n values against x = 0..n-1
@@ -96,8 +97,20 @@ def rsi(close: pd.Series, n: int, kind: str) -> pd.Series:
     return pd.Series(out, index=close.index)
 
 
+def wilders(x: pd.Series, n: int) -> pd.Series:
+    """SMA-seeded Wilder smoothing (alpha = 1/n) — the "wilders" MACD type."""
+    v = x.to_numpy(dtype=float)
+    out = np.full(len(v), np.nan)
+    if len(v) < n:
+        return pd.Series(out, index=x.index)
+    out[n - 1] = v[:n].mean()
+    for i in range(n, len(v)):
+        out[i] = (v[i] - out[i - 1]) / n + out[i - 1]
+    return pd.Series(out, index=x.index)
+
+
 def macd(close: pd.Series, fast: int, slow: int, sig: int, kind: str):
-    ma = ema if kind == "ema" else sma
+    ma = {"ema": ema, "sma": sma, "wilders": wilders}[kind]
     fast_ma = ma(close, fast)
     slow_ma = ma(close, slow)
     line = fast_ma - slow_ma  # NaN until slow-1
@@ -105,6 +118,9 @@ def macd(close: pd.Series, fast: int, slow: int, sig: int, kind: str):
     signal_valid = ma(valid, sig)  # seeded from the first `sig` MACD values, like the C#
     signal = pd.Series(np.nan, index=close.index)
     signal.loc[signal_valid.index] = signal_valid
+    # All three fields share one start bar (slow+signal-2): no MACD point exists before the signal
+    # is seeded (MacdFunction contract; TA-Lib does the same).
+    line = line.where(~signal.isna())
     hist = line - signal
     return line, signal, hist
 
@@ -150,7 +166,7 @@ def compute(bars_file: Path) -> dict:
     for kind in ("wilders", "ema", "sma"):
         series[f"rsi(14,70,30,{kind})"] = to_list(rsi(close, 14, kind))
     series["rsi(2,90,10,wilders)"] = to_list(rsi(close, 2, "wilders"))
-    for kind in ("ema", "sma"):
+    for kind in ("ema", "sma", "wilders"):
         line, sig, hist = macd(close, 12, 26, 9, kind)
         series[f"macd(12,26,9,{kind}).value"] = to_list(line)
         series[f"macd(12,26,9,{kind}).signal"] = to_list(sig)

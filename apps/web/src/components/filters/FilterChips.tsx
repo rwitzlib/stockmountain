@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { filtersApi } from '../../api/filtersApi';
-import { formatTimeframe, serializeAst } from './filterExpression';
+import { formatTimeframe, isLogical, serializeAst } from './filterExpression';
 import type { FilterAstNode } from '../../types/filters';
 
 interface FilterChipsProps {
@@ -11,7 +11,7 @@ interface FilterChipsProps {
   className?: string;
 }
 
-type Role = 'function' | 'data' | 'literal' | 'op' | 'logic' | 'timeframe';
+type Role = 'function' | 'data' | 'literal' | 'op' | 'logic' | 'timeframe' | 'paren';
 
 interface Segment {
   text: string;
@@ -28,6 +28,7 @@ const ROLE_CLASS: Record<Role, string> = {
   op: 'text-muted-foreground font-semibold',
   logic: 'text-purple-700 dark:text-purple-400 font-semibold',
   timeframe: 'text-green-700 dark:text-green-400',
+  paren: 'text-muted-foreground',
 };
 
 const OPERATORS = ['>', '<', '>=', '<=', '=', '!='];
@@ -51,15 +52,33 @@ function flatten(node: FilterAstNode, path: number[], out: Segment[]) {
       });
       return;
     case 'binary': {
-      const logical = node.op === 'AND' || node.op === 'OR';
-      if (node.left) flatten(node.left, [...path, 0], out);
+      const logical = isLogical(node);
+      // Mirror serializeOperand(): a differently-grouped logical child keeps its parentheses.
+      const grouped = (child?: FilterAstNode) => logical && isLogical(child) && child!.op !== node.op;
+      if (node.left) {
+        if (grouped(node.left)) out.push({ text: '(', role: 'paren', path });
+        flatten(node.left, [...path, 0], out);
+        if (grouped(node.left)) out.push({ text: ')', role: 'paren', path });
+      }
       out.push({
         text: node.op ?? '',
         role: logical ? 'logic' : 'op',
         path,
         edit: logical ? undefined : 'op',
       });
-      if (node.right) flatten(node.right, [...path, 1], out);
+      if (node.right) {
+        if (grouped(node.right)) out.push({ text: '(', role: 'paren', path });
+        flatten(node.right, [...path, 1], out);
+        if (grouped(node.right)) out.push({ text: ')', role: 'paren', path });
+      }
+      return;
+    }
+    case 'unary': {
+      out.push({ text: node.op ?? 'NOT', role: 'logic', path });
+      const grouped = isLogical(node.inner);
+      if (grouped) out.push({ text: '(', role: 'paren', path });
+      if (node.inner) flatten(node.inner, [...path, 0], out);
+      if (grouped) out.push({ text: ')', role: 'paren', path });
       return;
     }
     case 'literal':
@@ -77,13 +96,13 @@ function flatten(node: FilterAstNode, path: number[], out: Segment[]) {
 
 /** Child accessor consistent with the paths produced by flatten(). */
 const childOf = (node: FilterAstNode, index: number): FilterAstNode | undefined => {
-  if (node.kind === 'range') return node.inner;
+  if (node.kind === 'range' || node.kind === 'unary') return node.inner;
   if (node.kind === 'binary') return index === 0 ? node.left : node.right;
   return undefined;
 };
 
 const withChild = (node: FilterAstNode, index: number, child: FilterAstNode): FilterAstNode => {
-  if (node.kind === 'range') return { ...node, inner: child };
+  if (node.kind === 'range' || node.kind === 'unary') return { ...node, inner: child };
   if (node.kind === 'binary') return index === 0 ? { ...node, left: child } : { ...node, right: child };
   return node;
 };
