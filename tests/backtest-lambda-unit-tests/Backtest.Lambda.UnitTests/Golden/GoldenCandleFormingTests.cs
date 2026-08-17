@@ -22,6 +22,12 @@ public class GoldenCandleFormingTests
     // running float sum in UpdateLatestCandle rounds differently from a double sum. A few ulps.
     private static float VolumeTolerance(float expected) => Math.Max(1.0f, Math.Abs(expected) * 2e-6f);
 
+    // VWAP is carried as float32 on the bar and merged minute-by-minute as a weighted recurrence
+    // (BarVwap.Merge), re-rounded to float32 at every step, versus one double Σ(vw·v)/Σv here. Over a
+    // full day of minutes into one daily candle that drifts a few e-6 relative (observed 2.05e-6 on
+    // NVDA 1d); 1e-5 is still ~100× tighter than the typical-price approximation it replaced.
+    private static float VwapTolerance(float expected) => Math.Max(1e-4f, Math.Abs(expected) * 1e-5f);
+
     public static IEnumerable<object[]> FixtureTimeframes()
     {
         foreach (var name in GoldenData.MinuteFixtures())
@@ -188,6 +194,7 @@ public class GoldenCandleFormingTests
         actual.Low.Should().Be(expected.Low, context);
         actual.Close.Should().Be(expected.Close, context);
         actual.Volume.Should().BeApproximately(expected.Volume, VolumeTolerance(expected.Volume), context);
+        actual.Vwap.Should().BeApproximately(expected.Vwap, VwapTolerance(expected.Vwap), context);
         actual.TransactionCount.Should().Be(expected.TransactionCount, context);
     }
 }

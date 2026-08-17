@@ -127,7 +127,9 @@ public class StocksResponseExtensionUnitTests
         stocksResponse.Results[0].Close.Should().Be(99); // Updated from 98
         stocksResponse.Results[0].Volume.Should().Be(3000); // 1000 + 2000
         stocksResponse.Results[0].TransactionCount.Should().Be(30); // 10 + 20
-        stocksResponse.Results[0].Vwap.Should().BeApproximately((99f + 102f + 94f) / 3f, 0.01f);
+        // Volume-weighted: (last.Vwap*1000 + next.Vwap*2000) / 3000, CreateBar seeds Vwap = typical price
+        var expectedVwap = ((98f + 100f + 95f) / 3f * 1000f + (99f + 102f + 94f) / 3f * 2000f) / 3000f;
+        stocksResponse.Results[0].Vwap.Should().BeApproximately(expectedVwap, 0.001f);
     }
 
     [Fact]
@@ -286,9 +288,27 @@ public class StocksResponseExtensionUnitTests
         // Act
         stocksResponse.UpdateLatestCandle(timeframe, nextCandle);
 
-        // Assert
-        var expectedVwap = (100f + 105f + 90f) / 3f; // (Close + High + Low) / 3
-        stocksResponse.Results[0].Vwap.Should().BeApproximately(expectedVwap, 0.01f);
+        // Assert — volume-weighted merge of the two bars' VWAPs, not the typical price of the merged candle
+        var lastVwap = (98f + 100f + 95f) / 3f;
+        var nextVwap = (100f + 105f + 90f) / 3f;
+        var expectedVwap = (lastVwap * 1000f + nextVwap * 2000f) / 3000f;
+        stocksResponse.Results[0].Vwap.Should().BeApproximately(expectedVwap, 0.001f);
+        stocksResponse.Results[0].Vwap.Should().NotBeApproximately((100f + 105f + 90f) / 3f, 0.05f);
+    }
+
+    [Fact]
+    public void UpdateLatestCandle_VWAP_Ignores_ZeroVolume_Minute()
+    {
+        var baseTime = new DateTimeOffset(2025, 1, 1, 9, 30, 0, TimeSpan.Zero);
+        var lastCandle = CreateBar(baseTime.ToUnixTimeMilliseconds(), 100f, 95f, 98f, 97f, 1000, 10);
+        var stocksResponse = new StocksResponse { Results = new List<Bar> { lastCandle } };
+        var before = lastCandle.Vwap;
+        var nextCandle = CreateBar(baseTime.AddMinutes(1).ToUnixTimeMilliseconds(), 120f, 80f, 110f, 98f, 0, 0);
+
+        stocksResponse.UpdateLatestCandle(new Timeframe(5, Timespan.minute), nextCandle);
+
+        stocksResponse.Results[0].High.Should().Be(120);
+        stocksResponse.Results[0].Vwap.Should().Be(before);
     }
 
     [Fact]

@@ -61,9 +61,14 @@ internal static class GoldenData
     public static List<DateOnly> Dates(StocksResponse bars) =>
         bars.Results.Select(b => EasternDate(b.Timestamp)).Distinct().OrderBy(d => d).ToList();
 
-    /// <summary>Straightforward independent OHLCV aggregation of a set of minute bars.</summary>
+    /// <summary>
+    /// Straightforward independent OHLCV(+VWAP) aggregation of a set of minute bars. VWAP is
+    /// Σ(vw·v)/Σv in double — the definition the forming-candle code must reproduce (plan 14 #7).
+    /// </summary>
     public static Bar Aggregate(long timestamp, IReadOnlyList<Bar> minutes)
     {
+        double priceVolume = minutes.Sum(b => (double)b.Vwap * b.Volume);
+        double volume = minutes.Sum(b => (double)b.Volume);
         return new Bar
         {
             Timestamp = timestamp,
@@ -71,7 +76,8 @@ internal static class GoldenData
             Close = minutes[^1].Close,
             High = minutes.Max(b => b.High),
             Low = minutes.Min(b => b.Low),
-            Volume = (float)minutes.Sum(b => (double)b.Volume),
+            Volume = (float)volume,
+            Vwap = volume > 0 ? (float)(priceVolume / volume) : (minutes[^1].Close + minutes.Max(b => b.High) + minutes.Min(b => b.Low)) / 3f,
             TransactionCount = minutes.Sum(b => b.TransactionCount)
         };
     }

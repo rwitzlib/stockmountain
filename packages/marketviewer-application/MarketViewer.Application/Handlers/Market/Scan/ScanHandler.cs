@@ -228,8 +228,9 @@ public class ScanHandler(
                     last.Close = latestBar.Close;
                     last.High = Math.Max(last.High, latestBar.High);
                     last.Low = Math.Min(last.Low, latestBar.Low);
+                    // Volume-weighted, from the merged bars' vw (must run before Volume is summed).
+                    last.Vwap = BarVwap.Merge(last, latestBar, BarVwap.TypicalPrice(last));
                     last.Volume += latestBar.Volume;
-                    last.Vwap = (last.Close + last.High + last.Low) / 3;
                 }
                 break;
             case Timespan.day:

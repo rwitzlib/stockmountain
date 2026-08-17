@@ -394,7 +394,7 @@ public class MarketCacheWarmer(
             Low = low,
             Volume = bars.Sum(bar => bar.Volume),
             TransactionCount = bars.Sum(bar => bar.TransactionCount),
-            Vwap = (close + high + low) / 3
+            Vwap = BarVwap.Aggregate(bars, (close + high + low) / 3)
         };
     }
 

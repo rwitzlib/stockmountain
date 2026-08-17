@@ -375,7 +375,7 @@ public class DataCache(IMarketCache marketCache, IAmazonS3 s3, ILogger<DataCache
         lastCandle.Close = candles.Last().Close;
         lastCandle.High = candles.Max(q => q.High);
         lastCandle.Low = candles.Min(q => q.Low);
-        lastCandle.Vwap = (lastCandle.Close + lastCandle.High + lastCandle.Low) / 3; // TODO: How to do a more precise VWAP?
+        lastCandle.Vwap = BarVwap.Aggregate(candles, BarVwap.TypicalPrice(lastCandle));
         lastCandle.Volume = candles.Sum(q => q.Volume);
         lastCandle.TransactionCount = candles.Sum(q => q.TransactionCount);
     }

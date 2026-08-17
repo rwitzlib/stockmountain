@@ -154,8 +154,8 @@ public class BarCacheService(IMarketCache marketCache, ILogger<BarCacheService> 
 
         lastCandle.Close = newCandle.Close;
 
-        // TODO: How to do a more precise VWAP?
-        lastCandle.Vwap = (newCandle.Close + newCandle.High + newCandle.Low) / 3;
+        // Volume-weighted, from the merged minutes' vw (must run before Volume is summed).
+        lastCandle.Vwap = BarVwap.Merge(lastCandle, newCandle, BarVwap.TypicalPrice(lastCandle));
 
         lastCandle.Volume += newCandle.Volume;
         lastCandle.TransactionCount += newCandle.TransactionCount;

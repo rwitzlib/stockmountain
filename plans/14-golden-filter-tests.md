@@ -448,10 +448,25 @@ Ordered by my read of impact. Each has enough context to be picked up cold.
    `ParserGroupingUnitTests.Unparenthesised_Or_And_Binds_And_Tighter` and new theory rows. Python reference
    header, filters README, and web `serializeOperand` comment updated (the web serializer still wraps an AND
    under an OR — redundant for the parser now, kept for readability).
-7. **Forming-candle `Vwap` is a typical-price approximation.** `UpdateLatestCandle` and
-   `RebuildOverlappingCandle` set `Vwap = (c+h+l)/3`; `vwap()` on 5m+ in the backtester therefore weights
-   the forming candle by typical price while completed candles use Massive's `vw`. Track Σ(vw·v)/Σv from
-   the merged minutes instead (cheap: two running sums on the candle).
+7. ~~**Forming-candle `Vwap` is a typical-price approximation.**~~ **DONE 2026-08-17 — volume-weighted, all
+   five sites.** The approximation was wider than noted: besides the backtester's `UpdateLatestCandle` and
+   `RebuildOverlappingCandle`, the live API used it in `BarCacheService.MergeIntoLastCandle` (forming candle,
+   from the *minute's* c/h/l), `MarketCacheWarmer.AggregateBars` (today's hour/day bars built from minutes —
+   *completed* candles, so live `vwap() [1h]` read typical price for every intraday hour) and the
+   `ScanHandler` live 1h merge. Decision: one shared helper, `Massive.Client.Models.BarVwap`
+   (`Merge`/`Aggregate`/`TypicalPrice`), used by all five so live and backtest agree. No new state on `Bar`:
+   merging is exact as a recurrence, `(vw₁·v₁ + vw₂·v₂)/(v₁+v₂)` in double, since a candle's VWAP × volume is
+   its price·volume sum (`Merge` must run *before* the volume is summed — commented at each site).
+   Zero-volume incoming bar leaves VWAP unchanged; no volume at all falls back to typical price (same
+   fallback `VwapFunction.MakePoint` applies). Cost: float32 re-rounding per merge drifts ~2e-6 relative over
+   a full day into one daily candle (vs ~1e-3 for typical price). Tests: `GoldenData.Aggregate` now carries
+   Σ(vw·v)/Σv and `GoldenCandleFormingTests.AssertSameCandle` checks `Vwap` (rel 1e-5) for every forming step
+   and rebuilt candle across all minute fixtures × 5m/15m/1h/1d; `BarVwapUnitTests` (weighting, recurrence ==
+   aggregate == double definition over 390 random minutes, zero-volume, fallbacks); the two
+   `StocksResponseExtensionUnitTests` that pinned `(c+h+l)/3` now pin the weighted value. Not done: no
+   `ScannerService.CacheVersion` bump — cached filter entries only differ for `vwap()` filters on 5m+ and no
+   stored strategy uses `vwap()` yet; bump if one appears that predates this. Deploy note: the API's S3
+   bulk-warmup snapshot holds hour/day bars aggregated with the old formula until the next 3:30am rebuild.
 8. **`Studies/VWAP.cs` (chart study, UTC-midnight reset)** is now only reached if `VwapFunction` throws.
    Delete it or make it delegate; the plan-11 UTC-midnight bug note is otherwise moot.
 9. **`Bar.Volume` is float32** — cumulative volume above 2^24 (16.7M) cannot represent every integer;

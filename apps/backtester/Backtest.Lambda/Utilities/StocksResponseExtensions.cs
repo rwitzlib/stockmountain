@@ -77,8 +77,8 @@ public static class StocksResponseExtensions
 
         lastCandle.Close = nextCandle.Close;
 
-        // TODO: How to do a more precise VWAP?
-        lastCandle.Vwap = (lastCandle.Close + lastCandle.High + lastCandle.Low) / 3;
+        // Volume-weighted, from the merged minutes' vw (must run before Volume is summed).
+        lastCandle.Vwap = BarVwap.Merge(lastCandle, nextCandle, BarVwap.TypicalPrice(lastCandle));
 
         lastCandle.Volume += nextCandle.Volume;
         lastCandle.TransactionCount += nextCandle.TransactionCount;
