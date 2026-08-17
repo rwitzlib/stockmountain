@@ -1,4 +1,5 @@
 using MarketViewer.Filters.Interfaces;
+using MarketViewer.Filters.Functions;
 
 namespace MarketViewer.Filters.Functions.Indicators;
 
@@ -53,14 +54,13 @@ public class SmaFunction : ISeriesFunction, IIncrementalSeriesFunction
 
         var prev = previousResult as List<IIndicatorResult> ?? new List<IIndicatorResult>();
         int expectedCount = data.Count - period + 1;
-        int toAdd = expectedCount - prev.Count;
-        if (toAdd <= 0)
-            return prev;
+        int keep = IncrementalSeries.ReusablePointCount(prev, data, period - 1);
+        if (keep < 0)
+            return Execute(parameters, context);
 
-        var result = new List<IIndicatorResult>(expectedCount);
-        result.AddRange(prev);
+        var result = IncrementalSeries.Seed(prev, keep, expectedCount);
 
-        for (int i = (period - 1) + prev.Count; i < data.Count; i++)
+        for (int i = (period - 1) + keep; i < data.Count; i++)
         {
             double sum = 0.0;
             for (int j = i - period + 1; j <= i; j++)

@@ -1,4 +1,5 @@
 using MarketViewer.Filters.Interfaces;
+using MarketViewer.Filters.Functions;
 using Massive.Client.Models;
 
 namespace MarketViewer.Filters.Functions.Indicators;
@@ -79,20 +80,19 @@ public class MacdFunction : ISeriesFunction, IIncrementalSeriesFunction
             return new List<IIndicatorResult>();
 
         var prev = previousResult as List<IIndicatorResult> ?? new List<IIndicatorResult>();
-        if (prev.Count == 0)
+        int expectedCount = data.Count - p.FirstIndex;
+
+        // The last cached point is provisional (its bar may have been forming): continue from the one before it.
+        int keep = IncrementalSeries.ReusablePointCount(prev, data, p.FirstIndex);
+        if (keep <= 0)
             return Execute(parameters, context);
 
-        int expectedCount = data.Count - p.FirstIndex;
-        if (expectedCount - prev.Count <= 0)
-            return prev;
+        var result = IncrementalSeries.Seed(prev, keep, expectedCount);
 
-        var result = new List<IIndicatorResult>(expectedCount);
-        result.AddRange(prev);
-
-        var last = (MacdResult)prev[^1];
+        var last = (MacdResult)prev[keep - 1];
         double fast = last.FastMA, slow = last.SlowMA, signal = last.SignalMA;
 
-        for (int i = p.FirstIndex + prev.Count; i < data.Count; i++)
+        for (int i = p.FirstIndex + keep; i < data.Count; i++)
         {
             fast = Smooth(data, i, p.Fast, p.Type, fast);
             slow = Smooth(data, i, p.Slow, p.Type, slow);

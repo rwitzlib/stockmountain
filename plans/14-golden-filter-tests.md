@@ -370,23 +370,29 @@ Still open (documented, not fixed here):
 
 Ordered by my read of impact. Each has enough context to be picked up cold.
 
-1. **Stale incremental indicator values on a forming candle (correctness, multi-timeframe backtests).**
-   `FilterSession` calls `IIncrementalSeriesFunction.Append` on every evaluation, but `SmaFunction`,
-   `EmaFunction`, `RsiFunction`, `MacdFunction`, `AdvFunction`, `SlopeFunction` return `prev` unchanged
-   when `data.Count` has not grown — so on `[5m]`/`[1h]`/`[1d]` backtester scans (where
-   `UpdateLatestCandle` mutates the last bar in place every minute) the indicator's last value is the one
-   computed from the candle's *first* minute until the next candle opens. `close > sma(20) [5m]` compares a
-   live close against a stale SMA. `VwapFunction.Append` handles this (re-prices the last bar from prior
-   sums); the others need the same treatment (recompute the last point when `data[^1].Timestamp ==
-   prev[^1].Timestamp`). Also verify `FilterSession.EvaluateDataAccess/EvaluateFieldAccess` incremental paths.
-   Test to add: a `GoldenIndicatorTests`-style theory that drives 5m fixtures through `UpdateLatestCandle`
-   minute-by-minute and asserts incremental == full after every mutation (today's `Incremental_Matches_Full`
-   only appends whole bars, which is why it did not catch this).
-2. **Stored strategies that use removed/changed DSL will now fail or differ.** The bare `vwap` literal is
-   gone (parse error: "Unexpected token"?/literal cast), `adv()` values changed, `macd(...).value` starts 8
-   bars later, `NOT` precedence changed. Need: a one-off scan of persisted strategy/backtest filters
-   (DynamoDB) for `vwap` without parentheses and a migration to `vwap()`; a friendlier parser error for the
-   old literal; and a note that `adv()`/multi-timeframe backtests before 2026-08-16 should be re-run.
+1. ~~**Stale incremental indicator values on a forming candle (correctness, multi-timeframe backtests).**~~
+   **DONE 2026-08-17.** Root cause was as described, plus two things the note missed: (a) the plain
+   `close`/`high`/`low`/`volume` data-access path and the `.value/.histogram` field-access path in
+   `FilterSession` also only appended, so `close > sma(20) [5m]` compared a *stale close* against a
+   stale SMA; (b) a node is not evaluated on every minute — AND/OR short-circuit skips branches — so
+   by the time it runs again its last cached point can be for a bar that has since finished forming
+   and is *no longer last*. "Recompute the last point if it is for the last bar" therefore drifts
+   (found by the OR filter in the new backtester test); the rule that holds is **always recompute the
+   last cached point** — only it can ever be provisional (VwapFunction already did this, which is
+   why it never showed the bug). Implemented in `Functions/IncrementalSeries.cs`
+   (`ReusablePointCount`/`Seed`), used by `Sma/Ema/Rsi/Macd/Adv/Slope.Append`; `FilterSession.
+   EvaluateDataAccess/EvaluateFieldAccess` re-read their last cached element; contract documented on
+   `IIncrementalSeriesFunction`. Cost is O(period) per evaluation. Tests: `GoldenIndicatorTests.
+   Incremental_Matches_Full_When_Last_Bar_Is_Mutated_In_Place` (every fixture × series; grows each
+   bar through 3 provisional shapes, skips the final-shape evaluation on every third bar, compares
+   the whole final series — 189/203 cases failed before the fix, 182 under the "only if last bar"
+   rule) and `Backtest.Lambda.UnitTests.Golden.GoldenIncrementalFormingTests` (7 minute fixtures ×
+   5m/15m/1h through the real `UpdateLatestCandle`, 18 series scripts + 6 whole filters, incremental
+   == fresh full evaluation after every session minute). Note: multi-timeframe backtests run before
+   this fix evaluated indicators (and `close`) at the candle's *first-minute* values.
+2. ~~**Stored strategies that use removed/changed DSL will now fail or differ.**~~ **Not needed
+   (2026-08-17):** no stored strategies or backtests use `NOT`, parentheses or `vwap` yet, so there is
+   nothing to migrate; `adv()`/MACD warm-up changes only affect results computed before 2026-08-16.
 3. **Backtest 1-minute history is same-day only.** The per-day minute file means `[1m]` indicators warm up
    on the scan date's pre-market (`sma(200) [1m]` is meaningless before ~13:00 on a thin name); live scans
    see multi-day minute history. Pinned by `GoldenScannerTests.Scanner_1m_Filter_Sees_Only_The_Scan_Dates_

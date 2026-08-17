@@ -90,14 +90,16 @@ public class SlopeFunction : ISeriesFunction, IIncrementalSeriesFunction
         // Previous slopes list
         var prev = previousResult as List<double> ?? new List<double>();
 
-        // Compute expected output count and how many new points to add
+        // prev[k] is the window ending at values[k + period - 1]. The input series has no
+        // timestamps here, so reuse is by count: a rewind means rebuild. The last cached slope is
+        // always recomputed — its window ended at an input value that may have belonged to a
+        // still-forming bar when it was computed (see IncrementalSeries).
         int expectedCount = Math.Max(0, values.Count - period + 1);
-        int toAdd = expectedCount - prev.Count;
-        if (toAdd <= 0)
+        if (prev.Count > expectedCount)
         {
-            // Nothing new; return previous
-            return prev;
+            return Execute(parameters, context);
         }
+        int keep = Math.Max(0, prev.Count - 1);
 
         // Prepare constants for regression
         int N = period;
@@ -107,10 +109,10 @@ public class SlopeFunction : ISeriesFunction, IIncrementalSeriesFunction
         if (Math.Abs(denom) < 1e-12) return prev;
 
         var result = new List<double>(expectedCount);
-        result.AddRange(prev);
+        result.AddRange(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(prev)[..keep]);
 
-        // Start computing from first missing window
-        int startWindowEnd = period - 1 + prev.Count;
+        // Start computing from the first window that is missing or provisional
+        int startWindowEnd = period - 1 + keep;
         for (int end = startWindowEnd; end < values.Count; end++)
         {
             double sumY = 0.0;

@@ -1,4 +1,5 @@
 using MarketViewer.Filters.Interfaces;
+using MarketViewer.Filters.Functions;
 
 namespace MarketViewer.Filters.Functions.Indicators;
 
@@ -176,28 +177,20 @@ public class RsiFunction : ISeriesFunction, IIncrementalSeriesFunction
 
         var prev = previousResult as List<IIndicatorResult> ?? new List<IIndicatorResult>();
         int closesCount = data.Count;
-
         int expectedCount = closesCount - period;
-        int toAdd = expectedCount - prev.Count;
-        if (toAdd <= 0)
-        {
-            return prev;
-        }
 
-        // Seed from last known state
-        if (prev.Count == 0)
-        {
+        // First RSI point is at index = period; the last cached point is provisional and is recomputed.
+        int keep = IncrementalSeries.ReusablePointCount(prev, data, period);
+        if (keep <= 0)
             return Execute(parameters, context);
-        }
 
-        var last = (RsiResult)prev.Last();
+        var last = (RsiResult)prev[keep - 1];
         double avgGain = last.AvgGain;
         double avgLoss = last.AvgLoss;
-        int startIndex = period + prev.Count; // next close index to compute
+        int startIndex = period + keep; // next close index to compute
         double alpha = 2.0 / (period + 1.0);
 
-        var result = new List<IIndicatorResult>(expectedCount);
-        result.AddRange(prev);
+        var result = IncrementalSeries.Seed(prev, keep, expectedCount);
 
         for (int i = startIndex; i < closesCount; i++)
         {

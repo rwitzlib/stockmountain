@@ -179,6 +179,14 @@ public class FilterSession
             return full;
         }
 
+        // The last bar we read may have been forming at the time (mutated in place since, e.g. the
+        // backtester's UpdateLatestCandle on a [5m] scan) — and this node may have skipped some
+        // evaluations (short-circuit), so that bar is not necessarily still the last one. Always
+        // re-read the last cached bar, then append any new bars (see Functions.IncrementalSeries).
+        if (prevCount > 0)
+        {
+            prevSeries[prevCount - 1] = expr.CreateBarResult(data[prevCount - 1]);
+        }
         for (int i = prevCount; i < data.Count; i++)
         {
             prevSeries.Add(expr.CreateBarResult(data[i]));
@@ -221,6 +229,11 @@ public class FilterSession
                 return full;
             }
 
+            // The target's last cached point may have been re-priced (forming bar): always re-read it.
+            if (prevCount > 0)
+            {
+                prevDoubles[prevCount - 1] = targetSeries[prevCount - 1].GetFieldValue(field.GetFieldName());
+            }
             for (int i = prevCount; i < targetSeries.Count; i++)
             {
                 prevDoubles.Add(targetSeries[i].GetFieldValue(field.GetFieldName()));

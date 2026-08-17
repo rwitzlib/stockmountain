@@ -32,6 +32,12 @@ public interface ISeriesFunction : IFunction
 /// <summary>
 /// Optional interface for series functions that can update incrementally when new bars are appended.
 /// Implementations should return an updated result of the same shape as Execute.
+///
+/// Contract: between calls the bar list may grow at the end, and the LAST bar may have been
+/// mutated in place (a still-forming candle on a multi-minute timeframe). The last point of the
+/// previous result is therefore provisional and must be recomputed on every call (even if its bar
+/// is no longer the last one — the caller may have skipped evaluations); all earlier points are
+/// final. See <c>Functions.IncrementalSeries</c> for the shared bookkeeping.
 /// </summary>
 public interface IIncrementalSeriesFunction : ISeriesFunction
 {

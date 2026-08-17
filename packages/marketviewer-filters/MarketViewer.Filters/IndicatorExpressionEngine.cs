@@ -96,9 +96,17 @@ public class IndicatorExpressionEngine
             EvaluationTime = evaluationTime
         };
 
+        return AlignSeries(expression.Evaluate(context), stockData);
+    }
+
+    /// <summary>
+    /// Maps a raw evaluation result (a timestamped series, a right-aligned <c>List&lt;double&gt;</c>,
+    /// or a scalar) onto one slot per bar of <paramref name="stockData"/>; null where there is no value.
+    /// </summary>
+    public static double?[] AlignSeries(object result, StocksResponse stockData)
+    {
         var bars = stockData.Results;
         var output = new double?[bars.Count];
-        var result = expression.Evaluate(context);
 
         switch (result)
         {
@@ -142,7 +150,7 @@ public class IndicatorExpressionEngine
                 if (bars.Count > 0) output[^1] = single.GetFieldValue("value");
                 break;
             default:
-                throw new InvalidOperationException($"Script '{script}' evaluated to {result?.GetType().Name ?? "null"}, not a series.");
+                throw new InvalidOperationException($"Result evaluated to {result?.GetType().Name ?? "null"}, not a series.");
         }
 
         return output;

@@ -1,4 +1,5 @@
 using MarketViewer.Filters.Interfaces;
+using MarketViewer.Filters.Functions;
 
 namespace MarketViewer.Filters.Functions.Indicators;
 
@@ -63,27 +64,17 @@ public class EmaFunction : ISeriesFunction, IIncrementalSeriesFunction
 
         var prev = previousResult as List<IIndicatorResult> ?? new List<IIndicatorResult>();
         int expectedCount = data.Count - period + 1;
-        int toAdd = expectedCount - prev.Count;
-        if (toAdd <= 0)
-            return prev;
+        int keep = IncrementalSeries.ReusablePointCount(prev, data, period - 1);
+        if (keep <= 0)
+            return Execute(parameters, context); // no reusable state (or data replaced): compute full
 
         var multiplier = 2.0 / (period + 1);
-        var result = new List<IIndicatorResult>(expectedCount);
-        result.AddRange(prev);
+        var result = IncrementalSeries.Seed(prev, keep, expectedCount);
 
-        // Determine starting index and previous EMA value
-        double previousEma;
-        int startIndex;
-        if (prev.Count == 0)
-        {
-            // No prior state; compute full
-            return Execute(parameters, context);
-        }
-        else
-        {
-            previousEma = ((SimpleIndicatorResult)prev.Last()).Value;
-            startIndex = (period - 1) + prev.Count;
-        }
+        // Continue the recurrence from the last kept point; the cached point after it is
+        // provisional (its bar may have been forming when it was computed) and is recomputed.
+        double previousEma = ((SimpleIndicatorResult)prev[keep - 1]).Value;
+        int startIndex = (period - 1) + keep;
 
         for (int i = startIndex; i < data.Count; i++)
         {
