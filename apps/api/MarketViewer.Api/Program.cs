@@ -1,4 +1,4 @@
-using Alpaca.Client.DependencyInjection;
+﻿using Alpaca.Client.DependencyInjection;
 using Amazon;
 using Amazon.SQS;
 using MarketViewer.Api.Authorization;
@@ -15,7 +15,6 @@ using MarketViewer.Contracts.Converters;
 using MarketViewer.Core.DependencyInjection;
 using MarketViewer.Filters;
 using MarketViewer.Infrastructure.DependencyInjection;
-using MarketViewer.Studies.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -47,7 +46,6 @@ public class Program
         builder.Services
             .AddMemoryCache(options => options.TrackStatistics = true)
             .AddHttpClient()
-            .RegisterStudies()
             .RegisterApplication()
             .RegisterCore(builder.Configuration)
             .RegisterInfrastructure(builder.Configuration)

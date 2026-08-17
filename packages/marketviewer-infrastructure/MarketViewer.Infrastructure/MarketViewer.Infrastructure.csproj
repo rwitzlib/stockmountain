@@ -21,7 +21,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\marketviewer-contracts\MarketViewer.Contracts\MarketViewer.Contracts.csproj" />
     <ProjectReference Include="..\..\marketviewer-core\MarketViewer.Core\MarketViewer.Core.csproj" />
-    <ProjectReference Include="..\..\marketviewer-studies\MarketViewer.Studies\MarketViewer.Studies.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="Mock\mockMinute.json">

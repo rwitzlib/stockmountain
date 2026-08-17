@@ -1,11 +1,10 @@
-using AutoFixture;
+﻿using AutoFixture;
 using Moq;
 using Xunit;
 using FluentAssertions;
 using MarketViewer.Contracts.Interfaces;
 using MarketViewer.Contracts.Enums;
 using Massive.Client.Models;
-using MarketViewer.Studies.UnitTests;
 using MarketViewer.Application.Handlers.Market;
 using MarketViewer.Contracts.Requests.Market;
 using MarketViewer.Contracts.Responses.Market;
@@ -16,7 +15,7 @@ using MarketViewer.Application.Services;
 
 namespace MarketViewer.Application.UnitTests.Handlers
 {
-    public class StocksHandlerUnitTests : IClassFixture<StudyFixture>
+    public class StocksHandlerUnitTests
     {
         #region Private Fields
         private readonly StocksHandler _classUnderTest;
@@ -26,13 +25,13 @@ namespace MarketViewer.Application.UnitTests.Handlers
         #endregion
 
         #region Constructor
-        public StocksHandlerUnitTests(StudyFixture fixture)
+        public StocksHandlerUnitTests()
         {
             _fixture = new Fixture();
 
             _repository = new Mock<IMarketDataRepository>();
             _cache = new Mock<IMarketCache>();
-            var indicatorCalculator = new IndicatorCalculationService(fixture.StudyFactory, NullLogger<IndicatorCalculationService>.Instance);
+            var indicatorCalculator = new IndicatorCalculationService(NullLogger<IndicatorCalculationService>.Instance);
             _classUnderTest = new StocksHandler(_repository.Object, _cache.Object, indicatorCalculator, new NullLogger<StocksHandler>());
         }
         #endregion

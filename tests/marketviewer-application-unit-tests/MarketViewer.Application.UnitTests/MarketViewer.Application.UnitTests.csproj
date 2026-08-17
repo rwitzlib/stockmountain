@@ -28,7 +28,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\packages\marketviewer-application\MarketViewer.Application\MarketViewer.Application.csproj" />
-    <ProjectReference Include="..\..\marketviewer-studies-unit-tests\MarketViewer.Studies.UnitTests\MarketViewer.Studies.UnitTests.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="backtest.json">

@@ -8,7 +8,6 @@ using MarketViewer.Contracts.Responses.Market;
 using MarketViewer.Filters.Expressions;
 using MarketViewer.Filters.Functions.Indicators;
 using MarketViewer.Filters.Interfaces;
-using MarketViewer.Studies;
 using Microsoft.Extensions.Logging;
 
 namespace MarketViewer.Application.Services;
@@ -18,7 +17,7 @@ public interface IIndicatorCalculationService
     IndicatorResponse? Compute(Indicator indicator, StocksResponse stockData, Timeframe timeframe);
 }
 
-public class IndicatorCalculationService(StudyFactory studyFactory, ILogger<IndicatorCalculationService> logger) : IIndicatorCalculationService
+public class IndicatorCalculationService(ILogger<IndicatorCalculationService> logger) : IIndicatorCalculationService
 {
     private readonly SmaFunction _smaFunction = new();
     private readonly EmaFunction _emaFunction = new();
@@ -44,30 +43,29 @@ public class IndicatorCalculationService(StudyFactory studyFactory, ILogger<Indi
             Timeframe = timeframe
         };
 
-        if (TryComputeWithFilters(indicator, context, out var series))
+        var series = ComputeSeries(indicator, context);
+        if (series is null || series.Count == 0)
         {
-            if (series.Count == 0)
-            {
-                return null;
-            }
-
-            return new IndicatorResponse
-            {
-                Name = BuildIndicatorName(indicator),
-                Results = ConvertSeries(series)
-            };
+            return null;
         }
 
-        return studyFactory.Compute(indicator, stockData);
+        return new IndicatorResponse
+        {
+            Name = BuildIndicatorName(indicator),
+            Results = ConvertSeries(series)
+        };
     }
 
-    private bool TryComputeWithFilters(Indicator indicator, ExpressionContext context, out List<IIndicatorResult> series)
+    /// <summary>
+    /// Computes the indicator series via the MarketViewer.Filters functions (the same code paths
+    /// used by /scan, the backtester and the live scanner). Returns null when the study type has no
+    /// function or the function throws; the caller omits the indicator from the response.
+    /// </summary>
+    private List<IIndicatorResult>? ComputeSeries(Indicator indicator, ExpressionContext context)
     {
-        series = [];
-
         try
         {
-            series = indicator.Type switch
+            return indicator.Type switch
             {
                 StudyType.sma => ExecuteFunction(_smaFunction, indicator.Parameters, context),
                 StudyType.ema => ExecuteFunction(_emaFunction, indicator.Parameters, context),
@@ -81,10 +79,8 @@ public class IndicatorCalculationService(StudyFactory studyFactory, ILogger<Indi
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to compute indicator {@Indicator}", indicator);
-            series = null;
+            return null;
         }
-
-        return series is not null;
     }
 
     private static List<IIndicatorResult> ExecuteFunction(ISeriesFunction function, string[]? parameters, ExpressionContext context)

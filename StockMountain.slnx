@@ -39,8 +39,6 @@
   <Folder Name="/packages/marketviewer-infrastructure/">
     <Project Path="packages/marketviewer-infrastructure/MarketViewer.Infrastructure/MarketViewer.Infrastructure.csproj" />
   </Folder>
-  <Folder Name="/packages/marketviewer-studies/">
-    <Project Path="packages/marketviewer-studies/MarketViewer.Studies/MarketViewer.Studies.csproj" />
   </Folder>
   <Folder Name="/packages/optimus-adapter/">
     <Project Path="packages/optimus-adapter/Optimus.Adapter/Optimus.Adapter.csproj" />
@@ -82,8 +80,6 @@
   <Folder Name="/tests/marketviewer-integration-tests/">
     <Project Path="tests/marketviewer-integration-tests/MarketViewer.IntegrationTests/MarketViewer.IntegrationTests.csproj" />
   </Folder>
-  <Folder Name="/tests/marketviewer-studies-unit-tests/">
-    <Project Path="tests/marketviewer-studies-unit-tests/MarketViewer.Studies.UnitTests/MarketViewer.Studies.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/optimus-unit-tests/">
     <Project Path="tests/optimus-unit-tests/Optimus.UnitTests/Optimus.UnitTests.csproj" />

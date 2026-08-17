@@ -21,7 +21,6 @@ export function StudyOperandForm({ value, onChange }: StudyOperandFormProps) {
             <option value="ema">EMA</option>
             <option value="rsi">RSI</option>
             <option value="macd">MACD</option>
-            <option value="rvol">RVOL</option>
             <option value="vwap">VWAP</option>
           </select>
         </div>

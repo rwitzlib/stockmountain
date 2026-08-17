@@ -467,8 +467,17 @@ Ordered by my read of impact. Each has enough context to be picked up cold.
    `ScannerService.CacheVersion` bump — cached filter entries only differ for `vwap()` filters on 5m+ and no
    stored strategy uses `vwap()` yet; bump if one appears that predates this. Deploy note: the API's S3
    bulk-warmup snapshot holds hour/day bars aggregated with the old formula until the next 3:30am rebuild.
-8. **`Studies/VWAP.cs` (chart study, UTC-midnight reset)** is now only reached if `VwapFunction` throws.
-   Delete it or make it delegate; the plan-11 UTC-midnight bug note is otherwise moot.
+8. ~~**`Studies/VWAP.cs` (chart study, UTC-midnight reset)** is now only reached if `VwapFunction` throws.
+   Delete it or make it delegate; the plan-11 UTC-midnight bug note is otherwise moot.~~ **Done 2026-08-17 —
+   the whole `MarketViewer.Studies` package and its unit-test project were deleted.** Audit showed its only
+   production caller was the `/stocks` fallback in `IndicatorCalculationService`; `/scan`, the backtester and
+   the live scanner never touched it, and `Backtest.Lambda`/`Core`/`Infrastructure` carried dead
+   `ProjectReference`s (removed, plus the Dockerfile copy lines). `IndicatorCalculationService` now computes
+   solely via Filters functions and returns null (indicator omitted, warning logged) when a function throws.
+   Decisions from the grilling: `rvol`/`mamr` — chart-only, unreachable from the UI — were dropped along with
+   their `StudyType` members (a `rvol(...)` indicator string now fails deserialization → 400 rather than being
+   silently omitted); the plan-11 `rvol()` DSL keyword will be written fresh as a Filters function. The dead
+   `rvol` option in `StudyOperandForm.tsx` was removed. `StocksHandlerUnitTests` no longer borrows `StudyFixture`.
 9. **`Bar.Volume` is float32** — cumulative volume above 2^24 (16.7M) cannot represent every integer;
    `volume > adv()` on mega-caps compares rounded numbers, `UpdateLatestCandle` sums accumulate rounding.
    Tolerated in `GoldenCandleFormingTests`. Consider `double`/`long` in `Massive.Client.Models.Bar`
@@ -480,7 +489,7 @@ Ordered by my read of impact. Each has enough context to be picked up cold.
 
 ## Out of scope
 
-- Studies package (`MarketViewer.Studies`) beyond VWAP as consumed by filters.
+- ~~Studies package (`MarketViewer.Studies`) beyond VWAP as consumed by filters.~~ (package deleted, see follow-up #8)
 - Live/`ScanHandler` path in `apps/api` (plan 10 territory) — layer 3c is backtester only.
 - Performance benchmarks (`PerformanceTests.cs` stays as is).
 - Options/futures data; only equity aggregates.

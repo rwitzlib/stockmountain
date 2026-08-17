@@ -10,8 +10,6 @@ public enum StudyType
     ema,
     sma,
     rsi,
-    rvol,
-    mamr,
     sr,
     support_resistance
 }

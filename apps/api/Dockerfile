@@ -8,7 +8,6 @@ COPY packages/marketviewer-contracts/MarketViewer.Contracts/MarketViewer.Contrac
 COPY packages/marketviewer-core/MarketViewer.Core/MarketViewer.Core.csproj packages/marketviewer-core/MarketViewer.Core/
 COPY packages/marketviewer-filters/MarketViewer.Filters/MarketViewer.Filters.csproj packages/marketviewer-filters/MarketViewer.Filters/
 COPY packages/marketviewer-infrastructure/MarketViewer.Infrastructure/MarketViewer.Infrastructure.csproj packages/marketviewer-infrastructure/MarketViewer.Infrastructure/
-COPY packages/marketviewer-studies/MarketViewer.Studies/MarketViewer.Studies.csproj packages/marketviewer-studies/MarketViewer.Studies/
 COPY packages/massive-client/Massive.Client/Massive.Client.csproj packages/massive-client/Massive.Client/
 COPY packages/alpaca-client/Alpaca.Client/Alpaca.Client.csproj packages/alpaca-client/Alpaca.Client/
 
@@ -20,7 +19,6 @@ COPY packages/marketviewer-contracts/MarketViewer.Contracts/ packages/marketview
 COPY packages/marketviewer-core/MarketViewer.Core/ packages/marketviewer-core/MarketViewer.Core/
 COPY packages/marketviewer-filters/MarketViewer.Filters/ packages/marketviewer-filters/MarketViewer.Filters/
 COPY packages/marketviewer-infrastructure/MarketViewer.Infrastructure/ packages/marketviewer-infrastructure/MarketViewer.Infrastructure/
-COPY packages/marketviewer-studies/MarketViewer.Studies/ packages/marketviewer-studies/MarketViewer.Studies/
 COPY packages/massive-client/Massive.Client/ packages/massive-client/Massive.Client/
 COPY packages/alpaca-client/Alpaca.Client/ packages/alpaca-client/Alpaca.Client/
 

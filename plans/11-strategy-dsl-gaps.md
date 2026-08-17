@@ -25,9 +25,10 @@ arbitrary point rather than when the reversion completes.
 
 ### 2. Relative volume (`rvol`) as a filter keyword
 "Volume is 3× normal for this ticker at this time of day" is a far better spike detector than
-absolute volume thresholds. The RVOL study already exists (`MarketViewer.Studies/Studies/RVOL.cs`)
-but is chart-only — it is not registered in `ExpressionParser._functions`, and its
-`AverageVolume` input isn't reachable from the DSL either.
+absolute volume thresholds. There is no `rvol` implementation anywhere today: the old chart-only
+`MarketViewer.Studies/Studies/RVOL.cs` was deleted with the Studies package (2026-08-17, plan 14 #8),
+so this needs to be written fresh as a `MarketViewer.Filters` `ISeriesFunction` and registered in
+`ExpressionParser._functions`; `AverageVolume` isn't reachable from the DSL either.
 
 ### 3. Arithmetic operators in the DSL (`+ - * /`)
 The parser (`MarketViewer.Filters/Parsing/ExpressionParser.cs`) supports only comparison and
