@@ -22,6 +22,8 @@ Seed / smoothing conventions are deliberately written to match the C# contract
                        bar s+sig-2 — no point is emitted before the signal is seeded.
   - macd(f,s,sig,sma): rolling means throughout
   - adv(n):  rolling mean of volume over the last n bars INCLUDING the current bar
+  - vwap():  session VWAP, sum(vw*v)/sum(v) reset at 09:30 ET (pre-market bars: no value);
+             vwap(day) resets at the ET date change (pre-market included)
   - slope(x,n): least-squares slope of the last n values against x = 0..n-1
 """
 from __future__ import annotations
@@ -34,6 +36,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 REPO = Path(__file__).resolve().parents[2]
 GOLDEN = REPO / "tests/marketviewer-filters-unit-tests/MarketViewer.Filters.UnitTests/TestData/Golden"
@@ -139,6 +143,40 @@ def slope(x: pd.Series, n: int) -> pd.Series:
     return pd.Series(out, index=x.index)
 
 
+ET = ZoneInfo("America/New_York")
+
+
+def vwap(bars: list[dict], anchor: str, tf: str) -> pd.Series:
+    """Session VWAP: cumulative sum(vw*v)/sum(v), reset when a new session opens.
+    anchor="session": a bar OPENS its ET date's session when its span [start, start+tf) ends after
+                      09:30 ET (the 09:00 hourly bar and the midnight daily bar do; the 09:29 minute
+                      bar does not). Bars that open nothing continue the running session (pre-market
+                      carries the previous session's VWAP); bars before the first open have no value.
+    anchor="day":     every bar opens/continues its ET date (pre-market included).
+    Bar price = Massive `vw` (float32-rounded), or (h+l+c)/3 when vw <= 0."""
+    n_units, unit = int(tf[:-1]), tf[-1]
+    span = {"m": timedelta(minutes=n_units), "h": timedelta(hours=n_units), "d": timedelta(days=n_units)}[unit]
+    out = np.full(len(bars), np.nan)
+    key_prev, cum_pv, cum_v = None, 0.0, 0.0
+    for i, b in enumerate(bars):
+        et = datetime.fromtimestamp(b["t"] / 1000, tz=timezone.utc).astimezone(ET)
+        start = et.replace(tzinfo=None)
+        opens = et.date()
+        if anchor == "session" and start + span <= start.replace(hour=9, minute=30, second=0, microsecond=0):
+            opens = None  # does not open a session; continues the running one
+        if opens is not None and opens != key_prev:
+            key_prev, cum_pv, cum_v = opens, 0.0, 0.0
+        if key_prev is None:
+            continue
+        vw = float(np.float32(b.get("vw", 0.0)))
+        price = vw if vw > 0 else (float(np.float32(b["h"])) + float(np.float32(b["l"])) + float(np.float32(b["c"]))) / 3.0
+        vol = max(0.0, float(np.float32(b["v"])))
+        cum_pv += price * vol
+        cum_v += vol
+        out[i] = cum_pv / cum_v if cum_v > 0 else price
+    return pd.Series(out)
+
+
 def to_list(s: pd.Series) -> list:
     return [None if (v is None or (isinstance(v, float) and math.isnan(v))) else round(float(v), 8) for v in s.tolist()]
 
@@ -174,6 +212,9 @@ def compute(bars_file: Path) -> dict:
     for n in ADV_PERIODS:
         series[f"adv({n})"] = to_list(sma(volume, n))
     series["adv()"] = to_list(sma(volume, 30))
+    tf = bars_file.stem.split("_")[1]
+    series["vwap()"] = to_list(vwap(raw["results"], "session", tf))
+    series["vwap(day)"] = to_list(vwap(raw["results"], "day", tf))
     series["slope(close,5)"] = to_list(slope(close, 5))
     series["slope(sma(20),10)"] = to_list(slope(sma(close, 20), 10))
     series["slope(ema(20),10)"] = to_list(slope(ema(close, 20), 10))

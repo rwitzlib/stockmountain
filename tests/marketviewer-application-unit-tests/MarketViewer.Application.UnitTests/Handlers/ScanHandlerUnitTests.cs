@@ -44,7 +44,7 @@ public class ScanHandlerUnitTests
             Timestamp = now,
             Filters =
             [
-                "vwap > 5 [1m]"
+                "close > 5 [1m]"
             ]
         };
 
@@ -67,7 +67,7 @@ public class ScanHandlerUnitTests
             Timestamp = now,
             Filters =
             [
-                "vwap > 5 [1m]"
+                "close > 5 [1m]"
             ]
         };
 
@@ -90,7 +90,7 @@ public class ScanHandlerUnitTests
             Timestamp = now,
             Filters =
             [
-                "vwap >= 5 [1m]"
+                "close >= 5 [1m]"
             ]
         };
 
@@ -113,7 +113,7 @@ public class ScanHandlerUnitTests
             Timestamp = now,
             Filters =
             [
-                "vwap > 5 [1m]"
+                "close > 5 [1m]"
             ]
         };
 
@@ -138,7 +138,7 @@ public class ScanHandlerUnitTests
             CompletedBarsOnly = true,
             Filters =
             [
-                "vwap > 5 [1m]"
+                "close > 5 [1m]"
             ]
         };
 
@@ -158,13 +158,13 @@ public class ScanHandlerUnitTests
         _marketCache.AddLiveBar(new MassiveWebsocketAggregateResponse
         {
             Ticker = "SPY",
-            TickVwap = 1000, // completed bar: passes "vwap > 5"
+            Close = 1000, // completed bar: passes "close > 5"
             TickStart = now.AddMinutes(-1).ToUnixTimeMilliseconds()
         });
         _marketCache.AddLiveBar(new MassiveWebsocketAggregateResponse
         {
             Ticker = "SPY",
-            TickVwap = 0, // in-progress bar: would fail the filter if evaluated
+            Close = 0, // in-progress bar: would fail the filter if evaluated
             TickStart = now.ToUnixTimeMilliseconds()
         });
 
@@ -174,7 +174,7 @@ public class ScanHandlerUnitTests
             CompletedBarsOnly = true,
             Filters =
             [
-                "vwap > 5 [1m]"
+                "close > 5 [1m]"
             ]
         };
 
@@ -196,7 +196,7 @@ public class ScanHandlerUnitTests
             Timestamp = now,
             Filters =
             [
-                "vwap >= 5 [1m]",
+                "close >= 5 [1m]",
                 "volume > 5 [1h]"
             ]
         };
@@ -221,7 +221,7 @@ public class ScanHandlerUnitTests
             results.Add(new Bar
             {
                 Timestamp = timestamp.AddMinutes(-i).ToUnixTimeMilliseconds(),
-                Vwap = 5
+                Close = 5
             });
         }
 
@@ -243,13 +243,13 @@ public class ScanHandlerUnitTests
             _marketCache.AddLiveBar(new MassiveWebsocketAggregateResponse
             {
                 Ticker = "SPY",
-                TickVwap = latestBarShouldPassFilters ? 1000 : 0,
+                Close = latestBarShouldPassFilters ? 1000 : 0,
                 TickStart = timestamp.ToUnixTimeMilliseconds()
             });
         }
         else
         {
-            bar.Vwap = latestBarShouldPassFilters ? 1000 : 0;
+            bar.Close = latestBarShouldPassFilters ? 1000 : 0;
         }
     }
 

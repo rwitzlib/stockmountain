@@ -49,7 +49,7 @@ Fixture names are `TICKER_tf_from_to`; the tests derive the evaluation timeframe
 ## Layer 1 — reference indicator values
 
 Keys are literal DSL fragments (`sma(20)`, `rsi(14,70,30,wilders)`, `macd(12,26,9,ema).histogram`,
-`adv(20)`, `slope(close,5)`, …) so the C# side evaluates the same string via
+`adv(20)`, `vwap()`, `slope(close,5)`, …) so the C# side evaluates the same string via
 `IndicatorExpressionEngine.EvaluateSeries` and compares bar-by-bar.
 
 The seeds/smoothing are written to match the C# contract, not library defaults — see the header

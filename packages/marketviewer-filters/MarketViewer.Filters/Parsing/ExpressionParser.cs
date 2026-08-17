@@ -32,6 +32,7 @@ public class ExpressionParser : IExpressionParser
             ["ema"] = new EmaFunction(),
             ["macd"] = new MacdFunction(),
             ["adv"] = new AdvFunction(),
+            ["vwap"] = new VwapFunction(),
             ["crosses_over"] = new CrossesOverFunction(),
             ["crosses_under"] = new CrossesUnderFunction(),
             ["rsi"] = new RsiFunction(),
@@ -417,7 +418,7 @@ public class ExpressionParser : IExpressionParser
             return (new LiteralExpression(minutesSinceMidnight), index + 1);
         }
 
-        // Check for data access literals (close, open, high, low, vwap, volume, float, time)
+        // Check for data access literals (close, open, high, low, volume, float, time)
         if (!string.IsNullOrEmpty(token) && char.IsLetter(token[0]))
         {
             var lowerToken = token.ToLowerInvariant();
@@ -473,7 +474,7 @@ public class ExpressionParser : IExpressionParser
     {
         return token switch
         {
-            "close" or "open" or "high" or "low" or "vwap" or "volume" or "float" or "time" => true,
+            "close" or "open" or "high" or "low" or "volume" or "float" or "time" => true,
             _ => false
         };
     }

@@ -9,6 +9,7 @@ public static class FunctionHeuristicsRegistry
         {
             // Data/volume based
             ["adv"] = (1, 0.4),
+            ["vwap"] = (1.5, 0.5),
 
             // Moving averages
             ["sma"] = (2, 0.5),

@@ -58,7 +58,7 @@ class Fixture:
         self.t = np.array([b["t"] for b in bars], dtype=np.int64)
         f32 = lambda k: np.array([b[k] for b in bars], dtype=np.float32).astype(np.float64)
         self.fields = {"close": f32("c"), "open": f32("o"), "high": f32("h"), "low": f32("l"),
-                       "volume": f32("v"), "vwap": f32("vw")}
+                       "volume": f32("v")}
         self.ref = {k: np.array([np.nan if v is None else v for v in s], dtype=np.float64) for k, s in ref["series"].items()}
         et = [datetime.fromtimestamp(ts / 1000, tz=timezone.utc).astimezone(ET) for ts in self.t]
         self.et_minutes = np.array([d.hour * 60 + d.minute for d in et], dtype=np.float64)
@@ -187,6 +187,12 @@ CASES: list[Case] = [
     Case("macd-hist-pos", "macd(12,26,9,ema).histogram > 0 [1m]", M1, lambda f: cmp(f, "macd(12,26,9,ema).histogram", ">", 0)),
     Case("macd-implicit-value", "macd(12,26,9,ema) > 0 [1m]", M1, lambda f: cmp(f, "macd(12,26,9,ema).value", ">", 0)),
     Case("macd-sma-type", "macd(12,26,9,sma).histogram < 0 [1m]", M1, lambda f: cmp(f, "macd(12,26,9,sma).histogram", "<", 0)),
+    # --- vwap (session-anchored indicator; the old bare `vwap` literal was Massive's per-bar vw)
+    Case("close-gt-vwap", "close > vwap() [1m]", M1_ALL, lambda f: cmp(f, "close", ">", "vwap()")),
+    Case("cross-over-vwap-r3", "crosses_over(close, vwap()) [1m, 3]", M1, lambda f: crosses(f, "close", "vwap()", r=3)),
+    Case("close-lt-vwap-day", "close < vwap(day) [1m]", M1, lambda f: cmp(f, "close", "<", "vwap(day)")),
+    Case("vwap-vs-sma", "vwap() > sma(20) [1m]", M1, lambda f: cmp(f, "vwap()", ">", "sma(20)")),
+    Case("close-gt-vwap-1h", "close > vwap() [1h]", H1, lambda f: cmp(f, "close", ">", "vwap()")),
     # --- transforms
     Case("slope-close-pos-and-rsi", f"slope(close,5) > 0 AND {RSI} > 50 [1m]", M1,
          lambda f: cmp(f, "slope(close,5)", ">", 0) & cmp(f, RSI, ">", 50)),

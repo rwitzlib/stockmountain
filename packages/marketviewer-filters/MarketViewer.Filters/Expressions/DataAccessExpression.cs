@@ -4,7 +4,7 @@ using Massive.Client.Models;
 namespace MarketViewer.Filters.Expressions;
 
 /// <summary>
-/// Expression that accesses built-in price data (close, open, high, low, vwap, volume),
+/// Expression that accesses built-in price data (close, open, high, low, volume),
 /// per-candle time of day (time), or ticker-level fundamentals (float).
 /// </summary>
 public class DataAccessExpression(string fieldName) : IExpression
@@ -83,7 +83,6 @@ public class DataAccessExpression(string fieldName) : IExpression
             "open" => bar.Open,
             "high" => bar.High,
             "low" => bar.Low,
-            "vwap" => bar.Vwap,
             "volume" => bar.Volume,
             _ => throw new ArgumentException($"Unknown data field: {_fieldName}")
         };

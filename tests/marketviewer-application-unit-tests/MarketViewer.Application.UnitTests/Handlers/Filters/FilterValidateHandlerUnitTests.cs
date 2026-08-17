@@ -20,7 +20,8 @@ public class FilterValidateHandlerUnitTests
     }
 
     [Theory]
-    [InlineData("close > vwap")]
+    [InlineData("close > vwap()")]
+    [InlineData("close > vwap(day) [5m]")]
     [InlineData("rsi(14) < 30 [1m]")]
     [InlineData("macd(12,26,9,ema).histogram > 0 [5m]")]
     [InlineData("crosses_over(close, sma(20))")]
@@ -62,7 +63,7 @@ public class FilterValidateHandlerUnitTests
     {
         var result = _handler.Validate(new FilterValidateRequest
         {
-            Expressions = ["close > vwap", "rsl(14) < 30"],
+            Expressions = ["close > vwap()", "rsl(14) < 30"],
         });
 
         Assert.Equal(HttpStatusCode.OK, result.Status);

@@ -100,7 +100,7 @@ public class GoldenIndicatorTests
         {
             all.Results.Add(pending[i - seedCount]);
             var raw = session.EvaluateIncrementalRaw(all, timeframe);
-            var last = LastValue(raw);
+            var last = LastValue(raw, all.Results[^1].Timestamp);
             var expected = full[i];
 
             if (expected is null && last is null) continue;
@@ -116,9 +116,11 @@ public class GoldenIndicatorTests
             string.Join("\n  ", mismatches));
     }
 
-    private static double? LastValue(object raw) => raw switch
+    private static double? LastValue(object raw, long lastBarTimestamp) => raw switch
     {
-        List<IIndicatorResult> series => series.Count == 0 ? null : series[^1].GetFieldValue("value"),
+        // Timestamped series may legitimately skip bars (e.g. vwap() pre-market): the value "at"
+        // the last bar exists only if the last point is for that bar.
+        List<IIndicatorResult> series => series.Count == 0 || series[^1].Timestamp != lastBarTimestamp ? null : series[^1].GetFieldValue("value"),
         List<double> values => values.Count == 0 ? null : values[^1],
         double d => d,
         IIndicatorResult single => single.GetFieldValue("value"),

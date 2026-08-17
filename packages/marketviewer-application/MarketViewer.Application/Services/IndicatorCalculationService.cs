@@ -24,6 +24,7 @@ public class IndicatorCalculationService(StudyFactory studyFactory, ILogger<Indi
     private readonly EmaFunction _emaFunction = new();
     private readonly MacdFunction _macdFunction = new();
     private readonly RsiFunction _rsiFunction = new();
+    private readonly VwapFunction _vwapFunction = new();
     private readonly SupportResistanceFunction _supportResistanceFunction = new();
 
     public IndicatorResponse? Compute(Indicator indicator, StocksResponse stockData, Timeframe timeframe)
@@ -72,7 +73,7 @@ public class IndicatorCalculationService(StudyFactory studyFactory, ILogger<Indi
                 StudyType.ema => ExecuteFunction(_emaFunction, indicator.Parameters, context),
                 StudyType.macd => ExecuteFunction(_macdFunction, indicator.Parameters, context),
                 StudyType.rsi => ExecuteFunction(_rsiFunction, indicator.Parameters, context),
-                StudyType.vwap => EvaluatePriceLiteral("vwap", context),
+                StudyType.vwap => ExecuteFunction(_vwapFunction, indicator.Parameters, context),
                 StudyType.sr or StudyType.support_resistance => ExecuteFunction(_supportResistanceFunction, indicator.Parameters, context),
                 _ => null
             };
@@ -90,13 +91,6 @@ public class IndicatorCalculationService(StudyFactory studyFactory, ILogger<Indi
     {
         var args = ConvertParameters(parameters);
         var result = function.Execute(args, context);
-        return result as List<IIndicatorResult> ?? [];
-    }
-
-    private static List<IIndicatorResult> EvaluatePriceLiteral(string fieldName, ExpressionContext context)
-    {
-        var expression = new DataAccessExpression(fieldName);
-        var result = expression.Evaluate(context);
         return result as List<IIndicatorResult> ?? [];
     }
 

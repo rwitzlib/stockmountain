@@ -137,7 +137,18 @@ decent proxy for "real" participation vs a few big prints.
   `and-or-flat-fold` case). Validate endpoint maps `NOT` as a `unary` AST node and keeps parentheses
   in the English echo; web `serializeAst`/chips round-trip groups. Guarded by `ParserGroupingUnitTests`,
   `FilterValidateHandlerUnitTests`, and 7 plan-14 outcome cases.
-- **VWAP study resets at UTC midnight** (20:00 ET) — wrong session boundary (`Studies/VWAP.cs:19,23`).
+- ~~**VWAP study resets at UTC midnight** (20:00 ET)~~ — **SUPERSEDED 2026-08-16**: new `vwap()` indicator
+  function (`VwapFunction.cs`): session VWAP Σ(vw·v)/Σv reset at 09:30 ET, carried through after-hours
+  and the next pre-market until the following open; `vwap(day)` resets at the ET date change. Replaces
+  the bare `vwap` literal (which was Massive's per-bar `vw` — removed) and now backs the chart's
+  `StudyType.vwap` via `IndicatorCalculationService`, so `Studies/VWAP.cs` (UTC-midnight reset) is only a
+  fallback. Golden reference + 5 outcome cases + `VwapFunctionUnitTests`.
+- **Incremental indicator values are stale on a forming candle** — `Sma/Ema/Rsi/Macd/Adv/SlopeFunction.Append`
+  return `prev` when the bar count has not grown, but the backtester mutates the last 5m/1h/1d candle in
+  place every minute; `close > sma(20) [5m]` compares against the SMA as of the candle's first minute.
+  `VwapFunction.Append` shows the fix. Full write-up + test to add: plan 14 §Follow-ups item 1.
+- **Stored filters using the removed bare `vwap` literal will fail to parse** (replaced by `vwap()` on
+  2026-08-16); needs a migration/friendly error — plan 14 §Follow-ups item 2.
 - **Frontend indicator params contradict backend**: MACD `source` offers `close` (invalid),
   RSI offers only `sma|ema` — `wilders` unreachable (`apps/web/src/config/indicators.ts:59,77`
   vs `MacdFunction.cs:13`, `RsiFunction.cs:16`).

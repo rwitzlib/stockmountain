@@ -54,9 +54,8 @@ public class LiteralPriceFunctionUnitTests
         var lowResult = _engine.EvaluateScript("low < 102 [, 2]", stockData, timeframe);
         Assert.True(lowResult);
 
-        // Test VWAP
-        var vwapResult = _engine.EvaluateScript("vwap > 100 [, 2]", stockData, timeframe);
-        Assert.True(vwapResult);
+        // "vwap" is no longer a bare literal (Massive's per-bar vw); it is the vwap() indicator now.
+        Assert.ThrowsAny<Exception>(() => _engine.EvaluateScript("vwap > 100 [, 2]", stockData, timeframe));
 
         // Test with Indicator Comarison
         var studyResult = _engine.EvaluateScript("sma(5) > 100 [ ,5]", stockData, timeframe);
@@ -89,8 +88,8 @@ public class LiteralPriceFunctionUnitTests
         // High vs low comparison
         Assert.True(_engine.EvaluateScript("high > low [, 1]", stockData, timeframe));
 
-        // VWAP vs close
-        Assert.True(_engine.EvaluateScript("close > vwap [, 1]", stockData, timeframe));
+        // Volume vs scalar
+        Assert.True(_engine.EvaluateScript("volume >= 0 [, 1]", stockData, timeframe));
     }
 
     [Fact]

@@ -113,4 +113,5 @@ export const FILTER_TEMPLATES: { label: string; expression: string }[] = [
   { label: 'Above the 200-day', expression: 'close > sma(200) [1d]' },
   { label: 'Liquidity floor', expression: 'adv() > 2000000 [1d]' },
   { label: 'MACD turning bullish', expression: 'macd(12,26,9,ema).histogram > 0 [5m]' },
+  { label: 'Above session VWAP', expression: 'close > vwap() [1m]' },
 ];

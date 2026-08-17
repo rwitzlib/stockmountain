@@ -39,6 +39,38 @@ public abstract class BaseIndicatorResult : IIndicatorResult
 }
 
 /// <summary>
+/// Session VWAP point. Carries the running sums so incremental evaluation can continue (and
+/// re-price a forming last bar) without rescanning the session.
+/// </summary>
+[ExcludeFromCodeCoverage]
+public class VwapResult : BaseIndicatorResult
+{
+    public double Value { get; set; }
+
+    /// <summary>Data index of the bar this point was computed for.</summary>
+    public int BarIndex { get; set; }
+    /// <summary>Anchor bucket this point belongs to (e.g. the ET session date's DayNumber).</summary>
+    public int AnchorKey { get; set; }
+    /// <summary>Running Σ(price·volume) / Σvolume BEFORE this bar was added — lets a mutated last bar be re-priced.</summary>
+    public double PriorPriceVolume { get; set; }
+    public double PriorVolume { get; set; }
+    /// <summary>Running sums INCLUDING this bar.</summary>
+    public double CumulativePriceVolume { get; set; }
+    public double CumulativeVolume { get; set; }
+
+    public override double GetFieldValue(string fieldName = "value")
+    {
+        return fieldName.ToLowerInvariant() switch
+        {
+            "value" => Value,
+            _ => throw new ArgumentException($"Field '{fieldName}' not available. Available fields: {string.Join(", ", GetAvailableFields())}")
+        };
+    }
+
+    public override IEnumerable<string> GetAvailableFields() => ["value"];
+}
+
+/// <summary>
 /// Simple indicator result with just a value field
 /// </summary>
 [ExcludeFromCodeCoverage]

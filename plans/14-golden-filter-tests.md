@@ -132,7 +132,7 @@ warm-up) for the functions in `MarketViewer.Filters/Functions`:
 | `macd(12,26,9,ema)` | `.value`, `.signal`, `.histogram` | |
 | `adv(n)` | `volume.rolling(n).mean()` | **shifted so it excludes the current bar if that is the C# contract — check `AdvFunction.cs` and document** |
 | `slope(close, n)` | least-squares slope over last n closes | matches `SlopeFunction.cs` definition; document formula |
-| `vwap` (via `DataAccessExpression`) | **per-bar** Massive `vw` field, passed through (`DataAccessExpression.CreateBarResult`) — *not* a session VWAP; reference is identity on `vw` | the session-anchored VWAP lives in `MarketViewer.Studies/VWAP.cs` (chart study, plan-11 UTC-midnight bug) and is out of scope for the filters DSL until a `vwap()` function exists |
+| `vwap()` / `vwap(day)` | session VWAP Σ(vw·v)/Σv reset when a bar's span first ends after 09:30 ET on its date, carried through after-hours/pre-market until the next open; `day` resets at the ET date change | `VwapFunction.cs`; bare `vwap` literal removed 2026-08-16 |
 | `support_resistance` | *skip* — heuristic, no canonical reference | covered by layer 2 only |
 
 Also emit **aggregated series** for the 1m fixtures: 5m, 15m, 1h and 1d candles built by
@@ -337,6 +337,7 @@ Fixed in this work (each guarded by a golden test named in parentheses):
   parser ignored trailing tokens after the first unparseable one (`close > sma(50) [1d] AND rsi(14) < 30 [1m]`
   "validated" as `close > sma(50) [1m]`); it now rejects them (`ParserGroupingUnitTests`,
   `FilterValidateHandlerUnitTests`).
+- **`vwap()` indicator** replaces the per-bar `vw` literal (see open-items list for the design note).
 - **`DataCache` overlap rebuild extracted** to `RebuildOverlappingCandle` (pure, static) so it is testable.
 
 Still open (documented, not fixed here):
@@ -349,7 +350,12 @@ Still open (documented, not fixed here):
   check, `unary` AST node, web round-trip). `and-or-grouped` un-flagged; `or-and-grouped-left/right`,
   `nested-groups`, `not-grouped`, `not-then-and`, `group-with-range` added. No `known_bug` cases remain
   (the theory runs a no-op sentinel when the list is empty).
-- **`vwap` in the DSL is per-bar `vw`, not session VWAP** — see 1a table.
+- ~~`vwap` in the DSL is per-bar `vw`, not session VWAP~~ — **replaced 2026-08-16** by the `vwap()`
+  indicator (session-anchored, `vwap(day)` variant); the bare literal is gone. Reference keys `vwap()` /
+  `vwap(day)`; outcome cases `close-gt-vwap`, `cross-over-vwap-r3`, `close-lt-vwap-day`, `vwap-vs-sma`,
+  `close-gt-vwap-1h`. Design note: the first cut left pre-market bars without a point and the 1h outcome
+  case caught that comparison operators right-align by *position*, so a series that stops before the
+  last bar compares against a stale point — the session now carries into pre-market instead (contiguous).
 - **Backtest 1-minute history is same-day only** (per-day minute file): `sma(200) [1m]` warms up on
   the scan date's pre-market. Live scans have multi-day minute history — a parity gap for plan 10.
   `GoldenScannerTests.Scanner_1m_Filter_Sees_Only_The_Scan_Dates_Minutes_As_History` pins the current behaviour.
@@ -359,6 +365,56 @@ Still open (documented, not fixed here):
   in `GoldenCandleFormingTests`). Cosmetic for filters, but `volume > adv()` on mega-caps compares
   rounded numbers.
 - Reference must feed float32-rounded inputs; `slope(ema(20),10)` needs 1e-3, raw-price slope 1e-4.
+
+## Follow-ups (TODO, recorded 2026-08-16 — not yet addressed)
+
+Ordered by my read of impact. Each has enough context to be picked up cold.
+
+1. **Stale incremental indicator values on a forming candle (correctness, multi-timeframe backtests).**
+   `FilterSession` calls `IIncrementalSeriesFunction.Append` on every evaluation, but `SmaFunction`,
+   `EmaFunction`, `RsiFunction`, `MacdFunction`, `AdvFunction`, `SlopeFunction` return `prev` unchanged
+   when `data.Count` has not grown — so on `[5m]`/`[1h]`/`[1d]` backtester scans (where
+   `UpdateLatestCandle` mutates the last bar in place every minute) the indicator's last value is the one
+   computed from the candle's *first* minute until the next candle opens. `close > sma(20) [5m]` compares a
+   live close against a stale SMA. `VwapFunction.Append` handles this (re-prices the last bar from prior
+   sums); the others need the same treatment (recompute the last point when `data[^1].Timestamp ==
+   prev[^1].Timestamp`). Also verify `FilterSession.EvaluateDataAccess/EvaluateFieldAccess` incremental paths.
+   Test to add: a `GoldenIndicatorTests`-style theory that drives 5m fixtures through `UpdateLatestCandle`
+   minute-by-minute and asserts incremental == full after every mutation (today's `Incremental_Matches_Full`
+   only appends whole bars, which is why it did not catch this).
+2. **Stored strategies that use removed/changed DSL will now fail or differ.** The bare `vwap` literal is
+   gone (parse error: "Unexpected token"?/literal cast), `adv()` values changed, `macd(...).value` starts 8
+   bars later, `NOT` precedence changed. Need: a one-off scan of persisted strategy/backtest filters
+   (DynamoDB) for `vwap` without parentheses and a migration to `vwap()`; a friendlier parser error for the
+   old literal; and a note that `adv()`/multi-timeframe backtests before 2026-08-16 should be re-run.
+3. **Backtest 1-minute history is same-day only.** The per-day minute file means `[1m]` indicators warm up
+   on the scan date's pre-market (`sma(200) [1m]` is meaningless before ~13:00 on a thin name); live scans
+   see multi-day minute history. Pinned by `GoldenScannerTests.Scanner_1m_Filter_Sees_Only_The_Scan_Dates_
+   Minutes_As_History`. Decide (plan 10 parity): load the previous day's minute file too, or accept and document.
+4. **`ScannerService` never evaluates the 15:59 bar** (`i < totalMinutes - 1`). Pinned by
+   `Scanner_Emits_An_Entry_For_Every_Session_Minute…`. Decide whether intentional (no entries in the last
+   minute) and make it explicit either way.
+5. **Comparison operators align by position, not timestamp.** With every series contiguous to the last bar
+   this is fine; a series that legitimately stops early (the first `vwap()` cut, or a future indicator that
+   emits nothing for some bars) silently compares against a stale point. Options: align
+   `List<IIndicatorResult>` operands by timestamp, or enforce "series must end at the last bar" in the planner.
+6. **AND/OR precedence.** Grouping exists now; the flat left-to-right fold remains (`a OR b AND c` ==
+   `(a OR b) AND c`, pinned by the `and-or-flat-fold` golden case). Switching to standard AND-over-OR is a
+   semantics change for stored filters — decide, and if switching, migrate stored filters by inserting parens.
+7. **Forming-candle `Vwap` is a typical-price approximation.** `UpdateLatestCandle` and
+   `RebuildOverlappingCandle` set `Vwap = (c+h+l)/3`; `vwap()` on 5m+ in the backtester therefore weights
+   the forming candle by typical price while completed candles use Massive's `vw`. Track Σ(vw·v)/Σv from
+   the merged minutes instead (cheap: two running sums on the candle).
+8. **`Studies/VWAP.cs` (chart study, UTC-midnight reset)** is now only reached if `VwapFunction` throws.
+   Delete it or make it delegate; the plan-11 UTC-midnight bug note is otherwise moot.
+9. **`Bar.Volume` is float32** — cumulative volume above 2^24 (16.7M) cannot represent every integer;
+   `volume > adv()` on mega-caps compares rounded numbers, `UpdateLatestCandle` sums accumulate rounding.
+   Tolerated in `GoldenCandleFormingTests`. Consider `double`/`long` in `Massive.Client.Models.Bar`
+   (contract change: S3 cache files, DynamoDB, web types).
+10. **`PerformanceTests` (filters project) is wall-clock based** and flakes under load; convert to a
+    relative/ratio assertion or mark as a benchmark not run in CI.
+11. **`macd(...).value` now needs `slow+signal-1` bars** instead of `slow`; if any product surface documents
+    the warm-up length (indicator config in `apps/web/src/config/indicators.ts`), update it.
 
 ## Out of scope
 
