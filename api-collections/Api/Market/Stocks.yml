@@ -14,7 +14,10 @@ http:
         "Multiplier": 1,
         "Timespan": "minute",
         "From": "2026-07-21",
-        "To": "2026-07-21"
+        "To": "2026-07-21",
+        "filters": [
+          "rsi(14,30,70,wilders)"
+        ]
       }
   auth: inherit
 

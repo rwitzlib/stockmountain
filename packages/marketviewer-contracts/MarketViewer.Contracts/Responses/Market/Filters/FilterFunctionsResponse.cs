@@ -15,8 +15,11 @@ public class FilterFunctionsResponse
 [ExcludeFromCodeCoverage]
 public class FilterFunctionInfo
 {
-    /// <summary>function | literal | operator</summary>
+    /// <summary>function | literal | operator. Functions additionally carry <see cref="FunctionKind"/>.</summary>
     public required string Kind { get; init; }
+
+    /// <summary>series | transform | boolean | keyword — the registry kind (see FilterFunctionAttribute).</summary>
+    public string? FunctionKind { get; init; }
     public required string Name { get; init; }
 
     /// <summary>Display signature, e.g. "rsi(period[, overbought, oversold, type])".</summary>
@@ -32,4 +35,13 @@ public class FilterFunctionInfo
 
     /// <summary>Dot-accessible fields, e.g. macd → ["value", "signal", "histogram"].</summary>
     public List<string>? Fields { get; init; }
+
+    /// <summary>Alternative names accepted by the parser, e.g. support_resistance → ["sr"].</summary>
+    public List<string>? Aliases { get; init; }
+
+    /// <summary>Contexts the token is valid in: any of "scan", "backtest", "chart".</summary>
+    public List<string>? Contexts { get; init; }
+
+    /// <summary>Relative path of the user docs page, e.g. "/docs/filters/rsi".</summary>
+    public string? DocsUrl { get; init; }
 }

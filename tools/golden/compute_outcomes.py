@@ -73,6 +73,10 @@ class Fixture:
             return self.fields[key]
         if key == "time":
             return self.et_minutes
+        if key == "float":
+            # Golden fixtures carry no ticker details, so `float` is NaN and every comparison is
+            # false. The case exists to pin that behaviour (missing float never matches).
+            return np.full(self.n, np.nan)
         if key in self.ref:
             return self.ref[key]
         raise KeyError(f"{self.name}: no reference series for '{key}' — add it to compute_reference.py")
@@ -170,6 +174,10 @@ CASES: list[Case] = [
     Case("close-le-literal", "close <= 140 [1m]", ["NVDA_1m_2025-06-02_2025-06-06"], lambda f: cmp(f, "close", "<=", 140)),
     Case("close-eq-open", "close = open [1m]", M1, lambda f: cmp(f, "close", "=", "open")),
     Case("close-ne-open", "close != open [1m]", M1, lambda f: cmp(f, "close", "!=", "open")),
+    Case("high-gt-close", "high > close [1m]", M1, lambda f: cmp(f, "high", ">", "close")),
+    Case("low-lt-open", "low < open [1m]", M1, lambda f: cmp(f, "low", "<", "open")),
+    Case("float-unavailable-never-matches", "float < 50000000 [1m]", M1, lambda f: cmp(f, "float", "<", 50000000),
+         note="fixtures have no ticker details: float is NaN, so this must never match"),
     Case("literal-lhs", "30 > rsi(14,70,30,wilders) [1m]", M1, lambda f: cmp(f, RSI, "<", 30)),
     # --- ranges and modes
     Case("rsi-overbought-range3-all", f"{RSI} > 70 [1m, 3]", M1, lambda f: cmp(f, RSI, ">", 70, r=3)),

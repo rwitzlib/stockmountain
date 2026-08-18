@@ -1,3 +1,4 @@
+using MarketViewer.Filters.Registry;
 using MarketViewer.Filters.Interfaces;
 using MarketViewer.Filters.Functions;
 
@@ -6,6 +7,10 @@ namespace MarketViewer.Filters.Functions.Indicators;
 /// <summary>
 /// Exponential Moving Average function
 /// </summary>
+[FilterFunction("ema", Kind = FunctionKind.Series,
+    Signature = "ema(period)", Snippet = "ema(14)",
+    Description = "Exponential moving average of close (SMA-seeded at bar `period`, alpha = 2/(period+1))",
+    Params = ["period"], Cost = 2, Selectivity = 0.5, Contexts = FilterContext.All)]
 public class EmaFunction : ISeriesFunction, IIncrementalSeriesFunction
 {
     public string Name => "ema";

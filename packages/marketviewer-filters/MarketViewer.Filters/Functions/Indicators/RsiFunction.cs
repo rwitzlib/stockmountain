@@ -1,3 +1,4 @@
+using MarketViewer.Filters.Registry;
 using MarketViewer.Filters.Interfaces;
 using MarketViewer.Filters.Functions;
 
@@ -13,6 +14,11 @@ namespace MarketViewer.Filters.Functions.Indicators;
 /// Returns a series (List<IIndicatorResult>) with Value in [0..100].
 /// Example: rsi(14,70,30, ema) > 70
 /// </summary>
+[FilterFunction("rsi", Kind = FunctionKind.Series,
+    Signature = "rsi(period, overbought, oversold, type)", Snippet = "rsi(14,70,30,wilders)",
+    Description = "Relative Strength Index (0–100). All 4 args required; overbought/oversold are informational only. Type: wilders / ema / sma",
+    Params = ["period", "overbought", "oversold", "type"], Fields = ["value", "overbought", "oversold"],
+    Cost = 4, Selectivity = 0.3, Contexts = FilterContext.All)]
 public class RsiFunction : ISeriesFunction, IIncrementalSeriesFunction
 {
     private static readonly string[] ValidTypes = ["wilders", "ema", "sma"];

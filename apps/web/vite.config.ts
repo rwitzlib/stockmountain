@@ -9,7 +9,11 @@ export default defineConfig(() => ({
     allowedHosts: ['dev.stockmountain.io'],
     hmr: {
       overlay: false
-    }
+    },
+    fs: {
+      // docs/filters/*.md lives at the repo root and is imported via import.meta.glob.
+      allow: [path.resolve(__dirname, '../..')],
+    },
   },
   plugins: [
     react(),

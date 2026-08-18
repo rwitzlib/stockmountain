@@ -1,4 +1,4 @@
-﻿using MarketViewer.Application.Services;
+using MarketViewer.Application.Services;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
@@ -22,7 +22,7 @@ public class PerformanceHandler(
         var tickers = marketCache.GetTickers();
         var smaIndicator = new Indicator
         {
-            Type = StudyType.sma,
+            Type = "sma",
             Parameters = ["9"]
         };
         var period = int.Parse(smaIndicator.Parameters[0]);

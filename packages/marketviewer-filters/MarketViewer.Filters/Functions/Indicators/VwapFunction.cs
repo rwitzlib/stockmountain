@@ -1,3 +1,4 @@
+using MarketViewer.Filters.Registry;
 using MarketViewer.Filters.Interfaces;
 using Massive.Client.Models;
 
@@ -26,6 +27,10 @@ namespace MarketViewer.Filters.Functions.Indicators;
 ///
 /// Reference implementation: tools/golden/compute_reference.py (`vwap()`, `vwap(day)`).
 /// </summary>
+[FilterFunction("vwap", Kind = FunctionKind.Series,
+    Signature = "vwap([anchor])", Snippet = "vwap()",
+    Description = "Session VWAP anchored at 09:30 ET (no value pre-market); vwap(day) anchors at the Eastern date change to include pre-market",
+    Params = ["anchor?"], Cost = 1.5, Selectivity = 0.5, Contexts = FilterContext.All)]
 public class VwapFunction : ISeriesFunction, IIncrementalSeriesFunction
 {
     private static readonly TimeZoneInfo Eastern = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");

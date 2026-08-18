@@ -1,4 +1,5 @@
 using MarketViewer.Filters.Interfaces;
+using MarketViewer.Filters.Registry;
 using Massive.Client.Models;
 
 namespace MarketViewer.Filters.Expressions;
@@ -16,7 +17,7 @@ public class DataAccessExpression(string fieldName) : IExpression
 
     public string GetFieldName() => _fieldName;
 
-    public bool IsScalar => _fieldName is "float";
+    public bool IsScalar => KeywordRegistry.TryGet(_fieldName, out var keyword) && keyword.IsScalar;
 
     public object Evaluate(ExpressionContext context)
     {

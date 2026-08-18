@@ -91,4 +91,11 @@ export interface FilterFunctionInfo {
   /** Ordered parameter names; "?" suffix marks optional (e.g. ["series", "period?"]). */
   params?: string[];
   fields?: string[];
+  /** series | transform | boolean | keyword (registry kind). */
+  functionKind?: string;
+  aliases?: string[];
+  /** Contexts the token is valid in: "scan" | "backtest" | "chart". */
+  contexts?: string[];
+  /** Relative path to the user docs page, e.g. "/docs/filters/rsi". */
+  docsUrl?: string;
 }

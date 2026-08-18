@@ -8,7 +8,7 @@ import {
   type Ref,
 } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, Check, Loader2 } from 'lucide-react';
+import { AlertCircle, Check, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { filtersApi } from '../../api/filtersApi';
 import {
@@ -34,6 +34,8 @@ interface Suggestion {
   insert: string;
   /** Replace the current word (autocomplete) vs. the whole input (recents/templates). */
   replaceWord: boolean;
+  /** User docs page for this function (from /filters/functions). */
+  docsUrl?: string;
 }
 
 const wordAt = (text: string, caret: number) => {
@@ -94,7 +96,7 @@ export const FilterComposer = forwardRef(function FilterComposer(
 
   const { data: functions = [] } = useQuery({
     queryKey: ['filterFunctions'],
-    queryFn: filtersApi.getFunctions,
+    queryFn: () => filtersApi.getFunctions(),
     staleTime: Infinity,
     retry: 1,
   });
@@ -139,7 +141,7 @@ export const FilterComposer = forwardRef(function FilterComposer(
     return functions
       .filter((f: FilterFunctionInfo) => f.name.startsWith(word.toLowerCase()) && f.name !== word)
       .slice(0, 8)
-      .map((f) => ({ label: f.signature, detail: f.description, insert: f.snippet, replaceWord: true }));
+      .map((f) => ({ label: f.signature, detail: f.description, insert: f.snippet, replaceWord: true, docsUrl: f.docsUrl }));
   }, [functions, input, word]);
 
   const signatureHint = useMemo(() => {
@@ -320,29 +322,54 @@ export const FilterComposer = forwardRef(function FilterComposer(
         {menuOpen && suggestions.length > 0 && (
           <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-md">
             {suggestions.map((s, i) => (
-              <button
+              <div
                 key={`${s.label}-${i}`}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  applySuggestion(s);
-                }}
-                className={`flex w-full items-baseline justify-between gap-3 px-3 py-1.5 text-left ${
-                  i === menuIndex ? 'bg-accent' : 'hover:bg-accent/60'
-                }`}
+                className={`flex w-full items-baseline gap-2 ${i === menuIndex ? 'bg-accent' : 'hover:bg-accent/60'}`}
               >
-                <span className="font-mono text-xs text-foreground">{s.label}</span>
-                <span className="truncate text-[11px] text-muted-foreground">{s.detail}</span>
-              </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    applySuggestion(s);
+                  }}
+                  className="flex min-w-0 flex-1 items-baseline justify-between gap-3 px-3 py-1.5 text-left"
+                >
+                  <span className="font-mono text-xs text-foreground">{s.label}</span>
+                  <span className="truncate text-[11px] text-muted-foreground">{s.detail}</span>
+                </button>
+                {s.docsUrl && (
+                  <a
+                    href={s.docsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    title="Open documentation"
+                    className="mr-2 inline-flex items-center gap-0.5 self-center rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-background hover:text-foreground"
+                  >
+                    docs <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
             ))}
           </div>
         )}
       </div>
 
       {signatureHint && (
-        <div className="font-mono text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+          {signatureHint.fn.docsUrl && (
+            <a
+              href={signatureHint.fn.docsUrl}
+              target="_blank"
+              rel="noreferrer"
+              title={`Documentation for ${signatureHint.fn.name}`}
+              className="inline-flex items-center gap-0.5 font-sans hover:text-foreground"
+            >
+              docs <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
           {signatureHint.fn.params ? (
-            <>
+            <span>
               {signatureHint.fn.name}(
               {signatureHint.fn.params.map((param, i) => (
                 <span key={param}>
@@ -359,9 +386,9 @@ export const FilterComposer = forwardRef(function FilterComposer(
                 </span>
               ))}
               )
-            </>
+            </span>
           ) : (
-            signatureHint.fn.signature
+            <span>{signatureHint.fn.signature}</span>
           )}
         </div>
       )}

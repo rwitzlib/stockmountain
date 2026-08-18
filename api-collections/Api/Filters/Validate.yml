@@ -14,7 +14,8 @@ http:
           "rsi(14) < 30 [1m]",
           "crosses_over(close, sma(20))",
           "rsl(14) < 30"
-        ]
+        ],
+        "context": "scan"
       }
   auth: inherit
 

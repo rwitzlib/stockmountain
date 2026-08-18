@@ -1,4 +1,3 @@
-﻿using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models.Indicator;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -17,14 +16,13 @@ public class IndicatorConverter : JsonConverter<Indicator>
         var nameAndParamsAndSelector = jsonElement.GetString().Split('(');
 
 
-        if (Enum.TryParse<StudyType>(nameAndParamsAndSelector[0], out var studyType))
+        var name = nameAndParamsAndSelector[0].Trim();
+        if (string.IsNullOrEmpty(name) || nameAndParamsAndSelector.Length < 2)
         {
-            indicatorFields.Type = studyType;
+            throw new JsonException($"Invalid indicator: '{jsonElement.GetString()}' (expected name(params)[.selector])");
         }
-        else
-        {
-            throw new JsonException($"Invalid study type: {nameAndParamsAndSelector[0]}");
-        }
+        // Validity against the chartable function registry is checked by IndicatorCalculationService.
+        indicatorFields.Type = name.ToLowerInvariant();
 
         var paramsAndSelector = nameAndParamsAndSelector[1].Split(')');
         indicatorFields.Parameters = !string.IsNullOrEmpty(paramsAndSelector[0]) ? paramsAndSelector[0].Split(',') : null;

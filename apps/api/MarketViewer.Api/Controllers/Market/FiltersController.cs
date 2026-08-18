@@ -29,13 +29,14 @@ public class FiltersController(FilterValidateHandler handler) : ControllerBase
     [HttpGet]
     [Route("functions")]
     [RequiresTier(UserRole.Basic)]
-    public IActionResult Functions()
+    public IActionResult Functions([FromQuery] string? context = null)
     {
-        var response = handler.Functions();
+        var response = handler.Functions(context);
 
         return response.Status switch
         {
             HttpStatusCode.OK => Ok(response.Data),
+            HttpStatusCode.BadRequest => BadRequest(response.ErrorMessages),
             _ => StatusCode(StatusCodes.Status500InternalServerError, response.ErrorMessages)
         };
     }

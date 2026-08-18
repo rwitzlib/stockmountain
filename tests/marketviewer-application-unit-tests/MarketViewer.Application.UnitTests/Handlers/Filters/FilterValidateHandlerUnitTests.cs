@@ -173,4 +173,66 @@ public class FilterValidateHandlerUnitTests
         Assert.Contains(functions, f => f.Name == "close" && f.Kind == "literal");
         Assert.Contains(functions, f => f.Name == "macd" && f.Fields!.Contains("histogram"));
     }
+
+    [Fact]
+    public void Functions_IsExactlyTheRegistry()
+    {
+        var functions = _handler.Functions().Data!.Functions;
+
+        Assert.Equal(
+            MarketViewer.Filters.Registry.FunctionRegistry.All.Select(d => d.Name).OrderBy(n => n),
+            functions.Select(f => f.Name).OrderBy(n => n));
+        Assert.All(functions, f =>
+        {
+            Assert.NotNull(f.Contexts);
+            Assert.NotEmpty(f.Contexts!);
+            Assert.Equal($"/docs/filters/{f.Name}", f.DocsUrl);
+            Assert.False(string.IsNullOrEmpty(f.FunctionKind));
+        });
+        var sr = Assert.Single(functions, f => f.Name == "support_resistance");
+        Assert.Contains("sr", sr.Aliases!);
+    }
+
+    [Fact]
+    public void Functions_ChartContext_OnlyChartable()
+    {
+        var chart = _handler.Functions("chart").Data!.Functions;
+        Assert.Contains(chart, f => f.Name == "sma");
+        Assert.DoesNotContain(chart, f => f.Name == "float");
+        Assert.DoesNotContain(chart, f => f.Name == "crosses_over");
+        Assert.All(chart, f => Assert.Contains("chart", f.Contexts!));
+    }
+
+    [Fact]
+    public void Functions_UnknownContext_IsBadRequest()
+    {
+        Assert.Equal(HttpStatusCode.BadRequest, _handler.Functions("bogus").Status);
+    }
+
+    [Theory]
+    [InlineData("scan", "float < 20000000", true)]
+    [InlineData("backtest", "time < 10:30 AND close > vwap()", true)]
+    [InlineData("chart", "sma(20) > 0", true)]
+    [InlineData("chart", "float < 20000000", false)]
+    [InlineData("chart", "crosses_over(close, sma(20))", false)]
+    [InlineData("chart", "close > sma(20) AND slope(close, 5) > 0", false)]
+    public void Validate_EnforcesContext(string context, string expression, bool expectedValid)
+    {
+        var result = _handler.Validate(new FilterValidateRequest { Expressions = [expression], Context = context });
+
+        Assert.Equal(HttpStatusCode.OK, result.Status);
+        var one = Assert.Single(result.Data!.Results);
+        Assert.Equal(expectedValid, one.Valid);
+        if (!expectedValid)
+        {
+            Assert.Contains("not available in chart", one.Error);
+        }
+    }
+
+    [Fact]
+    public void Validate_UnknownContext_IsBadRequest()
+    {
+        var result = _handler.Validate(new FilterValidateRequest { Expressions = ["close > 1"], Context = "nope" });
+        Assert.Equal(HttpStatusCode.BadRequest, result.Status);
+    }
 }

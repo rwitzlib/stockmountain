@@ -6,6 +6,7 @@ using MarketViewer.Filters;
 using MarketViewer.Filters.Expressions;
 using MarketViewer.Filters.Interfaces;
 using MarketViewer.Filters.Parsing;
+using MarketViewer.Filters.Registry;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -33,7 +34,21 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
             };
         }
 
-        var results = request.Expressions.Select(ValidateOne).ToList();
+        FilterContext? context = null;
+        if (!string.IsNullOrWhiteSpace(request.Context))
+        {
+            if (!TryParseContext(request.Context, out var parsedContext))
+            {
+                return new OperationResult<FilterValidateResponse>
+                {
+                    Status = HttpStatusCode.BadRequest,
+                    ErrorMessages = [$"Unknown context '{request.Context}'. Expected one of: {string.Join(", ", ContextNames.Values)}."]
+                };
+            }
+            context = parsedContext;
+        }
+
+        var results = request.Expressions.Select(e => ValidateOne(e, context)).ToList();
 
         return new OperationResult<FilterValidateResponse>
         {
@@ -42,11 +57,24 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
         };
     }
 
-    private FilterValidationResult ValidateOne(string expression)
+    private FilterValidationResult ValidateOne(string expression, FilterContext? context)
     {
         try
         {
             var parsed = _engine.ParseExpression(expression);
+            if (context is { } required)
+            {
+                var offender = FindContextViolation(parsed, required);
+                if (offender is not null)
+                {
+                    return new FilterValidationResult
+                    {
+                        Expression = expression,
+                        Valid = false,
+                        Error = $"'{offender.Name}' is not available in {ContextNames[required]} filters (valid in: {string.Join(", ", ContextList(offender.Contexts))}).",
+                    };
+                }
+            }
             var ast = MapNode(parsed);
             return new FilterValidationResult
             {
@@ -209,53 +237,113 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
 
     #endregion
 
+    #region Contexts
+
+    private static readonly Dictionary<FilterContext, string> ContextNames = new()
+    {
+        [FilterContext.Scan] = "scan",
+        [FilterContext.Backtest] = "backtest",
+        [FilterContext.Chart] = "chart",
+    };
+
+    public static bool TryParseContext(string value, out FilterContext context)
+    {
+        foreach (var (flag, name) in ContextNames)
+        {
+            if (string.Equals(name, value, StringComparison.OrdinalIgnoreCase))
+            {
+                context = flag;
+                return true;
+            }
+        }
+        context = FilterContext.None;
+        return false;
+    }
+
+    private static List<string> ContextList(FilterContext contexts) =>
+        ContextNames.Where(kv => contexts.HasFlag(kv.Key)).Select(kv => kv.Value).ToList();
+
+    /// <summary>
+    /// Walks the parsed expression and returns the first function/keyword descriptor that is not
+    /// declared for <paramref name="context"/>, or null when everything is allowed.
+    /// </summary>
+    private static FunctionDescriptor? FindContextViolation(IExpression expression, FilterContext context)
+    {
+        switch (expression)
+        {
+            case TimeframeRangeExpression range:
+                return FindContextViolation(range.GetInnerExpression(), context);
+            case BinaryExpression binary:
+                return FindContextViolation(binary.Left, context) ?? FindContextViolation(binary.Right, context);
+            case UnaryExpression unary:
+                return FindContextViolation(unary.Operand, context);
+            case FieldAccessExpression field:
+                return FindContextViolation(field.GetTargetExpression(), context);
+            case FunctionCallExpression function:
+                if (FunctionRegistry.TryGetFunction(function.FunctionName, out var fd) && !fd.SupportsContext(context))
+                    return fd;
+                foreach (var arg in function.GetArguments())
+                {
+                    var inner = FindContextViolation(arg, context);
+                    if (inner is not null) return inner;
+                }
+                return null;
+            case DataAccessExpression data:
+                return KeywordRegistry.TryGet(data.GetFieldName(), out var kd) && !kd.SupportsContext(context) ? kd : null;
+            default:
+                return null;
+        }
+    }
+
+    #endregion
+
     #region Autocomplete metadata
 
     /// <summary>
-    /// Static metadata for the smart input. Update alongside parser additions (plan 11);
-    /// this list and the Describe formatter are the only UI-facing registries.
+    /// The catalog is derived from <see cref="FunctionRegistry"/> ([FilterFunction] attributes +
+    /// KeywordRegistry) — there is no separate list to keep in sync. Optionally filtered to one context.
     /// </summary>
-    private static readonly List<FilterFunctionInfo> FunctionCatalog =
-    [
-        new() { Kind = "literal", Name = "close", Signature = "close", Snippet = "close", Description = "Closing price series" },
-        new() { Kind = "literal", Name = "open", Signature = "open", Snippet = "open", Description = "Opening price series" },
-        new() { Kind = "literal", Name = "high", Signature = "high", Snippet = "high", Description = "High price series" },
-        new() { Kind = "literal", Name = "low", Signature = "low", Snippet = "low", Description = "Low price series" },
-        new() { Kind = "literal", Name = "volume", Signature = "volume", Snippet = "volume", Description = "Volume series" },
-        new() { Kind = "literal", Name = "float", Signature = "float", Snippet = "float", Description = "Ticker share float (scalar; fails comparison when unavailable)" },
-        new() { Kind = "literal", Name = "time", Signature = "time", Snippet = "time", Description = "Candle time of day, Eastern. Compare against HH:MM, or use .hour / .minute", Fields = ["hour", "minute"] },
-        new() { Kind = "function", Name = "sma", Signature = "sma(period)", Snippet = "sma(14)", Description = "Simple moving average", Params = ["period"] },
-        new() { Kind = "function", Name = "ema", Signature = "ema(period)", Snippet = "ema(14)", Description = "Exponential moving average", Params = ["period"] },
-        new() { Kind = "function", Name = "rsi", Signature = "rsi(period, overbought, oversold, type)", Snippet = "rsi(14,70,30,wilders)", Description = "Relative Strength Index (0–100). All 4 args required; overbought/oversold are informational only. Type: wilders / ema / sma", Params = ["period", "overbought", "oversold", "type"] },
-        new() { Kind = "function", Name = "macd", Signature = "macd(fast, slow, signal, type)", Snippet = "macd(12,26,9,ema)", Description = "MACD; fields: value, signal, histogram. First point after slow+signal-1 bars of warm-up (no placeholder zeros). Type: ema / sma / wilders", Params = ["fast", "slow", "signal", "type"], Fields = ["value", "macd", "signal", "histogram"] },
-        new() { Kind = "function", Name = "vwap", Signature = "vwap([anchor])", Snippet = "vwap()", Description = "Session VWAP anchored at 09:30 ET (no value pre-market); vwap(day) anchors at the Eastern date change to include pre-market", Params = ["anchor?"] },
-        new() { Kind = "function", Name = "adv", Signature = "adv([period])", Snippet = "adv()", Description = "Average daily volume; optional lookback period", Params = ["period?"] },
-        new() { Kind = "function", Name = "slope", Signature = "slope(series[, period])", Snippet = "slope(close, 5)", Description = "Linear regression slope over a rolling window (default 5)", Params = ["series", "period?"] },
-        new() { Kind = "function", Name = "crosses_over", Signature = "crosses_over(series1, series2)", Snippet = "crosses_over(close, sma(20))", Description = "True when series1 crosses above series2", Params = ["series1", "series2"] },
-        new() { Kind = "function", Name = "crosses_under", Signature = "crosses_under(series1, series2)", Snippet = "crosses_under(close, sma(20))", Description = "True when series1 crosses below series2", Params = ["series1", "series2"] },
-        new()
-        {
-            Kind = "function",
-            Name = "support_resistance",
-            Signature = "support_resistance(lookback, swing, cluster%, atrMult, atrPeriod, minTouches)",
-            Snippet = "support_resistance()",
-            Description = "Support/resistance zone mapper (alias: sr). Positive value = closer to resistance",
-            Params = ["lookback?", "swing?", "cluster%?", "atrMult?", "atrPeriod?", "minTouches?"],
-            Fields =
-            [
-                "value", "support", "resistance", "support_strength", "resistance_strength",
-                "support_distance", "resistance_distance", "support_distance_pct", "resistance_distance_pct",
-                "support_zone_width", "resistance_zone_width", "support_touches", "resistance_touches",
-                "support_upper", "support_lower", "resistance_upper", "resistance_lower",
-                "near_support", "near_resistance",
-            ],
-        },
-    ];
-
-    public OperationResult<FilterFunctionsResponse> Functions() => new()
+    public OperationResult<FilterFunctionsResponse> Functions(string? context = null)
     {
-        Status = HttpStatusCode.OK,
-        Data = new FilterFunctionsResponse { Functions = FunctionCatalog },
+        FilterContext? required = null;
+        if (!string.IsNullOrWhiteSpace(context))
+        {
+            if (!TryParseContext(context, out var parsed))
+            {
+                return new OperationResult<FilterFunctionsResponse>
+                {
+                    Status = HttpStatusCode.BadRequest,
+                    ErrorMessages = [$"Unknown context '{context}'. Expected one of: {string.Join(", ", ContextNames.Values)}."]
+                };
+            }
+            required = parsed;
+        }
+
+        var functions = FunctionRegistry.All
+            .Where(d => required is null || d.SupportsContext(required.Value))
+            .Select(ToInfo)
+            .ToList();
+
+        return new()
+        {
+            Status = HttpStatusCode.OK,
+            Data = new FilterFunctionsResponse { Functions = functions },
+        };
+    }
+
+    public static FilterFunctionInfo ToInfo(FunctionDescriptor d) => new()
+    {
+        Kind = d.IsKeyword ? "literal" : "function",
+        FunctionKind = d.Kind.ToString().ToLowerInvariant(),
+        Name = d.Name,
+        Signature = d.Signature,
+        Snippet = d.Snippet,
+        Description = d.Description,
+        Params = d.Params.Count > 0 ? d.Params.ToList() : null,
+        Fields = d.Fields.Count > 0 ? d.Fields.ToList() : null,
+        Aliases = d.Aliases.Count > 0 ? d.Aliases.ToList() : null,
+        Contexts = ContextList(d.Contexts),
+        DocsUrl = $"/docs/filters/{d.Name}",
     };
 
     #endregion

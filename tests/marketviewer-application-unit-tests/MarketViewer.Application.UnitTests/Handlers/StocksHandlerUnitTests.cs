@@ -1,4 +1,4 @@
-﻿using AutoFixture;
+using AutoFixture;
 using Moq;
 using Xunit;
 using FluentAssertions;
@@ -296,7 +296,7 @@ namespace MarketViewer.Application.UnitTests.Handlers
                 [
                     new Indicator
                     {
-                        Type = StudyType.macd,
+                        Type = "macd",
                         Parameters = ["12", "26", "9", "EMA"]
                     }
                 ]

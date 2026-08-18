@@ -4,10 +4,13 @@ import type { FilterFunctionInfo, FilterValidationResult } from '../types/filter
 
 export const filtersApi = {
   /** Validates expressions against the real backend parser. Batched. */
-  validate: async (expressions: string[]): Promise<FilterValidationResult[]> => {
+  validate: async (
+    expressions: string[],
+    context?: 'scan' | 'backtest' | 'chart',
+  ): Promise<FilterValidationResult[]> => {
     const response = await authFetch(`${BASE_URL}/filters/validate`, {
       method: 'POST',
-      body: JSON.stringify({ expressions }),
+      body: JSON.stringify(context ? { expressions, context } : { expressions }),
     });
 
     if (!response.ok) {
@@ -19,8 +22,9 @@ export const filtersApi = {
   },
 
   /** Autocomplete metadata: functions, literals, signatures, snippets. */
-  getFunctions: async (): Promise<FilterFunctionInfo[]> => {
-    const response = await authFetch(`${BASE_URL}/filters/functions`, {
+  getFunctions: async (context?: 'scan' | 'backtest' | 'chart'): Promise<FilterFunctionInfo[]> => {
+    const query = context ? `?context=${context}` : '';
+    const response = await authFetch(`${BASE_URL}/filters/functions${query}`, {
       method: 'GET',
     });
 

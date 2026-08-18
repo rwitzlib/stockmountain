@@ -1,3 +1,4 @@
+using MarketViewer.Filters.Registry;
 using MarketViewer.Filters.Interfaces;
 
 namespace MarketViewer.Filters.Functions.Indicators;
@@ -13,6 +14,19 @@ namespace MarketViewer.Filters.Functions.Indicators;
 /// Usage: support_resistance(lookback, swing, clusterPercent, atrMultiplier, atrPeriod, minTouches)
 /// All parameters are optional; pass fewer values to rely on defaults.
 /// </summary>
+[FilterFunction("support_resistance", Aliases = ["sr"], Kind = FunctionKind.Series,
+    Signature = "support_resistance(lookback, swing, cluster%, atrMult, atrPeriod, minTouches)", Snippet = "support_resistance()",
+    Description = "Support/resistance zone mapper (alias: sr). Positive value = closer to resistance",
+    Params = ["lookback?", "swing?", "cluster%?", "atrMult?", "atrPeriod?", "minTouches?"],
+    Fields =
+    [
+        "value", "support", "resistance", "support_strength", "resistance_strength",
+        "support_distance", "resistance_distance", "support_distance_pct", "resistance_distance_pct",
+        "support_zone_width", "resistance_zone_width", "support_touches", "resistance_touches",
+        "support_upper", "support_lower", "resistance_upper", "resistance_lower",
+        "near_support", "near_resistance",
+    ],
+    Cost = 6, Selectivity = 0.4, Contexts = FilterContext.All)]
 public class SupportResistanceFunction : ISeriesFunction
 {
     private const double Epsilon = 1e-6;

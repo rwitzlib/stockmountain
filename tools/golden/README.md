@@ -78,8 +78,14 @@ Keep 1m cases off `support_resistance` (non-incremental; minutes to replay).
 
 ## Adding a new indicator function
 
-1. Implement it in `MarketViewer.Filters/Functions`.
-2. Add a reference implementation to `compute_reference.py` and a key to `compute()`.
-3. Re-run `compute_reference.py`; the new key is picked up automatically by
-   `GoldenIndicatorTests` (both `Series_Matches_Reference` and `Incremental_Matches_Full`).
-4. Optionally add outcome cases using it to `compute_outcomes.py`.
+Follow the `add-filter-function` skill (`.claude/skills/add-filter-function/SKILL.md`): docs page
+first (the spec), then the Python reference **written from the spec, not ported from the C#**,
+then the C# with its `[FilterFunction]` attribute. `RegistryParityTests` enforces that every
+registered function has a reference key (series/transform) or an outcome case (boolean/keyword).
+Mechanics:
+
+1. Add a reference implementation to `compute_reference.py` and a key to `compute()`
+   (or a `Case(...)` to `compute_outcomes.py` for boolean/keyword tokens).
+2. Re-run the script(s); new keys/cases are picked up automatically by `GoldenIndicatorTests` /
+   `GoldenFilterOutcomeTests`.
+3. Confirm with `git diff` that existing keys are byte-identical.

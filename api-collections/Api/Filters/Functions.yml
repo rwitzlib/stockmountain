@@ -5,7 +5,12 @@ info:
 
 http:
   method: GET
-  url: https://{{base_url}}{{port}}/api/filters/functions
+  url: https://{{base_url}}{{port}}/api/filters/functions?context=chart
+  params:
+    - name: context
+      value: chart
+      type: query
+      enabled: false
   body:
     type: none
   auth: inherit

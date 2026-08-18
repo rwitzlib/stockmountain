@@ -1,3 +1,4 @@
+using MarketViewer.Filters.Registry;
 using MarketViewer.Filters.Interfaces;
 
 namespace MarketViewer.Filters.Functions.Comparison;
@@ -7,6 +8,10 @@ namespace MarketViewer.Filters.Functions.Comparison;
 /// Crosses above function - checks if series1 crossed above series2
 /// Can optionally check within a candle range
 /// </summary>
+[FilterFunction("crosses_over", Kind = FunctionKind.Boolean,
+    Signature = "crosses_over(series1, series2)", Snippet = "crosses_over(close, sma(20))",
+    Description = "True when series1 crosses above series2 on the latest bar",
+    Params = ["series1", "series2"], Cost = 3, Selectivity = 0.2, Contexts = FilterContext.Filters)]
 public class CrossesOverFunction : IBooleanFunction
 {
     public string Name => "crosses_over";

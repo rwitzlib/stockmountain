@@ -10,4 +10,10 @@ public class FilterValidateRequest
     /// every filter in a single call.
     /// </summary>
     public required List<string> Expressions { get; init; }
+
+    /// <summary>
+    /// Optional evaluation context: "scan" | "backtest" | "chart". When set, functions and
+    /// keywords not available in that context are reported as validation errors.
+    /// </summary>
+    public string? Context { get; init; }
 }

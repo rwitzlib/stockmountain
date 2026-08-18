@@ -1,3 +1,4 @@
+using MarketViewer.Filters.Registry;
 using MarketViewer.Filters.Interfaces;
 using MarketViewer.Filters.Functions;
 
@@ -10,6 +11,10 @@ namespace MarketViewer.Filters.Functions.Indicators;
 /// Usage: adv() or adv(period).
 /// Golden-tested against tools/golden/compute_reference.py (rolling mean of volume).
 /// </summary>
+[FilterFunction("adv", Kind = FunctionKind.Series,
+    Signature = "adv([period])", Snippet = "adv()",
+    Description = "Average volume over the last `period` bars of the active timeframe including the current bar (default 30); classic ADV on [1d]",
+    Params = ["period?"], Cost = 1, Selectivity = 0.4, Contexts = FilterContext.Filters)]
 public class AdvFunction : ISeriesFunction, IIncrementalSeriesFunction
 {
     public string Name => "adv";

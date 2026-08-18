@@ -1,3 +1,4 @@
+using MarketViewer.Filters.Registry;
 using MarketViewer.Filters.Interfaces;
 
 namespace MarketViewer.Filters.Functions.Transforms;
@@ -8,6 +9,10 @@ namespace MarketViewer.Filters.Functions.Transforms;
 /// Returns List<double> of slope values aligned to the end of each window.
 /// Usage: slope(series [, period]) with default period = 5.
 /// </summary>
+[FilterFunction("slope", Kind = FunctionKind.Transform,
+    Signature = "slope(series[, period])", Snippet = "slope(close, 5)",
+    Description = "Linear regression slope of a series over a rolling window (default 5)",
+    Params = ["series", "period?"], Cost = 1.5, Selectivity = 0.5, Contexts = FilterContext.Filters)]
 public class SlopeFunction : ISeriesFunction, IIncrementalSeriesFunction
 {
     public string Name => "slope";

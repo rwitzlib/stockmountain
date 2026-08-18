@@ -1,7 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using MarketViewer.Contracts.Converters;
-using MarketViewer.Contracts.Enums;
 
 namespace MarketViewer.Contracts.Models.Indicator;
 
@@ -9,7 +8,12 @@ namespace MarketViewer.Contracts.Models.Indicator;
 [JsonConverter(typeof(IndicatorConverter))]
 public class Indicator
 {
-    public StudyType Type { get; set; }
+    /// <summary>
+    /// Filter-DSL function name (e.g. "sma", "macd", alias "sr"). Resolved against the
+    /// MarketViewer.Filters FunctionRegistry with the Chart context; unknown or non-chartable
+    /// names are rejected by IndicatorCalculationService.
+    /// </summary>
+    public string Type { get; set; }
     public string[] Parameters { get; set; }
     public string Selector { get; set; }
 

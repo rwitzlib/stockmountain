@@ -6,14 +6,14 @@ A powerful script-based expression engine for technical analysis and market indi
 
 MarketViewer.Filters provides a flexible, script-based system for defining complex market analysis conditions and filters. Unlike traditional JSON-based approaches, this system uses intuitive mathematical expressions with support for:
 
-- **Built-in price literals** (`close`, `open`, `high`, `low`, `vwap`, `volume`)
+- **Built-in data keywords** (`close`, `open`, `high`, `low`, `volume`, `float`, `time`)
 - **Multi-field indicators** (MACD: value, signal, histogram)
 - **Dot notation field access** (`macd(12,26,9,ema).signal > 0`)
-- **Series-vs-series comparisons** (`close > vwap`, `sma(20) > sma(50)`)
+- **Series-vs-series comparisons** (`close > vwap()`, `sma(20) > sma(50)`)
 - **Series-based comparisons** with candle range evaluation
 - **Timeframe-specific analysis** (`[5m, 3]` for 3 candles on 5-minute chart)
 - **Complex logical expressions** (AND, OR, NOT)
-- **Built-in technical indicators** (SMA, EMA, MACD)
+- **Built-in technical indicators** (SMA, EMA, MACD, RSI, VWAP, ADV, support/resistance)
 - **Cross-over detection** (`crosses_over(close, sma(20))`)
 
 ## 🚀 Quick Start
@@ -25,7 +25,7 @@ using MarketViewer.Filters;
 var engine = new IndicatorExpressionEngine();
 
 // Simple comparison with price data
-bool result = engine.EvaluateScript("close > vwap", stockData, timeframe);
+bool result = engine.EvaluateScript("close > vwap()", stockData, timeframe);
 
 // Field access
 bool bullish = engine.EvaluateScript("macd(12,26,9,ema).histogram > 0", stockData, timeframe);
@@ -61,6 +61,10 @@ expression [timeframe, range]
 
 ## 📊 Supported Indicators
 
+> **User-facing reference:** every function and keyword has a spec page under
+> [`docs/filters/`](../../../docs/filters/index.md) (rendered in the app at `/docs/filters`). The
+> tables below are a summary; the docs pages are authoritative.
+
 ### Built-in Price Literals
 | Literal | Type | Description |
 |---------|------|-------------|
@@ -68,7 +72,6 @@ expression [timeframe, range]
 | `open` | Series | Opening prices from stock data |
 | `high` | Series | High prices from stock data |
 | `low` | Series | Low prices from stock data |
-| `vwap` | Series | VWAP values from stock data |
 | `volume` | Series | Volume values from stock data |
 | `float` | Scalar | Ticker share float (fails comparisons when unavailable) |
 | `time` | Series | Candle time of day in Eastern (market) time, as minutes since midnight. Compare against `HH:MM` literals (e.g. `time < 10:30`), or use `time.hour` / `time.minute` |
@@ -77,7 +80,9 @@ expression [timeframe, range]
 | Function | Parameters | Field | Description |
 |----------|------------|-------|-------------|
 | `sma(n)` | `n`: period | `value` | Simple Moving Average |
-| `ema(n)` | `n`: period | `value` | Exponential Moving Average |
+| `ema(n)` | `n`: period | `value` | Exponential Moving Average (SMA-seeded) |
+| `vwap([anchor])` | `anchor`: omitted/`session` (09:30 ET reset) or `day` (ET date reset) | `value` | Session VWAP |
+| `adv([n])` | `n`: period (default 30) | `value` | Average volume over the last n bars incl. current |
 | `rsi(period, overbought, oversold, type)` | `period`: lookback (e.g., 14)<br>`overbought`: e.g., 70 (informational only — not used in computation)<br>`oversold`: e.g., 30 (informational only)<br>`type`: `wilders` / `ema` / `sma` — all 4 parameters are required | `value` | Relative Strength Index (0–100) |
 
 ### Complex Indicators (Multiple Fields)
@@ -157,8 +162,8 @@ macd(12,26,9,ema).signal > 0 [1h, 5]
 
 ### Price-based Conditions
 ```javascript
-// Price above VWAP
-close > vwap [, 1]
+// Price above session VWAP
+close > vwap() [, 1]
 
 // High breakout above resistance
 high > 150 AND close > 148 [, 1]
@@ -170,7 +175,7 @@ low > 100 AND high < 200 [, 1]
 ### Time-of-day Conditions
 ```javascript
 // Only match during the first hour of the session (Eastern time)
-close > vwap AND time < 10:30
+close > vwap() AND time < 10:30
 
 // Entry window
 time >= 9:45 AND time < 11:00
@@ -294,7 +299,8 @@ close > entry * 1.10 [, 1]
 - **`IExpression`**: Base interface for all expressions
 - **`IExpressionParser`**: Parses script strings into executable expressions
 - **`IndicatorExpressionEngine`**: Main evaluation engine
-- **`DataAccessExpression`**: Provides access to built-in price data (close, open, high, low, vwap)
+- **`DataAccessExpression`**: Provides access to built-in data keywords (close, open, high, low, volume, float, time)
+- **`Registry/`**: `[FilterFunction]` attribute + `FunctionRegistry`/`KeywordRegistry` — the single source of truth for function metadata; the parser table, `/filters/functions` catalog, planner heuristics and `/stocks` chartable list are derived from it
 
 #### Result Types
 - **`IIndicatorResult`**: Interface for indicator calculation results
@@ -316,7 +322,9 @@ Script String → Tokens → AST → Evaluation → Boolean Result
 
 The system includes comprehensive unit tests covering:
 - ✅ Expression parsing
-- ✅ Built-in price literals (close, open, high, low, vwap, volume)
+- ✅ Built-in data keywords (close, open, high, low, volume, float, time)
+- ✅ Golden tests against an independent Python reference (`Golden/`, `tools/golden/`)
+- ✅ Registry parity (`Registry/RegistryParityTests`): every function has metadata, docs, golden coverage
 - ✅ Field access functionality
 - ✅ Series-vs-series comparisons
 - ✅ Series evaluation with ranges
@@ -327,7 +335,7 @@ The system includes comprehensive unit tests covering:
 
 Run tests:
 ```bash
-dotnet test src/MarketViewer.Filters.UnitTests/
+dotnet test tests/marketviewer-filters-unit-tests/MarketViewer.Filters.UnitTests/
 ```
 
 ## 🔄 Migration from JSON Filters
@@ -406,43 +414,26 @@ public class ExpressionContext
 public class DataAccessExpression : IExpression
 {
     // Provides access to built-in price data
-    // Supports: close, open, high, low, vwap
+    // Supports: close, open, high, low, volume, float, time (see Registry/KeywordRegistry.cs)
     public DataAccessExpression(string fieldName);
 }
 ```
 
 ## 🤝 Contributing
 
-When adding new indicators:
+Adding or changing a function is a documented, test-enforced process — follow the
+**`add-filter-function` skill** (`.claude/skills/add-filter-function/SKILL.md`, plan 15). In short:
 
-1. **Create Result Class**: Implement `IIndicatorResult` for multi-field indicators
-2. **Implement Function**: Create function class implementing `ISeriesFunction`
-3. **Register Function**: Add to `ExpressionParser._functions` dictionary
-4. **Add Tests**: Comprehensive test coverage for new functionality
-
-Example new indicator:
-```csharp
-public class RsiResult : BaseIndicatorResult
-{
-    public double Value { get; set; }
-
-    public override double GetFieldValue(string fieldName = "value") =>
-        fieldName.ToLowerInvariant() switch
-        {
-            "value" => Value,
-            _ => throw new ArgumentException($"Field '{fieldName}' not available")
-        };
-
-    public override IEnumerable<string> GetAvailableFields() => ["value"];
-}
-```
+1. Write the spec page `docs/filters/<name>.md` first.
+2. Add an independent Python reference (`tools/golden/`) written from that spec.
+3. Implement the class with a `[FilterFunction("<name>", …)]` attribute (`Registry/`); series
+   indicators must implement `IIncrementalSeriesFunction`. There is nothing else to register —
+   the parser, autocomplete catalog, heuristics and `/stocks` all read the attribute.
+4. Unit + perf tests. `RegistryParityTests` fails until docs, golden coverage and interfaces are complete.
 
 ## 🔮 Future Improvements
 
 The following enhancements are planned for future versions:
-
-### Expression Engine
-- **Parentheses for grouping**: Support for `(A AND B) OR C` style expressions with proper precedence control
 
 ### Performance & Caching
 - **Functional result caching**: Cache indicator calculations across evaluations to avoid redundant computations when the same function appears multiple times in an expression
@@ -458,7 +449,7 @@ The following enhancements are planned for future versions:
 - **Series alignment**: Indicators with different warm-up periods are automatically aligned by length
 - **Epsilon equality**: Floating-point comparisons use epsilon (1e-9) for precision handling
 - **Timeframe syntax**: Supports quantities (5m, 1h, 2d) and standard formats (1m, 1h, 1d)
-- **Price literals**: `close`, `open`, `high`, `low`, `vwap`, `volume` work directly without parentheses
+- **Data keywords**: `close`, `open`, `high`, `low`, `volume`, `float`, `time` work directly without parentheses; `vwap()` is a function
 - **Cross-over detection**: Automatically handles series of different lengths
 
 ## 📄 License

@@ -5,10 +5,8 @@ using MarketViewer.Filters.Interfaces;
 using MarketViewer.Filters.Operators.Comparison;
 using MarketViewer.Filters.Operators.Logical;
 using System.Text.RegularExpressions;
-using MarketViewer.Filters.Functions.Indicators;
-using MarketViewer.Filters.Functions.Comparison;
+using MarketViewer.Filters.Registry;
 using MarketViewer.Contracts.Enums;
-using MarketViewer.Filters.Functions.Transforms;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Filters;
 
@@ -24,22 +22,8 @@ public class ExpressionParser : IExpressionParser
 
     public ExpressionParser()
     {
-        // Register built-in functions
-        var supportResistance = new SupportResistanceFunction();
-        _functions = new Dictionary<string, IFunction>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["sma"] = new SmaFunction(),
-            ["ema"] = new EmaFunction(),
-            ["macd"] = new MacdFunction(),
-            ["adv"] = new AdvFunction(),
-            ["vwap"] = new VwapFunction(),
-            ["crosses_over"] = new CrossesOverFunction(),
-            ["crosses_under"] = new CrossesUnderFunction(),
-            ["rsi"] = new RsiFunction(),
-            ["slope"] = new SlopeFunction(),
-            ["support_resistance"] = supportResistance,
-            ["sr"] = supportResistance,
-        };
+        // Functions come from [FilterFunction] attributes via reflection (Registry/FunctionRegistry).
+        _functions = FunctionRegistry.CreateFunctionMap();
 
         // Register built-in operators
         _operators = new Dictionary<string, IOperator>(StringComparer.OrdinalIgnoreCase)
@@ -484,14 +468,7 @@ public class ExpressionParser : IExpressionParser
         return (args, index + 1);
     }
 
-    private static bool IsDataAccessKeyword(string token)
-    {
-        return token switch
-        {
-            "close" or "open" or "high" or "low" or "volume" or "float" or "time" => true,
-            _ => false
-        };
-    }
+    private static bool IsDataAccessKeyword(string token) => KeywordRegistry.IsKeyword(token);
 
     private static bool TryParseTimeLiteral(string token, out double minutesSinceMidnight)
     {

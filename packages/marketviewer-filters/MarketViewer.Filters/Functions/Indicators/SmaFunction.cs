@@ -1,3 +1,4 @@
+using MarketViewer.Filters.Registry;
 using MarketViewer.Filters.Interfaces;
 using MarketViewer.Filters.Functions;
 
@@ -6,6 +7,10 @@ namespace MarketViewer.Filters.Functions.Indicators;
 /// <summary>
 /// Simple Moving Average function
 /// </summary>
+[FilterFunction("sma", Kind = FunctionKind.Series,
+    Signature = "sma(period)", Snippet = "sma(14)",
+    Description = "Simple moving average of close over the last `period` bars",
+    Params = ["period"], Cost = 2, Selectivity = 0.5, Contexts = FilterContext.All)]
 public class SmaFunction : ISeriesFunction, IIncrementalSeriesFunction
 {
     public string Name => "sma";

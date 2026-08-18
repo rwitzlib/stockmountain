@@ -20,6 +20,13 @@ const makeNumberParam = (key: string, label: string, defaultValue: string): Indi
   default: defaultValue,
 });
 
+/**
+ * Chart RENDERING config (panes, colours, param editors) for indicators the stock chart knows how
+ * to draw. Whether a function is chartable at all is decided by the backend registry
+ * (`[FilterFunction(... Contexts = FilterContext.All)]`, exposed as
+ * `GET /filters/functions?context=chart`); adding a type here without backend Chart context yields
+ * an indicator /stocks silently omits. Names must be the DSL names.
+ */
 const REGISTRY: Record<IndicatorType, IndicatorDefinition> = {
   sma: {
     type: 'sma',

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using MarketViewer.Contracts.Enums;
@@ -6,7 +6,7 @@ using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Indicator;
 using MarketViewer.Contracts.Responses.Market;
 using MarketViewer.Filters.Expressions;
-using MarketViewer.Filters.Functions.Indicators;
+using MarketViewer.Filters.Registry;
 using MarketViewer.Filters.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -19,12 +19,22 @@ public interface IIndicatorCalculationService
 
 public class IndicatorCalculationService(ILogger<IndicatorCalculationService> logger) : IIndicatorCalculationService
 {
-    private readonly SmaFunction _smaFunction = new();
-    private readonly EmaFunction _emaFunction = new();
-    private readonly MacdFunction _macdFunction = new();
-    private readonly RsiFunction _rsiFunction = new();
-    private readonly VwapFunction _vwapFunction = new();
-    private readonly SupportResistanceFunction _supportResistanceFunction = new();
+    // One instance per chartable function, keyed by every accepted name/alias. Functions are stateless.
+    private static readonly Dictionary<string, ISeriesFunction> ChartFunctions = BuildChartFunctions();
+
+    private static Dictionary<string, ISeriesFunction> BuildChartFunctions()
+    {
+        var map = new Dictionary<string, ISeriesFunction>(StringComparer.OrdinalIgnoreCase);
+        foreach (var d in FunctionRegistry.Functions.Where(d => d.SupportsContext(FilterContext.Chart) && d.IsSeriesFunction))
+        {
+            var instance = (ISeriesFunction)d.CreateFunction();
+            foreach (var name in d.AllNames) map[name] = instance;
+        }
+        return map;
+    }
+
+    /// <summary>True when <paramref name="name"/> is a registered function that may be plotted via /stocks.</summary>
+    public static bool IsChartable(string? name) => name is not null && ChartFunctions.ContainsKey(name);
 
     public IndicatorResponse? Compute(Indicator indicator, StocksResponse stockData, Timeframe timeframe)
     {
@@ -58,23 +68,21 @@ public class IndicatorCalculationService(ILogger<IndicatorCalculationService> lo
 
     /// <summary>
     /// Computes the indicator series via the MarketViewer.Filters functions (the same code paths
-    /// used by /scan, the backtester and the live scanner). Returns null when the study type has no
-    /// function or the function throws; the caller omits the indicator from the response.
+    /// used by /scan, the backtester and the live scanner). The function is resolved by name from
+    /// the FunctionRegistry (Chart context only). Returns null when the name is unknown/not
+    /// chartable or the function throws; the caller omits the indicator from the response.
     /// </summary>
     private List<IIndicatorResult>? ComputeSeries(Indicator indicator, ExpressionContext context)
     {
+        if (indicator.Type is null || !ChartFunctions.TryGetValue(indicator.Type, out var function))
+        {
+            logger.LogWarning("Indicator {Type} is not a chartable filter function; skipping", indicator.Type);
+            return null;
+        }
+
         try
         {
-            return indicator.Type switch
-            {
-                StudyType.sma => ExecuteFunction(_smaFunction, indicator.Parameters, context),
-                StudyType.ema => ExecuteFunction(_emaFunction, indicator.Parameters, context),
-                StudyType.macd => ExecuteFunction(_macdFunction, indicator.Parameters, context),
-                StudyType.rsi => ExecuteFunction(_rsiFunction, indicator.Parameters, context),
-                StudyType.vwap => ExecuteFunction(_vwapFunction, indicator.Parameters, context),
-                StudyType.sr or StudyType.support_resistance => ExecuteFunction(_supportResistanceFunction, indicator.Parameters, context),
-                _ => null
-            };
+            return ExecuteFunction(function, indicator.Parameters, context);
         }
         catch (Exception ex)
         {

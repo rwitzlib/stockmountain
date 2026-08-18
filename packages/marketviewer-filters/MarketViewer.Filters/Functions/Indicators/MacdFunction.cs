@@ -1,3 +1,4 @@
+using MarketViewer.Filters.Registry;
 using MarketViewer.Filters.Interfaces;
 using MarketViewer.Filters.Functions;
 using Massive.Client.Models;
@@ -16,6 +17,11 @@ namespace MarketViewer.Filters.Functions.Indicators;
 /// placeholder zeros during warm-up (comparisons and crosses against a fake 0 signal used to
 /// fire spuriously; see plans/14-golden-filter-tests.md §Findings).
 /// </summary>
+[FilterFunction("macd", Kind = FunctionKind.Series,
+    Signature = "macd(fast, slow, signal, type)", Snippet = "macd(12,26,9,ema)",
+    Description = "MACD; fields: value, signal, histogram. First point after slow+signal-1 bars of warm-up (no placeholder zeros). Type: ema / sma / wilders",
+    Params = ["fast", "slow", "signal", "type"], Fields = ["value", "macd", "signal", "histogram"],
+    Cost = 4, Selectivity = 0.3, Contexts = FilterContext.All)]
 public class MacdFunction : ISeriesFunction, IIncrementalSeriesFunction
 {
     private static readonly string[] ValidTypes = ["sma", "ema", "wilders"];
