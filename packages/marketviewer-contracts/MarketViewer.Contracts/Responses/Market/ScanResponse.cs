@@ -18,7 +18,7 @@ namespace MarketViewer.Contracts.Responses.Market
         {
             public string Ticker { get; set; }
             public float Price { get; set; }
-            public float Volume { get; set; }
+            public double Volume { get; set; }
             public long? Float { get; set; }
         }
     }

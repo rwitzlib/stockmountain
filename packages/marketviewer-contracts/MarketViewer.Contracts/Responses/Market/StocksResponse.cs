@@ -25,8 +25,8 @@ public class StocksResponse
     public class Information
     {
         public TickerDetails TickerDetails { get; set; } = new();
-        public float DailyVolume { get; set; }
-        public float AverageVolume { get; set; }
+        public double DailyVolume { get; set; }
+        public double AverageVolume { get; set; }
     }
 
     public StocksResponse Clone()

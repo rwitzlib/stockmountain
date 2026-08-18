@@ -13,7 +13,8 @@ namespace Massive.Client.Models;
 /// and the live API's cache merges/aggregation — must use this so <c>vwap()</c> reads the same
 /// numbers live and in backtests.
 ///
-/// Sums are carried in double; only the final result is narrowed to the bar's float. Merging is
+/// Sums are carried in double (and <see cref="Bar.Volume"/> is itself double, so share counts sum
+/// exactly); only the final VWAP is narrowed to the bar's float. Merging is
 /// exact as a recurrence — a candle's VWAP × its volume is its price·volume sum — so no extra state
 /// is needed on <see cref="Bar"/>.
 /// </summary>

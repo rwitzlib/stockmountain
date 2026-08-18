@@ -42,7 +42,7 @@ public class TradeRepositoryUnitTests
     {
         public string Ticker { get; set; }
         public MassiveAggregateResponse Response { get; set; }
-        public float AverageVolume { get; set; }
+        public double AverageVolume { get; set; }
         public long? Float { get; set; }
     }
 

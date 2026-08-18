@@ -28,7 +28,7 @@ public class Bar
     public long Timestamp { get; set; }
 
     [JsonPropertyName("v")]
-    public float Volume { get; set; }
+    public double Volume { get; set; }
 
     [JsonPropertyName("vw")]
     public float Vwap { get; set; }

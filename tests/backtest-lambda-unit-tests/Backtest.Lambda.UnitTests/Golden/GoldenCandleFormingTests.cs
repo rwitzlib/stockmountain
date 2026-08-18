@@ -18,10 +18,6 @@ namespace Backtest.Lambda.UnitTests.Golden;
 /// </summary>
 public class GoldenCandleFormingTests
 {
-    // Bar.Volume is float32: sums above 2^24 (16.7M shares) cannot represent every integer, and the
-    // running float sum in UpdateLatestCandle rounds differently from a double sum. A few ulps.
-    private static float VolumeTolerance(float expected) => Math.Max(1.0f, Math.Abs(expected) * 2e-6f);
-
     // VWAP is carried as float32 on the bar and merged minute-by-minute as a weighted recurrence
     // (BarVwap.Merge), re-rounded to float32 at every step, versus one double Σ(vw·v)/Σv here. Over a
     // full day of minutes into one daily candle that drifts a few e-6 relative (observed 2.05e-6 on
@@ -193,7 +189,8 @@ public class GoldenCandleFormingTests
         actual.High.Should().Be(expected.High, context);
         actual.Low.Should().Be(expected.Low, context);
         actual.Close.Should().Be(expected.Close, context);
-        actual.Volume.Should().BeApproximately(expected.Volume, VolumeTolerance(expected.Volume), context);
+        // Bar.Volume is double: integer share counts sum exactly, so no tolerance (plan 14 follow-up #9).
+        actual.Volume.Should().Be(expected.Volume, context);
         actual.Vwap.Should().BeApproximately(expected.Vwap, VwapTolerance(expected.Vwap), context);
         actual.TransactionCount.Should().Be(expected.TransactionCount, context);
     }

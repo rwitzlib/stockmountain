@@ -170,7 +170,7 @@ def vwap(bars: list[dict], anchor: str, tf: str) -> pd.Series:
             continue
         vw = float(np.float32(b.get("vw", 0.0)))
         price = vw if vw > 0 else (float(np.float32(b["h"])) + float(np.float32(b["l"])) + float(np.float32(b["c"]))) / 3.0
-        vol = max(0.0, float(np.float32(b["v"])))
+        vol = max(0.0, float(b["v"]))  # Bar.Volume is double (plan 14 #9); prices stay float32
         cum_pv += price * vol
         cum_v += vol
         out[i] = cum_pv / cum_v if cum_v > 0 else price
@@ -191,10 +191,11 @@ def git_sha() -> str:
 def compute(bars_file: Path) -> dict:
     raw = json.loads(bars_file.read_text(encoding="utf-8"))
     df = pd.DataFrame(raw["results"])
-    # Match the C# numeric path: bars are float32 in Massive.Client.Models.Bar; the C# widens to double
-    # per operation. Cast inputs to float32 then back to float64 so the *inputs* are identical.
+    # Match the C# numeric path: prices are float32 in Massive.Client.Models.Bar (the C# widens to
+    # double per operation), Volume is double (plan 14 follow-up #9). Cast price inputs to float32
+    # then back to float64 so the *inputs* are identical; volume is read as-is.
     close = pd.Series(df["c"].to_numpy(dtype=np.float32).astype(np.float64))
-    volume = pd.Series(df["v"].to_numpy(dtype=np.float32).astype(np.float64))
+    volume = pd.Series(df["v"].to_numpy(dtype=np.float64))
 
     series: dict[str, list] = {}
     for n in SMA_PERIODS:

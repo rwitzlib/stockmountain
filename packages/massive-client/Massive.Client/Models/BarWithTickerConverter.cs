@@ -32,7 +32,7 @@ public class BarWithTickerConverter : JsonConverter<BarWithTicker>
             switch (propertyName)
             {
                 case "T": result.Ticker = reader.GetString(); break;
-                case "v": result.Volume = reader.GetSingle(); break;
+                case "v": result.Volume = reader.GetDouble(); break;
                 case "vw": result.Vwap = reader.GetSingle(); break;
                 case "o": result.Open = reader.GetSingle(); break;
                 case "c": result.Close = reader.GetSingle(); break;

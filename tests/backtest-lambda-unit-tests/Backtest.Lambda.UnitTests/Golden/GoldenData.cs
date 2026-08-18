@@ -68,7 +68,7 @@ internal static class GoldenData
     public static Bar Aggregate(long timestamp, IReadOnlyList<Bar> minutes)
     {
         double priceVolume = minutes.Sum(b => (double)b.Vwap * b.Volume);
-        double volume = minutes.Sum(b => (double)b.Volume);
+        double volume = minutes.Sum(b => b.Volume);
         return new Bar
         {
             Timestamp = timestamp,
@@ -76,7 +76,7 @@ internal static class GoldenData
             Close = minutes[^1].Close,
             High = minutes.Max(b => b.High),
             Low = minutes.Min(b => b.Low),
-            Volume = (float)volume,
+            Volume = volume,
             Vwap = volume > 0 ? (float)(priceVolume / volume) : (minutes[^1].Close + minutes.Max(b => b.High) + minutes.Min(b => b.Low)) / 3f,
             TransactionCount = minutes.Sum(b => b.TransactionCount)
         };

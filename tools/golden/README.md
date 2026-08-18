@@ -57,7 +57,8 @@ of `compute_reference.py`. In particular `ema` is SMA-seeded (TA-Lib style, *not
 and `rsi(...,ema)` is SMA-seeded with α = 2/(n+1). Change the C# and the script together.
 
 Tolerances (relative): 1e-4 for sma/adv/slope-of-price, 1e-3 for ema/macd/rsi and anything
-derived from them (float32 bar inputs, recursive accumulation); absolute floor 1e-6.
+derived from them (float32 price inputs, recursive accumulation); absolute floor 1e-6. `Bar.Volume`
+is double, so `adv()`/`vwap()` see exact share counts on both sides.
 
 ## Layer 2 — filter outcomes
 

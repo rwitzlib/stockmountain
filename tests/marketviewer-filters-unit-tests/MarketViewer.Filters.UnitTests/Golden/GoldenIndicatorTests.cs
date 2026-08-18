@@ -166,7 +166,7 @@ public class GoldenIndicatorTests
                 forming.High = Math.Max(forming.High, forming.Close);
                 forming.Low = Math.Min(forming.Low, forming.Close);
                 forming.Vwap = (forming.High + forming.Low + forming.Close) / 3;
-                forming.Volume = (float)(final.Volume * t);
+                forming.Volume = final.Volume * t;
                 session.EvaluateIncrementalRaw(all, timeframe);
             }
 

@@ -19,10 +19,10 @@ public class MassiveWebsocketAggregateResponse
     public string? Ticker { get; set; }
 
     [JsonPropertyName("v")]
-    public float Volume { get; set; }
+    public double Volume { get; set; }
 
     [JsonPropertyName("av")]
-    public float AccumulatedVolume { get; set; }
+    public double AccumulatedVolume { get; set; }
 
     [JsonPropertyName("op")]
     public float OpeningPrice { get; set; }

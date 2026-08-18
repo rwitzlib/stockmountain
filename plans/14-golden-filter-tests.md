@@ -478,10 +478,17 @@ Ordered by my read of impact. Each has enough context to be picked up cold.
    their `StudyType` members (a `rvol(...)` indicator string now fails deserialization → 400 rather than being
    silently omitted); the plan-11 `rvol()` DSL keyword will be written fresh as a Filters function. The dead
    `rvol` option in `StudyOperandForm.tsx` was removed. `StocksHandlerUnitTests` no longer borrows `StudyFixture`.
-9. **`Bar.Volume` is float32** — cumulative volume above 2^24 (16.7M) cannot represent every integer;
-   `volume > adv()` on mega-caps compares rounded numbers, `UpdateLatestCandle` sums accumulate rounding.
-   Tolerated in `GoldenCandleFormingTests`. Consider `double`/`long` in `Massive.Client.Models.Bar`
-   (contract change: S3 cache files, DynamoDB, web types).
+9. ~~**`Bar.Volume` is float32**~~ — **DONE 2026-08-17.** `Bar.Volume` → `double` (plus
+   `MassiveWebsocketAggregateResponse.Volume/AccumulatedVolume`, `StocksResponse.Information.DailyVolume/
+   AverageVolume`, `ScanResponse.Item.Volume`, `BarWithTickerConverter` reads `GetDouble`). Prices and
+   `Vwap` stay float32 deliberately: the API cache holds ~20M bars on a 4GB VPS (~2GB peak, doubling at
+   the 3:30am rebuild), all-double is +43% per bar vs +14% for volume alone, and every consumer already
+   computes in double so float32 prices (7 sig. digits, sub-penny below ~$10k) lose nothing that
+   matters. Backward compatible with existing S3 JSON (STJ writes float32 as plain digits, double reads
+   them). `GoldenCandleFormingTests` volume assertion is now exact; the Python golden reference casts
+   only prices to float32 (`compute_reference.py`, `compute_outcomes.py`) and reference/*.json were
+   regenerated — `adv()` moved ~6e-9 relative, no filter outcome flipped. Revisit all-double only after
+   the API cache memory work (incremental minute merge / struct bars) if uniformity is wanted.
 10. **`PerformanceTests` (filters project) is wall-clock based** and flakes under load; convert to a
     relative/ratio assertion or mark as a benchmark not run in CI.
 11. **`macd(...).value` now needs `slow+signal-1` bars** instead of `slow`; if any product surface documents

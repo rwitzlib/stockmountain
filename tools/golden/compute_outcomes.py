@@ -58,8 +58,10 @@ class Fixture:
         self.n = len(bars)
         self.t = np.array([b["t"] for b in bars], dtype=np.int64)
         f32 = lambda k: np.array([b[k] for b in bars], dtype=np.float32).astype(np.float64)
+        f64 = lambda k: np.array([b[k] for b in bars], dtype=np.float64)
+        # Prices are float32 on Bar; Volume is double (plan 14 follow-up #9).
         self.fields = {"close": f32("c"), "open": f32("o"), "high": f32("h"), "low": f32("l"),
-                       "volume": f32("v")}
+                       "volume": f64("v")}
         self.ref = {k: np.array([np.nan if v is None else v for v in s], dtype=np.float64) for k, s in ref["series"].items()}
         et = [datetime.fromtimestamp(ts / 1000, tz=timezone.utc).astimezone(ET) for ts in self.t]
         self.et_minutes = np.array([d.hour * 60 + d.minute for d in et], dtype=np.float64)

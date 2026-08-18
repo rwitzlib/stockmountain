@@ -31,13 +31,13 @@ public class SnapshotJob(
     ILogger<SnapshotJob> logger) : IJob
 {
     private const float PriceTolerance = 0.005f;
-    private const float VolumeRelativeTolerance = 0.005f;
+    private const double VolumeRelativeTolerance = 0.005;
 
     private static readonly TimeZoneInfo TimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
 
     private sealed record GapRecord(string Ticker, long FromTs, long ToTs);
 
-    private sealed record MismatchRecord(string Ticker, float RelVolumeDelta, Bar WsBar, Bar SnapshotBar);
+    private sealed record MismatchRecord(string Ticker, double RelVolumeDelta, Bar WsBar, Bar SnapshotBar);
 
     public async Task Execute(IJobExecutionContext context)
     {
@@ -131,7 +131,7 @@ public class SnapshotJob(
                     || Math.Abs(wsBar.High - snapshot.Minute.High) >= PriceTolerance
                     || Math.Abs(wsBar.Low - snapshot.Minute.Low) >= PriceTolerance;
 
-                var relVolumeDelta = Math.Abs(wsBar.Volume - snapshot.Minute.Volume) / Math.Max(snapshot.Minute.Volume, 1f);
+                var relVolumeDelta = Math.Abs(wsBar.Volume - snapshot.Minute.Volume) / Math.Max(snapshot.Minute.Volume, 1.0);
                 var volumeOff = relVolumeDelta >= VolumeRelativeTolerance;
 
                 if (priceOff)
