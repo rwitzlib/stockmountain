@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useMemo, type MouseEvent } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { marked } from 'marked';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import { getFilterDoc, listFilterDocs, KIND_ORDER, type FilterDoc } from '../../content/filterDocs';
@@ -29,10 +29,39 @@ function ContextBadges({ contexts }: { contexts?: string[] }) {
   );
 }
 
+/**
+ * Resolves the relative links the markdown uses between pages (`./rsi`, `rsi`, `rsi.md`) to the
+ * absolute route, so they work from both `/docs/filters` and `/docs/filters/:name`, and routes
+ * clicks through react-router instead of a full reload.
+ */
+const DOCS_BASE = '/docs/filters';
+const relativeLink = /^(?:\.\/)?([a-z][a-z0-9_]*)(?:\.md)?(#.*)?$/i;
+
 function Markdown({ source }: { source: string }) {
-  const html = useMemo(() => marked.parse(source) as string, [source]);
+  const navigate = useNavigate();
+  const html = useMemo(() => {
+    const renderer = new marked.Renderer();
+    const base = renderer.link.bind(renderer);
+    renderer.link = (token) => {
+      const m = relativeLink.exec(token.href);
+      const href = m ? `${DOCS_BASE}/${m[1] === 'index' ? '' : m[1]}${m[2] ?? ''}` : token.href;
+      return base({ ...token, href });
+    };
+    return marked.parse(source, { renderer }) as string;
+  }, [source]);
+
+  const onClick = (e: MouseEvent<HTMLElement>) => {
+    const anchor = (e.target as HTMLElement).closest('a');
+    if (!anchor || e.defaultPrevented || e.metaKey || e.ctrlKey || e.button !== 0) return;
+    const href = anchor.getAttribute('href');
+    if (href?.startsWith(DOCS_BASE)) {
+      e.preventDefault();
+      navigate(href);
+    }
+  };
+
   // Content is our own repo markdown (docs/filters/*.md), not user input.
-  return <article className="docs-prose" dangerouslySetInnerHTML={{ __html: html }} />;
+  return <article className="docs-prose" onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 function DocsIndex() {

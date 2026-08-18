@@ -9,7 +9,7 @@ summary: True when series1 crosses from at-or-above to strictly below series2 on
 
 # crosses_under(series1, series2)
 
-`crosses_under` is the mirror of [`crosses_over`](crosses_over.md): it fires on the bar where one line
+`crosses_under` is the mirror of [`crosses_over`](./crosses_over): it fires on the bar where one line
 drops below another — price losing a moving average, a fast EMA slipping under a slow one, the MACD
 line falling through its signal. Use it for bearish entry triggers, for exit conditions in a long
 strategy, or to detect a breakdown *event* rather than the ongoing *state* `close < sma(20)`.
