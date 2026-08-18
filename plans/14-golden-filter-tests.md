@@ -489,10 +489,21 @@ Ordered by my read of impact. Each has enough context to be picked up cold.
    only prices to float32 (`compute_reference.py`, `compute_outcomes.py`) and reference/*.json were
    regenerated — `adv()` moved ~6e-9 relative, no filter outcome flipped. Revisit all-double only after
    the API cache memory work (incremental minute merge / struct bars) if uniformity is wanted.
-10. **`PerformanceTests` (filters project) is wall-clock based** and flakes under load; convert to a
-    relative/ratio assertion or mark as a benchmark not run in CI.
-11. **`macd(...).value` now needs `slow+signal-1` bars** instead of `slow`; if any product surface documents
-    the warm-up length (indicator config in `apps/web/src/config/indicators.ts`), update it.
+10. ~~**`PerformanceTests` (filters project) is wall-clock based**~~ — **DONE 2026-08-17.** Kept, not
+    deleted: the four `*_Incremental_Is_Faster_Than_Full_Recompute` tests guard the one property no
+    correctness test can (an `Append` that silently recomputes the whole series is still *correct*).
+    Hardened instead: `TestMacdFieldAccess` (asserted nothing, 5 s) deleted; both paths JIT-warmed
+    untimed; `Stopwatch` ticks not ms; 2000 initial bars × 2000 appends so full recompute is plainly
+    quadratic; assert `full > 2× incremental` (measured 34–82×); class tagged
+    `[Trait("Category","Performance")]` — `dotnet test --filter Category!=Performance` for a fully
+    deterministic run. Bonus finding: the hardened slope test measured only 4.2× because
+    `SlopeFunction.Append` projected the whole input series via `Select(...).ToList()` every call
+    (O(n)); now indexes lazily → 34×. Class total ~4 s faster than before.
+11. ~~**`macd(...).value` now needs `slow+signal-1` bars**~~ — **DONE 2026-08-17.** Audited: no product
+    surface documented the warm-up length (`apps/web/src/config/indicators.ts` holds only params/colors;
+    docs/ADRs silent; nothing computes a required-bars figure — DataCache's previous-session preload
+    covers it). Added the warm-up fact to the one user-facing DSL help surface, the `macd` entry in
+    `FilterValidateHandler`'s function catalog (`/functions` autocomplete).
 
 ## Out of scope
 

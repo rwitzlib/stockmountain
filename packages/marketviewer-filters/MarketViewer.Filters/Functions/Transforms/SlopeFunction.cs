@@ -79,13 +79,24 @@ public class SlopeFunction : ISeriesFunction, IIncrementalSeriesFunction
             if (period < 2) throw new ArgumentException("slope() period must be >= 2");
         }
 
-        // Normalize series input
-        List<double> values = parameters[0] switch
+        // Normalize series input. Index lazily rather than projecting the whole series: Append is
+        // called once per new bar and only ever needs the last ~period values, so a full
+        // Select(...).ToList() here made the "incremental" path O(n) (PerformanceTests caught it).
+        int valueCount;
+        Func<int, double> valueAt;
+        switch (parameters[0])
         {
-            List<IIndicatorResult> series => series.Select(r => r.GetFieldValue("value")).ToList(),
-            List<double> doubles => doubles,
-            _ => throw new ArgumentException($"slope() first argument must be a series; got {parameters[0]?.GetType().Name ?? "null"}")
-        };
+            case List<IIndicatorResult> series:
+                valueCount = series.Count;
+                valueAt = i => series[i].GetFieldValue("value");
+                break;
+            case List<double> doubles:
+                valueCount = doubles.Count;
+                valueAt = i => doubles[i];
+                break;
+            default:
+                throw new ArgumentException($"slope() first argument must be a series; got {parameters[0]?.GetType().Name ?? "null"}");
+        }
 
         // Previous slopes list
         var prev = previousResult as List<double> ?? new List<double>();
@@ -94,7 +105,7 @@ public class SlopeFunction : ISeriesFunction, IIncrementalSeriesFunction
         // timestamps here, so reuse is by count: a rewind means rebuild. The last cached slope is
         // always recomputed — its window ended at an input value that may have belonged to a
         // still-forming bar when it was computed (see IncrementalSeries).
-        int expectedCount = Math.Max(0, values.Count - period + 1);
+        int expectedCount = Math.Max(0, valueCount - period + 1);
         if (prev.Count > expectedCount)
         {
             return Execute(parameters, context);
@@ -113,13 +124,13 @@ public class SlopeFunction : ISeriesFunction, IIncrementalSeriesFunction
 
         // Start computing from the first window that is missing or provisional
         int startWindowEnd = period - 1 + keep;
-        for (int end = startWindowEnd; end < values.Count; end++)
+        for (int end = startWindowEnd; end < valueCount; end++)
         {
             double sumY = 0.0;
             double sumXY = 0.0;
             for (int i = 0; i < N; i++)
             {
-                double y = values[end - (N - 1) + i];
+                double y = valueAt(end - (N - 1) + i);
                 sumY += y;
                 sumXY += i * y;
             }
