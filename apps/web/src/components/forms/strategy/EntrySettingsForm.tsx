@@ -158,6 +158,7 @@ export function EntrySettingsForm({ value, onChange }: EntrySettingsFormProps) {
           <div className="p-4 rounded-lg border border-border bg-card">
             <FilterComposer
               onAddFilter={handleAddFilter}
+              context="scan"
               addButtonLabel="Add Entry Condition"
             />
           </div>

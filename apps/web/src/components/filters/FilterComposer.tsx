@@ -22,8 +22,16 @@ export interface FilterComposerRef {
   setExpression: (expression: string) => void;
 }
 
+export type FilterComposerContext = 'scan' | 'backtest' | 'chart';
+
 interface FilterComposerProps {
   onAddFilter: (expression: string) => void;
+  /**
+   * Where the authored expression will run. Scopes autocomplete to functions declared
+   * for that context and makes validation reject anything outside it, so consumers can't
+   * add an expression the target evaluator would refuse.
+   */
+  context: FilterComposerContext;
   addButtonLabel?: string;
   disabled?: boolean;
 }
@@ -75,7 +83,7 @@ const argIndexAt = (text: string, parenIndex: number, caret: number): number => 
 };
 
 export const FilterComposer = forwardRef(function FilterComposer(
-  { onAddFilter, addButtonLabel = 'Add Filter', disabled = false }: FilterComposerProps,
+  { onAddFilter, context, addButtonLabel = 'Add Filter', disabled = false }: FilterComposerProps,
   ref: Ref<FilterComposerRef>
 ) {
   const [input, setInput] = useState('');
@@ -95,8 +103,8 @@ export const FilterComposer = forwardRef(function FilterComposer(
   }));
 
   const { data: functions = [] } = useQuery({
-    queryKey: ['filterFunctions'],
-    queryFn: () => filtersApi.getFunctions(),
+    queryKey: ['filterFunctions', context],
+    queryFn: () => filtersApi.getFunctions(context),
     staleTime: Infinity,
     retry: 1,
   });
@@ -113,7 +121,7 @@ export const FilterComposer = forwardRef(function FilterComposer(
     const seq = ++validateSeq.current;
     const timer = setTimeout(async () => {
       try {
-        const [result] = await filtersApi.validate([expression]);
+        const [result] = await filtersApi.validate([expression], context);
         if (seq === validateSeq.current) setValidation(result ?? null);
       } catch {
         if (seq === validateSeq.current) setValidation(null); // API unreachable — don't block
@@ -122,7 +130,7 @@ export const FilterComposer = forwardRef(function FilterComposer(
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [input]);
+  }, [input, context]);
 
   const { word, start: wordStart } = wordAt(input, caret);
 
@@ -222,7 +230,7 @@ export const FilterComposer = forwardRef(function FilterComposer(
     const expression = input.trim();
     if (!expression || disabled) return;
     try {
-      const [result] = await filtersApi.validate([expression]);
+      const [result] = await filtersApi.validate([expression], context);
       if (!result?.valid) {
         setValidation(result ?? null);
         return;
