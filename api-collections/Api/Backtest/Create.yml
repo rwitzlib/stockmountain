@@ -26,14 +26,9 @@ http:
         },
         "entrySettings": {
           "filters": [
-            "rsi(14,30,70,wilders) < 30 [1m]",
-            "float < 50000000",
-            "close > 2.50 [1m]",
-            "volume > 50000 [1m,5]",
-            "volume > 1000000 [1d]",
-            "close > sma(200) [1d]",
-            "time < 14:00",
-            "volume > adv(30) [1d]"
+            "crosses_over(ema(20), ema(50)) [1d]",
+            "rsi(14,30,70,wilders) > 30 [1d]",
+            "float < 10000000"
           ]
         },
         "exitSettings": {

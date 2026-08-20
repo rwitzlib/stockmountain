@@ -389,7 +389,7 @@ export function BacktestDetailPage() {
       return;
     }
 
-    navigate('/backtest', { state: { backtestDefaults: copyData } });
+    navigate('/backtest/create', { state: { backtestDefaults: copyData } });
   };
 
   const handleCreateStrategy = () => {
