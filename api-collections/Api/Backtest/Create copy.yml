@@ -1,7 +1,7 @@
 info:
-  name: Create RSI Low
+  name: Create copy
   type: http
-  seq: 3
+  seq: 2
 
 http:
   method: POST
@@ -11,13 +11,13 @@ http:
     data: |-
       {
         "start": "2026-01-01",
-        "end": "2026-08-14",
+        "end": "2026-08-13",
         "positionSettings": {
-          "startingBalance": 100000,
+          "startingBalance": 10000,
           "maxConcurrentPositions": 1000,
           "model": {
             "type": "Fixed",
-            "size": 10000
+            "size": 5000
           },
           "cooldown": {
             "multiplier": 15,
@@ -26,10 +26,14 @@ http:
         },
         "entrySettings": {
           "filters": [
-            "rsi(14,30,70,ema) < 30 [1m]",
-            "float < 10000000",
-            "close > 1.00 [1m]",
-            "volume > 10000 [1m,5]"
+            "rsi(14,30,70,wilders) < 30 [1m]",
+            "float < 50000000",
+            "close > 2.50 [1m]",
+            "volume > 50000 [1m,5]",
+            "volume > 1000000 [1d]",
+            "close > sma(200) [1d]",
+            "time < 14:00",
+            "volume > adv(30) [1d]"
           ]
         },
         "exitSettings": {
@@ -39,7 +43,7 @@ http:
           },
           "takeProfit": {
             "type": "percent",
-            "value": 15
+            "value": 10
           },
           "timedExit": {
             "avoidOvernight": true,
