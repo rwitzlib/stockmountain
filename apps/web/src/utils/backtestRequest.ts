@@ -58,3 +58,10 @@ export function getBacktestRequestInfo(entry: BacktestEntry): BacktestRequestInf
     filters: [],
   };
 }
+
+/** Hold profit as a percentage of starting balance. */
+export function getPercentGain(entry: BacktestEntry): number {
+  const startingBalance = getBacktestRequestInfo(entry).positionInfo.startingBalance;
+  if (!startingBalance) return 0;
+  return ((entry.holdProfit || 0) / startingBalance) * 100;
+}

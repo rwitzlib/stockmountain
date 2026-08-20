@@ -62,6 +62,9 @@ export interface BacktestRequestInfo {
   filters?: string[];
 }
 
+/** Sortable table columns — entry fields plus derived values. */
+export type BacktestSortKey = keyof BacktestEntry | 'percentGain';
+
 export interface BacktestEntry {
   id: string;
   status: string;

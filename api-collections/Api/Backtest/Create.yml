@@ -10,10 +10,10 @@ http:
     type: json
     data: |-
       {
-        "start": "2026-01-01",
+        "start": "2024-01-01",
         "end": "2026-08-13",
         "positionSettings": {
-          "startingBalance": 10000,
+          "startingBalance": 100000,
           "maxConcurrentPositions": 1000,
           "model": {
             "type": "Fixed",
@@ -26,25 +26,26 @@ http:
         },
         "entrySettings": {
           "filters": [
-            "crosses_over(ema(20), ema(50)) [1d]",
-            "rsi(14,30,70,wilders) > 30 [1d]",
-            "float < 10000000"
+            "crosses_over(ema(50), ema(200)) [1d]",
+            "macd(12,26,9,ema) > 0 [1d]",
+            "float > 30000000",
+            "time < 10:00"
           ]
         },
         "exitSettings": {
           "stopLoss": {
             "type": "percent",
-            "value": 2
+            "value": 7.5
           },
           "takeProfit": {
             "type": "percent",
-            "value": 10
+            "value": 15
           },
           "timedExit": {
-            "avoidOvernight": true,
+            "avoidOvernight": false,
             "timeframe": {
-              "multiplier": 5,
-              "timespan": "minute"
+              "multiplier": 14,
+              "timespan": "day"
             }
           }
         }

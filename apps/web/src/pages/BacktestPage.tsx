@@ -1,20 +1,17 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/react';
 import { BacktestResultsTable } from '../components/tables/BacktestResultsTable';
 import { BacktestSummary } from '../components/backtest/BacktestSummary';
-import { BacktestInsights } from '../components/backtest/BacktestInsights';
-import { BacktestEntry } from '../types/backtest';
+import { BacktestEntry, BacktestSortKey } from '../types/backtest';
 import { backtestApi } from '../api/backtestApi';
+import { getPercentGain } from '../utils/backtestRequest';
 import { userApi, UserDetails } from '../api/userApi';
 import { Clock } from '../components/clock/Clock';
 import { MarketStatus } from '../components/market';
 import { ApiStatus } from '../components/status';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Search, Filter, X, ChevronDown, ChevronRight, RefreshCw, BarChart3 } from 'lucide-react';
-
-type StatusFilter = 'All' | 'Completed' | 'InProgress' | 'Failed';
+import { RefreshCw } from 'lucide-react';
 
 const POLL_IDLE_MS = 30000;
 const POLL_ACTIVE_MS = 5000;
@@ -26,15 +23,13 @@ function formatLastRefreshed(date: Date | null): string {
 
 export function BacktestPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [error, setError] = useState('');
   const [backtestResults, setBacktestResults] = useState<BacktestEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-  const [showInsights, setShowInsights] = useState(false);
   const [sortConfig, setSortConfig] = useState<{
-    key: keyof BacktestEntry | null;
+    key: BacktestSortKey | null;
     direction: 'asc' | 'desc';
   }>({
     key: 'createdAt',
@@ -44,14 +39,6 @@ export function BacktestPage() {
   const { user } = useUser();
   const userId = user?.id;
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
-
-  // Filter state from URL params
-  const statusFilter = (searchParams.get('status') as StatusFilter) || 'All';
-  const searchQuery = searchParams.get('search') || '';
-  const minProfit = searchParams.get('minProfit') ? parseFloat(searchParams.get('minProfit')!) : null;
-  const maxProfit = searchParams.get('maxProfit') ? parseFloat(searchParams.get('maxProfit')!) : null;
-  const startDate = searchParams.get('startDate') || '';
-  const endDate = searchParams.get('endDate') || '';
 
   const inProgressCount = useMemo(
     () => backtestResults.filter(r => r.status === 'InProgress').length,
@@ -98,75 +85,33 @@ export function BacktestPage() {
       .catch(e => console.error('Failed to fetch user credits:', e));
   }, [userId, inProgressCount]);
 
-  const updateFilter = (key: string, value: string) => {
-    const newParams = new URLSearchParams(searchParams);
-    if (value === '' || value === 'All') {
-      newParams.delete(key);
-    } else {
-      newParams.set(key, value);
-    }
-    setSearchParams(newParams);
-  };
-
-  const clearFilters = () => {
-    setSearchParams({});
-  };
-
-  const sortData = (key: keyof BacktestEntry) => {
+  const sortData = (key: BacktestSortKey) => {
     const direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
     setSortConfig({ key, direction });
   };
 
-  const filteredAndSortedData = useMemo((): BacktestEntry[] => {
-    let filtered = [...backtestResults];
+  const sortedData = useMemo((): BacktestEntry[] => {
+    const sorted = [...backtestResults];
 
-    if (statusFilter !== 'All') {
-      filtered = filtered.filter(result => {
-        if (statusFilter === 'Failed') {
-          return result.status === 'Failed' || result.status === 'Error';
-        }
-        return result.status === statusFilter;
+    if (!sortConfig.key) return sorted;
+
+    if (sortConfig.key === 'percentGain') {
+      return sorted.sort((a, b) => {
+        const diff = getPercentGain(a) - getPercentGain(b);
+        return sortConfig.direction === 'asc' ? diff : -diff;
       });
     }
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(result =>
-        result.id.toLowerCase().includes(query) ||
-        result.createdAt.toLowerCase().includes(query) ||
-        result.start.toLowerCase().includes(query) ||
-        result.end.toLowerCase().includes(query) ||
-        (result.request?.entrySettings?.filters || []).some(f => f.toLowerCase().includes(query))
-      );
-    }
+    const sortKey = sortConfig.key as keyof BacktestEntry;
 
-    if (minProfit !== null) {
-      filtered = filtered.filter(result => (result.holdProfit || 0) >= minProfit);
-    }
-    if (maxProfit !== null) {
-      filtered = filtered.filter(result => (result.holdProfit || 0) <= maxProfit);
-    }
+    return sorted.sort((a, b) => {
+      if (a[sortKey] === null) return 1;
+      if (b[sortKey] === null) return -1;
 
-    if (startDate) {
-      const start = new Date(startDate);
-      filtered = filtered.filter(result => new Date(result.createdAt) >= start);
-    }
-    if (endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      filtered = filtered.filter(result => new Date(result.createdAt) <= end);
-    }
+      let aValue = a[sortKey];
+      let bValue = b[sortKey];
 
-    if (!sortConfig.key) return filtered;
-
-    return filtered.sort((a, b) => {
-      if (a[sortConfig.key!] === null) return 1;
-      if (b[sortConfig.key!] === null) return -1;
-
-      let aValue = a[sortConfig.key!];
-      let bValue = b[sortConfig.key!];
-
-      if (sortConfig.key === 'createdAt' || sortConfig.key === 'start' || sortConfig.key === 'end') {
+      if (sortKey === 'createdAt' || sortKey === 'start' || sortKey === 'end') {
         aValue = new Date(aValue as string).getTime();
         bValue = new Date(bValue as string).getTime();
       }
@@ -175,9 +120,7 @@ export function BacktestPage() {
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [backtestResults, statusFilter, searchQuery, minProfit, maxProfit, startDate, endDate, sortConfig]);
-
-  const hasActiveFilters = statusFilter !== 'All' || !!searchQuery || minProfit !== null || maxProfit !== null || !!startDate || !!endDate;
+  }, [backtestResults, sortConfig]);
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 pt-20 md:pt-8">
@@ -244,154 +187,10 @@ export function BacktestPage() {
                 maxCredits={userDetails?.maxCredits ?? null}
               />
 
-              {/* Collapsible insights — collapsed by default so the table stays primary */}
-              <div className="rounded-xl border border-border/80 bg-card">
-                <button
-                  type="button"
-                  onClick={() => setShowInsights(prev => !prev)}
-                  className="w-full flex items-center justify-between rounded-xl px-4 py-3 hover:bg-accent hover:text-foreground transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-semibold text-foreground">
-                      Insights
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      charts &amp; performers
-                    </span>
-                  </div>
-                  {showInsights ? (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-                {showInsights && (
-                  <div className="border-t border-border p-4">
-                    <BacktestInsights results={backtestResults} />
-                  </div>
-                )}
-              </div>
-
-              {/* Filters */}
-              <div className="rounded-xl border border-border/80 bg-card p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-muted-foreground" />
-                    <h2 className="text-sm font-semibold text-foreground">Filters</h2>
-                    {!isLoading && (
-                      <span className="text-[11px] text-muted-foreground tabular-nums">
-                        {filteredAndSortedData.length} of {backtestResults.length}
-                      </span>
-                    )}
-                  </div>
-                  {hasActiveFilters && (
-                    <Button
-                      onClick={clearFilters}
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Clear All
-                    </Button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                      Search
-                    </label>
-                    <div className="relative">
-                      <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        type="text"
-                        placeholder="ID, date, filter..."
-                        value={searchQuery}
-                        onChange={(e) => updateFilter('search', e.target.value)}
-                        className="pl-8 text-xs h-9"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                      Status
-                    </label>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => updateFilter('status', e.target.value)}
-                      className="flex h-9 w-full rounded-lg border border-input bg-card px-3 py-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    >
-                      <option value="All">All</option>
-                      <option value="Completed">Completed</option>
-                      <option value="InProgress">In Progress</option>
-                      <option value="Failed">Failed</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                      Min Hold P/L ($)
-                    </label>
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={minProfit !== null ? minProfit : ''}
-                      onChange={(e) => updateFilter('minProfit', e.target.value)}
-                      className="text-xs h-9 tabular-nums"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                      Max Hold P/L ($)
-                    </label>
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={maxProfit !== null ? maxProfit : ''}
-                      onChange={(e) => updateFilter('maxProfit', e.target.value)}
-                      className="text-xs h-9 tabular-nums"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                      Start Date
-                    </label>
-                    <Input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => updateFilter('startDate', e.target.value)}
-                      className="text-xs h-9 tabular-nums"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                      End Date
-                    </label>
-                    <Input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => updateFilter('endDate', e.target.value)}
-                      className="text-xs h-9 tabular-nums"
-                    />
-                  </div>
-                </div>
-              </div>
-
               <BacktestResultsTable
-                results={filteredAndSortedData}
+                results={sortedData}
                 sortConfig={sortConfig}
                 onSort={sortData}
-                hasActiveFilters={hasActiveFilters}
-                onClearFilters={clearFilters}
-                totalCount={backtestResults.length}
               />
             </>
           )}
@@ -407,8 +206,6 @@ function BacktestPageSkeleton() {
       <div className="flex justify-end">
         <div className="h-16 w-full sm:w-96 rounded-xl border border-border/80 bg-muted/40" />
       </div>
-      <div className="h-12 rounded-xl border border-border/80 bg-muted/40" />
-      <div className="h-40 rounded-xl border border-border/80 bg-muted/40" />
       <div className="rounded-xl border border-border/80 overflow-hidden">
         <div className="h-10 border-b border-border bg-muted/30" />
         {Array.from({ length: 5 }).map((_, i) => (
