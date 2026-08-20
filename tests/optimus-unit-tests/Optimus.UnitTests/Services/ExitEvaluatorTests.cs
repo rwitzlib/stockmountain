@@ -32,7 +32,7 @@ public class ExitEvaluatorTests
         };
     }
 
-    private static TradeRecord BuildTrade(int shares = 10, float entryPrice = 100f)
+    private static TradeRecord BuildTrade(int shares = 10, float entryPrice = 100f, DateTimeOffset? openedAt = null)
     {
         return new TradeRecord
         {
@@ -40,7 +40,7 @@ public class ExitEvaluatorTests
             Shares = shares,
             EntryPrice = entryPrice,
             EntryPosition = shares * entryPrice,
-            OpenedAt = OpenedAt.ToString("o")
+            OpenedAt = (openedAt ?? OpenedAt).ToString("o")
         };
     }
 
@@ -147,5 +147,62 @@ public class ExitEvaluatorTests
         var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), null, OpenedAt.AddMinutes(31));
 
         Assert.Equal(BacktestExitReason.timedExit, result);
+    }
+
+    // Session bounds for the same Wednesday the trades above open on.
+    private static readonly DateTimeOffset SessionClose = DateTimeOffset.Parse("2026-07-15T16:00:00-04:00");
+    private static readonly DateTimeOffset NextSessionOpen = DateTimeOffset.Parse("2026-07-16T09:30:00-04:00");
+
+    [Fact]
+    public void Evaluate_PullsTimedExitForwardToFinalMinute_WhenProjectedExitLandsAfterClose()
+    {
+        // Opened 15:55 with a 5m hold: projected exit 16:00 lands exactly at the close,
+        // where the worker never runs. Must fire on the 15:59 bar like the backtester.
+        var strategy = BuildStrategy(timedExitTimeframe: new Timeframe(5, Timespan.minute));
+        var trade = BuildTrade(openedAt: DateTimeOffset.Parse("2026-07-15T15:55:00-04:00"));
+
+        var result = ExitEvaluator.Evaluate(strategy, trade, 101f,
+            DateTimeOffset.Parse("2026-07-15T15:59:00-04:00"), (SessionClose, NextSessionOpen));
+
+        Assert.Equal(BacktestExitReason.timedExit, result);
+    }
+
+    [Fact]
+    public void Evaluate_DoesNotFirePulledForwardExit_BeforeFinalMinute()
+    {
+        var strategy = BuildStrategy(timedExitTimeframe: new Timeframe(5, Timespan.minute));
+        var trade = BuildTrade(openedAt: DateTimeOffset.Parse("2026-07-15T15:55:00-04:00"));
+
+        var result = ExitEvaluator.Evaluate(strategy, trade, 101f,
+            DateTimeOffset.Parse("2026-07-15T15:58:50-04:00"), (SessionClose, NextSessionOpen));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void Evaluate_LeavesTimedExitAlone_WhenProjectedExitLandsInNextSession()
+    {
+        // A 1-day hold opened at 10:00 exits tomorrow at 10:00 — after the next open, so
+        // it is a deliberate overnight hold and must not be flattened at today's close.
+        var strategy = BuildStrategy(timedExitTimeframe: new Timeframe(1, Timespan.day));
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 101f,
+            DateTimeOffset.Parse("2026-07-15T15:59:30-04:00"), (SessionClose, NextSessionOpen));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void Evaluate_WithoutSessionBounds_KeepsRawProjectedExit()
+    {
+        // No bounds means no clamp: the raw 16:00 exit hasn't arrived at 15:59. This is
+        // the backstop path that fires at the next open if the worker missed the close.
+        var strategy = BuildStrategy(timedExitTimeframe: new Timeframe(5, Timespan.minute));
+        var trade = BuildTrade(openedAt: DateTimeOffset.Parse("2026-07-15T15:55:00-04:00"));
+
+        var result = ExitEvaluator.Evaluate(strategy, trade, 101f,
+            DateTimeOffset.Parse("2026-07-15T15:59:00-04:00"));
+
+        Assert.Null(result);
     }
 }

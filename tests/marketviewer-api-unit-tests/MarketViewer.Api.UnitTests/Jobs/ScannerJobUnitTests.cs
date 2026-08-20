@@ -32,4 +32,24 @@ public class ScannerJobUnitTests
 
         second.Should().Be(first + 60);
     }
+
+    [Theory]
+    [InlineData("2026-07-20T15:58:45-04:00", true)]  // last scannable tick before the final minute
+    [InlineData("2026-07-20T15:59:00-04:00", false)] // final minute: a fill would land at 16:00 with no bar behind it
+    [InlineData("2026-07-20T15:59:45-04:00", false)]
+    public void HasFillBarRemaining_StopsEntriesInTheFinalSessionMinute(string dataTime, bool expected)
+    {
+        var sessionClose = DateTimeOffset.Parse("2026-07-20T16:00:00-04:00");
+
+        ScannerJob.HasFillBarRemaining(DateTimeOffset.Parse(dataTime), sessionClose).Should().Be(expected);
+    }
+
+    [Fact]
+    public void HasFillBarRemaining_UsesTheActualSessionClose_OnHalfDays()
+    {
+        var earlyClose = DateTimeOffset.Parse("2026-11-27T13:00:00-05:00");
+
+        ScannerJob.HasFillBarRemaining(DateTimeOffset.Parse("2026-11-27T12:58:00-05:00"), earlyClose).Should().BeTrue();
+        ScannerJob.HasFillBarRemaining(DateTimeOffset.Parse("2026-11-27T12:59:30-05:00"), earlyClose).Should().BeFalse();
+    }
 }

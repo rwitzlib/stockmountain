@@ -28,7 +28,14 @@ public class ScannerJob(
         // scanned. DelayMinutes = 0 makes this the wall clock again.
         var dataTime = DateTimeOffset.UtcNow.AddMinutes(-marketDataConfig.DelayMinutes);
 
-        if (!warmupState.IsReady || !await marketCalendar.IsMarketOpen(dataTime))
+        if (!warmupState.IsReady)
+        {
+            return;
+        }
+
+        var session = await marketCalendar.GetTodaySession();
+
+        if (session is null || dataTime < session.Value.Open || !HasFillBarRemaining(dataTime, session.Value.Close))
         {
             return;
         }
@@ -69,6 +76,16 @@ public class ScannerJob(
 
             await signalPublisher.Publish(scanRecord);
         });
+    }
+
+    /// <summary>
+    /// Entries signaled during the session's final minute have no completed bar left to
+    /// fill and exit on — the backtester discards them as null results — so the scanner
+    /// stops one minute before the close instead of at it.
+    /// </summary>
+    public static bool HasFillBarRemaining(DateTimeOffset dataTime, DateTimeOffset sessionClose)
+    {
+        return dataTime < sessionClose.AddMinutes(-1);
     }
 
     public static long ComputeWindow(DateTimeOffset dataTime, bool completedBarEntries)
