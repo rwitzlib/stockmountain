@@ -18,13 +18,25 @@ public static class ExitEvaluator
     /// Returns the exit reason for the position, or null to keep holding.
     /// <paramref name="currentPrice"/> may be null (e.g. halted ticker); the timed exit
     /// still applies, price-based exits are skipped.
+    /// <paramref name="session"/> carries today's close and the next session's open: a
+    /// timed exit projected to land between them can never fire on its own clock (the
+    /// worker only runs during the session), so it is pulled forward to the session's
+    /// final minute — the same bar the backtester fills these exits on. Omitting it
+    /// keeps the raw projected exit, which then fires at the next open as a backstop.
     /// </summary>
-    public static BacktestExitReason? Evaluate(StrategyDto strategy, TradeRecord trade, float? currentPrice, DateTimeOffset now)
+    public static BacktestExitReason? Evaluate(StrategyDto strategy, TradeRecord trade, float? currentPrice, DateTimeOffset now,
+        (DateTimeOffset Close, DateTimeOffset NextOpen)? session = null)
     {
         var timedExit = strategy.ExitSettings?.TimedExit;
         if (timedExit?.Timeframe is not null)
         {
             var projectedExitDate = DateUtilities.GetEndDate(DateTimeOffset.Parse(trade.OpenedAt), timedExit.Timeframe);
+
+            if (session is { } s && projectedExitDate >= s.Close && projectedExitDate < s.NextOpen)
+            {
+                projectedExitDate = s.Close.AddMinutes(-1);
+            }
+
             if (projectedExitDate <= now)
             {
                 return BacktestExitReason.timedExit;

@@ -39,10 +39,16 @@ public class SellWorker(
         // DelayMinutes of each session were never exit-evaluated until the next open.
         var dataNow = dataClock.Now;
 
-        if (!await marketCalendar.IsMarketOpen(dataNow))
+        var session = await marketCalendar.GetTodaySession();
+
+        if (session is null || dataNow < session.Value.Open || dataNow >= session.Value.Close)
         {
             return;
         }
+
+        // Timed exits that would land while the market is closed are pulled forward to
+        // the session's final minute (see ExitEvaluator), which needs both bounds.
+        var sessionBounds = (session.Value.Close, await marketCalendar.GetNextSessionOpen(session.Value.Close));
 
         try
         {
@@ -71,7 +77,7 @@ public class SellWorker(
             var distinctTickers = openPositions.Select(p => p.Trade.Ticker).Distinct().ToList();
             var priceMap = await GetCurrentPrices(distinctTickers, dataNow);
 
-            var sellTasks = openPositions.Select(p => SellPositionIfApplicable(p.Strategy, p.Trade, priceMap, dataNow));
+            var sellTasks = openPositions.Select(p => SellPositionIfApplicable(p.Strategy, p.Trade, priceMap, dataNow, sessionBounds));
             await Task.WhenAll(sellTasks);
         }
         catch (Exception e)
@@ -130,13 +136,14 @@ public class SellWorker(
         return prices;
     }
 
-    private async Task SellPositionIfApplicable(StrategyDto strategy, TradeRecord trade, Dictionary<string, float> priceMap, DateTimeOffset dataNow)
+    private async Task SellPositionIfApplicable(StrategyDto strategy, TradeRecord trade, Dictionary<string, float> priceMap, DateTimeOffset dataNow,
+        (DateTimeOffset Close, DateTimeOffset NextOpen) sessionBounds)
     {
         float? currentPrice = priceMap.TryGetValue(trade.Ticker, out var price) ? price : null;
 
         // TODO: Evaluate ExitSettings.ConditionalExit (scan-based exits) here once supported.
         // Timed exits compare against the data clock, consistent with the data-time OpenedAt stamp.
-        var exitReason = ExitEvaluator.Evaluate(strategy, trade, currentPrice, dataNow);
+        var exitReason = ExitEvaluator.Evaluate(strategy, trade, currentPrice, dataNow, sessionBounds);
 
         if (exitReason is null)
         {

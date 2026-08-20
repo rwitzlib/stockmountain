@@ -66,6 +66,36 @@ public class MarketCalendarService(IAlpacaTradingClient tradingClient, ILogger<M
         return (ToUtc(today, TimeOnly.Parse(day.Open)), ToUtc(today, TimeOnly.Parse(day.Close)));
     }
 
+    /// <summary>
+    /// Opening time (UTC) of the first session that starts after <paramref name="after"/>.
+    /// Holiday-aware via the cached calendar; falls back to the next weekday at 09:30 ET
+    /// when the calendar is unavailable, mirroring GetTodaySession's fail-open.
+    /// </summary>
+    public async Task<DateTimeOffset> GetNextSessionOpen(DateTimeOffset after)
+    {
+        var easternNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Eastern);
+        var today = DateOnly.FromDateTime(easternNow.DateTime);
+
+        await EnsureCalendar(today);
+
+        foreach (var entry in _calendarByDate.OrderBy(kvp => kvp.Key, StringComparer.Ordinal))
+        {
+            var open = ToUtc(DateOnly.Parse(entry.Key), TimeOnly.Parse(entry.Value.Open));
+            if (open > after)
+            {
+                return open;
+            }
+        }
+
+        var candidate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(after, Eastern).DateTime).AddDays(1);
+        while (candidate.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+        {
+            candidate = candidate.AddDays(1);
+        }
+
+        return ToUtc(candidate, new TimeOnly(9, 30));
+    }
+
     private async Task EnsureCalendar(DateOnly today)
     {
         if (_lastRefreshDate == today && _calendarByDate.Count > 0)
