@@ -196,10 +196,11 @@ export function StrategyOptimizePanel({ strategyId, onOptimizationResult }: Stra
       <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
         <div className="space-y-4">
           <Card className="p-3">
-            <FilterComposer 
+            <FilterComposer
               ref={filterComposerRef}
-              onAddFilter={handleAddFilter} 
-              disabled={isSubmitting} 
+              onAddFilter={handleAddFilter}
+              context="backtest"
+              disabled={isSubmitting}
             />
           </Card>
 

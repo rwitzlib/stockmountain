@@ -329,7 +329,8 @@ export function ChartFiltersPage() {
                 />
               </div>
             </div>
-            <FilterComposer onAddFilter={handleAddFilter} />
+            {/* Replays filters over historical bars via /tools/filter — same evaluator as backtests. */}
+            <FilterComposer onAddFilter={handleAddFilter} context="backtest" />
             <FilterList filters={filters} onToggle={handleToggleFilter} onRemove={handleRemoveFilter} />
             <div className="flex items-center gap-2">
               <Button
