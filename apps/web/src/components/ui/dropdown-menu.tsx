@@ -18,6 +18,7 @@ interface DropdownMenuItemProps {
   children: React.ReactNode;
   onClick?: () => void;
   className?: string;
+  disabled?: boolean;
 }
 
 const DropdownMenuContext = React.createContext<{
@@ -79,17 +80,22 @@ export function DropdownMenuContent({ children, className = '' }: DropdownMenuCo
   );
 }
 
-export function DropdownMenuItem({ children, onClick, className = '' }: DropdownMenuItemProps) {
+export function DropdownMenuItem({ children, onClick, className = '', disabled = false }: DropdownMenuItemProps) {
   const { setIsOpen } = React.useContext(DropdownMenuContext);
 
   const handleClick = () => {
+    if (disabled) return;
     onClick?.();
     setIsOpen(false);
   };
 
+  const interactionClasses = disabled
+    ? 'cursor-not-allowed opacity-50'
+    : 'cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent';
+
   return (
     <div
-      className={`relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent ${className}`}
+      className={`relative flex select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none ${interactionClasses} ${className}`}
       onClick={handleClick}
     >
       {children}

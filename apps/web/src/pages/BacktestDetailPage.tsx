@@ -16,7 +16,13 @@ import {
 } from '../types/strategy';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
-import { ArrowLeft, RefreshCw, Copy, Bot, Share2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Copy, Bot, Share2, ChevronDown, Radar } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '../components/ui/dropdown-menu';
 import { formatDateNoTimezone } from '../utils/dateFormatter';
 import { normalizeTradingData } from '../utils/backtestNormalize';
 import { toast } from '../hooks/use-toast';
@@ -527,14 +533,31 @@ export function BacktestDetailPage() {
               <Share2 className="mr-1.5 h-4 w-4" />
               Share
             </Button>
-            <Button variant="outline" size="sm" onClick={handleCopyBacktest}>
-              <Copy className="mr-1.5 h-4 w-4" />
-              Copy setup
-            </Button>
-            <Button size="sm" onClick={handleCreateStrategy}>
-              <Bot className="mr-1.5 h-4 w-4" />
-              Create strategy
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <Button size="sm">
+                  Create
+                  <ChevronDown className="ml-1.5 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="min-w-[10rem]">
+                <DropdownMenuItem onClick={handleCopyBacktest}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Clone
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCreateStrategy}>
+                  <Bot className="mr-2 h-4 w-4" />
+                  Strategy
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled>
+                  <Radar className="mr-2 h-4 w-4" />
+                  Scanner
+                  <span className="ml-auto pl-3 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Soon
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

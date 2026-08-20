@@ -10,7 +10,7 @@ http:
     type: json
     data: |-
       {
-        "start": "2024-01-01",
+        "start": "2026-01-01",
         "end": "2026-08-13",
         "positionSettings": {
           "startingBalance": 10000,
@@ -32,7 +32,8 @@ http:
             "volume > 50000 [1m,5]",
             "volume > 1000000 [1d]",
             "close > sma(200) [1d]",
-            "time < 14:00"
+            "time < 14:00",
+            "volume > adv(30) [1d]"
           ]
         },
         "exitSettings": {
