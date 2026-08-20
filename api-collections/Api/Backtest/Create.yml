@@ -13,7 +13,7 @@ http:
         "start": "2024-01-01",
         "end": "2026-08-13",
         "positionSettings": {
-          "startingBalance": 100000,
+          "startingBalance": 300000,
           "maxConcurrentPositions": 1000,
           "model": {
             "type": "Fixed",
