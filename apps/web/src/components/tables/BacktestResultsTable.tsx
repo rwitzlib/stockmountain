@@ -1,24 +1,20 @@
 import { useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateTime, formatDateNoTimezone } from '../../utils/dateFormatter';
-import { formatCurrency } from '../../utils/formatters';
-import { BacktestEntry } from '../../types/backtest';
-import { getBacktestRequestInfo } from '../../utils/backtestRequest';
+import { formatCurrency, formatSignedPercent } from '../../utils/formatters';
+import { BacktestEntry, BacktestSortKey } from '../../types/backtest';
+import { getBacktestRequestInfo, getPercentGain } from '../../utils/backtestRequest';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { ArrowUpDown, ChevronDown, ChevronRight, Award, AlertTriangle, Filter } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, ChevronRight, Award, AlertTriangle, FlaskConical } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
 
 interface BacktestResultsTableProps {
   results: BacktestEntry[];
   sortConfig: {
-    key: keyof BacktestEntry | null;
+    key: BacktestSortKey | null;
     direction: 'asc' | 'desc';
   };
-  onSort: (key: keyof BacktestEntry) => void;
-  hasActiveFilters?: boolean;
-  onClearFilters?: () => void;
-  totalCount?: number;
+  onSort: (key: BacktestSortKey) => void;
 }
 
 const formatDuration = (seconds: number): string => {
@@ -48,9 +44,6 @@ export function BacktestResultsTable({
   results,
   sortConfig,
   onSort,
-  hasActiveFilters = false,
-  onClearFilters,
-  totalCount = 0,
 }: BacktestResultsTableProps) {
   const navigate = useNavigate();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -111,25 +104,9 @@ export function BacktestResultsTable({
   if (results.length === 0) {
     return (
       <div className="rounded-xl border border-border/80 bg-card p-10 text-center space-y-3">
-        <Filter className="h-8 w-8 text-muted-foreground mx-auto opacity-50" />
-        <p className="text-sm text-foreground">
-          {hasActiveFilters ? 'No backtests match your filters' : 'No backtests yet'}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {hasActiveFilters
-            ? `Showing 0 of ${totalCount}. Try adjusting or clearing filters.`
-            : 'Create a backtest to see results here.'}
-        </p>
-        {hasActiveFilters && onClearFilters && (
-          <Button
-            onClick={onClearFilters}
-            variant="outline"
-            size="sm"
-            className="text-xs mt-2"
-          >
-            Clear Filters
-          </Button>
-        )}
+        <FlaskConical className="h-8 w-8 text-muted-foreground mx-auto opacity-50" />
+        <p className="text-sm text-foreground">No backtests yet</p>
+        <p className="text-xs text-muted-foreground">Create a backtest to see results here.</p>
       </div>
     );
   }
@@ -179,9 +156,9 @@ export function BacktestResultsTable({
             </TableHead>
             <TableHead
               className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground text-right cursor-pointer hover:text-foreground transition-colors"
-              onClick={() => onSort('highProfit')}
+              onClick={() => onSort('percentGain')}
             >
-              High P/L
+              % Gain
               <ArrowUpDown className="ml-1 h-3 w-3 inline" />
             </TableHead>
             <TableHead
@@ -302,15 +279,27 @@ export function BacktestResultsTable({
                       {formatCurrency(result.holdProfit)}
                     </span>
                   </TableCell>
-                  <TableCell className={`text-right ${getProfitBgColor(result.highProfit >= 0)}`}>
-                    <span className={`text-xs font-semibold tabular-nums ${
-                      result.highProfit >= 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {formatCurrency(result.highProfit)}
-                    </span>
-                  </TableCell>
+                  {(() => {
+                    const percentGain = getPercentGain(result);
+                    if (percentGain === null) {
+                      return (
+                        <TableCell className="text-right">
+                          <span className="text-xs text-muted-foreground" title="Starting balance unavailable">—</span>
+                        </TableCell>
+                      );
+                    }
+                    return (
+                      <TableCell className={`text-right ${getProfitBgColor(percentGain >= 0)}`}>
+                        <span className={`text-xs font-semibold tabular-nums ${
+                          percentGain >= 0
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {formatSignedPercent(percentGain)}
+                        </span>
+                      </TableCell>
+                    );
+                  })()}
                   <TableCell className="text-right text-xs text-foreground tabular-nums">
                     {typeof result.creditsUsed === 'number' ? result.creditsUsed.toFixed(1) : result.creditsUsed}
                   </TableCell>
