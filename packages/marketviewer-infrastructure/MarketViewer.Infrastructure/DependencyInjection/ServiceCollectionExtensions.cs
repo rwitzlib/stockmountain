@@ -29,6 +29,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(configuration.GetSection("ScanConfig").Get<ScanConfig>());
         services.AddSingleton(configuration.GetSection("MetaConfig").Get<MetaConfig>());
         services.AddSingleton(configuration.GetSection("MarketDataConfig").Get<MarketDataConfig>());
+        services.AddSingleton(configuration.GetSection("BillingLedgerConfig").Get<BillingLedgerConfig>() ?? new BillingLedgerConfig());
         
         
 
@@ -41,6 +42,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<ITradeRepository, TradeRepository>()
             .AddSingleton<IStrategyRepository, StrategyRepository>()
             .AddSingleton<IUserRepository, UserRepository>()
+            .AddSingleton<IBillingLedgerRepository, BillingLedgerRepository>()
             .AddSingleton<IBacktestRepository, BacktestRepository>()
             .AddSingleton<IScanRepository, ScanRepository>()
             .AddSingleton<IMarketDataCatalogRepository, MarketDataCatalogRepository>()

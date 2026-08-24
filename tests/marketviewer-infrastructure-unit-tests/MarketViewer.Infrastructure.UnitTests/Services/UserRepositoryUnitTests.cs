@@ -168,4 +168,138 @@ public class UserRepositoryUnitTests
 
         result.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task SetStripeCustomerId_RequiresExistingRecord()
+    {
+        UpdateItemRequest captured = null;
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .Callback<UpdateItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        var result = await _repository.SetStripeCustomerId("user-1", "cus_1");
+
+        result.Should().BeTrue();
+        captured.UpdateExpression.Should().Be("SET StripeCustomerId = :customerId");
+        captured.ConditionExpression.Should().Be("attribute_exists(Id)");
+        captured.ExpressionAttributeValues[":customerId"].S.Should().Be("cus_1");
+    }
+
+    [Fact]
+    public async Task ApplySubscriptionGrant_ResetsMonthlyBalanceAndRole()
+    {
+        UpdateItemRequest captured = null;
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .Callback<UpdateItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        var result = await _repository.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000);
+
+        result.Should().BeTrue();
+        captured.UpdateExpression.Should().Be("SET #role = :role, Credits = :grant, MaxCredits = :grant, SubscriptionStatus = :status");
+        captured.ExpressionAttributeValues[":role"].S.Should().Be("Pro");
+        captured.ExpressionAttributeValues[":grant"].N.Should().Be("1000");
+        captured.ExpressionAttributeValues[":status"].S.Should().Be("active");
+    }
+
+    [Fact]
+    public async Task ApplyUpgradeGrant_AddsDeltaOnTopOfRemainingBalance()
+    {
+        UpdateItemRequest captured = null;
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .Callback<UpdateItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        var result = await _repository.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000);
+
+        result.Should().BeTrue();
+        captured.UpdateExpression.Should().Be("SET #role = :role, MaxCredits = :grant, SubscriptionStatus = :status ADD Credits :delta");
+        captured.ExpressionAttributeValues[":role"].S.Should().Be("Premium");
+        captured.ExpressionAttributeValues[":grant"].N.Should().Be("5000");
+        captured.ExpressionAttributeValues[":delta"].N.Should().Be("4000");
+    }
+
+    [Fact]
+    public async Task AddPurchasedCredits_UsesAtomicAdd()
+    {
+        UpdateItemRequest captured = null;
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .Callback<UpdateItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        var result = await _repository.AddPurchasedCredits("user-1", 250);
+
+        result.Should().BeTrue();
+        captured.UpdateExpression.Should().Be("ADD PurchasedCredits :credits");
+        captured.ConditionExpression.Should().Be("attribute_exists(Id)");
+        captured.ExpressionAttributeValues[":credits"].N.Should().Be("250");
+    }
+
+    [Fact]
+    public async Task AddPurchasedCredits_MissingUser_ReturnsFalse()
+    {
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .ThrowsAsync(new ConditionalCheckFailedException("no record"));
+
+        var result = await _repository.AddPurchasedCredits("missing-user", 250);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelSubscription_ClampsMonthlyCreditsToFreeGrant()
+    {
+        SetupUser(credits: 3000, purchasedCredits: 500, role: "Premium");
+        UpdateItemRequest captured = null;
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .Callback<UpdateItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        var result = await _repository.CancelSubscription("user-1", 100);
+
+        result.Should().BeTrue();
+        captured.ExpressionAttributeValues[":role"].S.Should().Be("Free");
+        captured.ExpressionAttributeValues[":credits"].N.Should().Be("100");
+        captured.ExpressionAttributeValues[":maxCredits"].N.Should().Be("100");
+        captured.ExpressionAttributeValues[":status"].S.Should().Be("canceled");
+        captured.ConditionExpression.Should().Contain("Credits = :expectedCredits");
+        captured.ExpressionAttributeValues[":expectedCredits"].N.Should().Be("3000");
+    }
+
+    [Fact]
+    public async Task CancelSubscription_BalanceBelowFreeGrant_IsKept()
+    {
+        SetupUser(credits: 40, purchasedCredits: 0, role: "Pro");
+        UpdateItemRequest captured = null;
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .Callback<UpdateItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        var result = await _repository.CancelSubscription("user-1", 100);
+
+        result.Should().BeTrue();
+        captured.ExpressionAttributeValues[":credits"].N.Should().Be("40");
+    }
+
+    [Fact]
+    public async Task CancelSubscription_ConcurrentBalanceChange_RetriesOnce()
+    {
+        SetupUser(credits: 3000, purchasedCredits: 0, role: "Premium");
+        var calls = 0;
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .ReturnsAsync(() =>
+            {
+                calls++;
+                if (calls == 1)
+                {
+                    throw new ConditionalCheckFailedException("balance moved");
+                }
+                return new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK };
+            });
+
+        var result = await _repository.CancelSubscription("user-1", 100);
+
+        result.Should().BeTrue();
+        calls.Should().Be(2);
+    }
 }

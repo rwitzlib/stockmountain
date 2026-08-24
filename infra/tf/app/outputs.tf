@@ -28,6 +28,16 @@ output "api_aws_environment_variables" {
     SignalQueue__QueueUrl       = aws_sqs_queue.strategy_signals.url
     SignalQueue__Enabled        = "true"
     InternalAuth__Token         = var.internal_api_token
+
+    # Stripe billing (plan 16). Empty values are dropped by the Railway push script,
+    # so billing endpoints fail closed until the TF_VAR_stripe_* secrets are set.
+    BillingLedgerConfig__TableName = aws_dynamodb_table.billing_ledger.name
+    Stripe__SecretKey              = var.stripe_secret_key
+    Stripe__WebhookSigningSecret   = var.stripe_webhook_signing_secret
+    Stripe__Prices__Pro            = var.stripe_price_id_pro
+    Stripe__Prices__Premium        = var.stripe_price_id_premium
+    Stripe__Prices__PackSmall      = var.stripe_price_id_pack_small
+    Stripe__Prices__PackLarge      = var.stripe_price_id_pack_large
   }
 
   sensitive = true

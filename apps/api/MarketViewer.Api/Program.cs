@@ -9,6 +9,7 @@ using MarketViewer.Api.Hubs;
 using MarketViewer.Api.Jobs;
 using MarketViewer.Api.Middleware;
 using MarketViewer.Api.Services;
+using MarketViewer.Api.Services.Billing;
 using MarketViewer.Application.DependencyInjection;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Converters;
@@ -75,6 +76,14 @@ public class Program
                 ?? string.Empty;
         });
         builder.Services.AddScoped<ClerkWebhookVerifier>();
+
+        // Stripe billing (plan 16): secrets arrive as Stripe__SecretKey /
+        // Stripe__WebhookSigningSecret env vars (terraform -> Railway); tier grants and
+        // credit packs live in appsettings (Tiers / Packs sections).
+        builder.Services.Configure<StripeConfig>(builder.Configuration.GetSection("Stripe"));
+        builder.Services.AddSingleton(BillingCatalog.FromConfiguration(builder.Configuration));
+        builder.Services.AddSingleton<IStripeGateway, StripeGateway>();
+        builder.Services.AddScoped<StripeWebhookProcessor>();
 
         builder.Services.AddHostedService<CacheWarmupService>();
 
