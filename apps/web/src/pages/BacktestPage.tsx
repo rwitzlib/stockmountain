@@ -97,8 +97,12 @@ export function BacktestPage() {
 
     if (sortConfig.key === 'percentGain') {
       return sorted.sort((a, b) => {
-        const diff = getPercentGain(a) - getPercentGain(b);
-        return sortConfig.direction === 'asc' ? diff : -diff;
+        const aGain = getPercentGain(a);
+        const bGain = getPercentGain(b);
+        if (aGain === null && bGain === null) return 0;
+        if (aGain === null) return 1;
+        if (bGain === null) return -1;
+        return sortConfig.direction === 'asc' ? aGain - bGain : bGain - aGain;
       });
     }
 

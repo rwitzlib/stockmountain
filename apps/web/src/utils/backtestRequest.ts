@@ -59,9 +59,15 @@ export function getBacktestRequestInfo(entry: BacktestEntry): BacktestRequestInf
   };
 }
 
-/** Hold profit as a percentage of starting balance. */
-export function getPercentGain(entry: BacktestEntry): number {
-  const startingBalance = getBacktestRequestInfo(entry).positionInfo.startingBalance;
-  if (!startingBalance) return 0;
+/**
+ * Hold profit as a percentage of starting balance, or null when the entry
+ * carries no request data — the normalized info's $10,000 default is a display
+ * fallback, not a real balance, and would fabricate the percentage.
+ */
+export function getPercentGain(entry: BacktestEntry): number | null {
+  const startingBalance =
+    entry.request?.positionSettings?.startingBalance ??
+    entry.requestDetails?.positionInfo?.startingBalance;
+  if (!startingBalance) return null;
   return ((entry.holdProfit || 0) / startingBalance) * 100;
 }

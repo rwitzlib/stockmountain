@@ -279,15 +279,27 @@ export function BacktestResultsTable({
                       {formatCurrency(result.holdProfit)}
                     </span>
                   </TableCell>
-                  <TableCell className={`text-right ${getProfitBgColor(result.holdProfit >= 0)}`}>
-                    <span className={`text-xs font-semibold tabular-nums ${
-                      result.holdProfit >= 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {formatSignedPercent(getPercentGain(result))}
-                    </span>
-                  </TableCell>
+                  {(() => {
+                    const percentGain = getPercentGain(result);
+                    if (percentGain === null) {
+                      return (
+                        <TableCell className="text-right">
+                          <span className="text-xs text-muted-foreground" title="Starting balance unavailable">—</span>
+                        </TableCell>
+                      );
+                    }
+                    return (
+                      <TableCell className={`text-right ${getProfitBgColor(percentGain >= 0)}`}>
+                        <span className={`text-xs font-semibold tabular-nums ${
+                          percentGain >= 0
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {formatSignedPercent(percentGain)}
+                        </span>
+                      </TableCell>
+                    );
+                  })()}
                   <TableCell className="text-right text-xs text-foreground tabular-nums">
                     {typeof result.creditsUsed === 'number' ? result.creditsUsed.toFixed(1) : result.creditsUsed}
                   </TableCell>
