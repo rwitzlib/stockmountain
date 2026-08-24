@@ -21,7 +21,7 @@ public class TradeController(
 {
     [HttpPost]
     [Authorize]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> Open([FromBody] TradeOpenRequest request)
     {
         try
@@ -66,7 +66,7 @@ public class TradeController(
 
     [HttpPut("{id}")]
     [Authorize]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> Close(string id, [FromBody] TradeCloseRequest request)
     {
         try

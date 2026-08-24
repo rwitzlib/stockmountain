@@ -25,10 +25,21 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             { "IsAdmin", new AttributeValue { BOOL = record.IsAdmin } },
             { "AvatarUrl", new AttributeValue { S = record.AvatarUrl ?? string.Empty } },
             { "IsPublic", new AttributeValue { S = record.IsPublic.ToString() } },
-            { "Credits", new AttributeValue { N = record.Credits.ToString() } },
-            { "MaxCredits", new AttributeValue { N = record.MaxCredits.ToString() } },
+            { "Credits", new AttributeValue { N = record.Credits.ToString(CultureInfo.InvariantCulture) } },
+            { "MaxCredits", new AttributeValue { N = record.MaxCredits.ToString(CultureInfo.InvariantCulture) } },
+            { "PurchasedCredits", new AttributeValue { N = record.PurchasedCredits.ToString(CultureInfo.InvariantCulture) } },
             { "Tokens", new AttributeValue { M = (record.Tokens ?? []).ToDictionary(kvp => kvp.Key.ToString(), kvp => new AttributeValue { S = kvp.Value }) } }
         };
+
+        if (!string.IsNullOrEmpty(record.StripeCustomerId))
+        {
+            item.Add("StripeCustomerId", new AttributeValue { S = record.StripeCustomerId });
+        }
+
+        if (!string.IsNullOrEmpty(record.SubscriptionStatus))
+        {
+            item.Add("SubscriptionStatus", new AttributeValue { S = record.SubscriptionStatus });
+        }
 
         logger.LogDebug("DynamoDB item details: {@ItemDetails}", new
         {
@@ -59,7 +70,7 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             {
                 { "Id", new AttributeValue { S = record.Id } }
             },
-            UpdateExpression = "SET AvatarUrl = :avatarUrl, #role = if_not_exists(#role, :role), IsAdmin = if_not_exists(IsAdmin, :isAdmin), IsPublic = if_not_exists(IsPublic, :isPublic), Credits = if_not_exists(Credits, :credits), MaxCredits = if_not_exists(MaxCredits, :maxCredits), Tokens = if_not_exists(Tokens, :tokens)",
+            UpdateExpression = "SET AvatarUrl = :avatarUrl, #role = if_not_exists(#role, :role), IsAdmin = if_not_exists(IsAdmin, :isAdmin), IsPublic = if_not_exists(IsPublic, :isPublic), Credits = if_not_exists(Credits, :credits), MaxCredits = if_not_exists(MaxCredits, :maxCredits), PurchasedCredits = if_not_exists(PurchasedCredits, :purchasedCredits), Tokens = if_not_exists(Tokens, :tokens)",
             ExpressionAttributeNames = new Dictionary<string, string>
             {
                 { "#role", "Role" }
@@ -70,8 +81,9 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
                 { ":role", new AttributeValue { S = record.Role.ToString() } },
                 { ":isAdmin", new AttributeValue { BOOL = record.IsAdmin } },
                 { ":isPublic", new AttributeValue { S = record.IsPublic.ToString() } },
-                { ":credits", new AttributeValue { N = record.Credits.ToString() } },
-                { ":maxCredits", new AttributeValue { N = record.MaxCredits.ToString() } },
+                { ":credits", new AttributeValue { N = record.Credits.ToString(CultureInfo.InvariantCulture) } },
+                { ":maxCredits", new AttributeValue { N = record.MaxCredits.ToString(CultureInfo.InvariantCulture) } },
+                { ":purchasedCredits", new AttributeValue { N = record.PurchasedCredits.ToString(CultureInfo.InvariantCulture) } },
                 { ":tokens", new AttributeValue { M = (record.Tokens ?? []).ToDictionary(kvp => kvp.Key.ToString(), kvp => new AttributeValue { S = kvp.Value }) } }
             }
         };
@@ -103,12 +115,15 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
         var userRecord = new UserRecord
         {
             Id = response.Item["Id"].S,
-            Role = Enum.Parse<UserRole>(response.Item["Role"].S),
+            Role = UserRoleParser.Parse(response.Item["Role"].S),
             IsAdmin = response.Item.TryGetValue("IsAdmin", out var isAdmin) && isAdmin.BOOL == true,
             AvatarUrl = response.Item["AvatarUrl"].S,
             IsPublic = bool.Parse(response.Item["IsPublic"].S),
-            Credits = float.Parse(response.Item["Credits"].N),
-            MaxCredits = response.Item.TryGetValue("MaxCredits", out var maxCredits) ? float.Parse(maxCredits.N) : 0,
+            Credits = float.Parse(response.Item["Credits"].N, CultureInfo.InvariantCulture),
+            MaxCredits = response.Item.TryGetValue("MaxCredits", out var maxCredits) ? float.Parse(maxCredits.N, CultureInfo.InvariantCulture) : 0,
+            PurchasedCredits = response.Item.TryGetValue("PurchasedCredits", out var purchasedCredits) ? float.Parse(purchasedCredits.N, CultureInfo.InvariantCulture) : 0,
+            StripeCustomerId = response.Item.TryGetValue("StripeCustomerId", out var stripeCustomerId) ? stripeCustomerId.S : null,
+            SubscriptionStatus = response.Item.TryGetValue("SubscriptionStatus", out var subscriptionStatus) ? subscriptionStatus.S : null,
             Tokens = response.Item.ContainsKey("Tokens")
                 ? response.Item["Tokens"].M.ToDictionary(
                     kvp => Enum.Parse<IntegrationType>(kvp.Key),
@@ -129,35 +144,87 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             return true;
         }
 
-        try
+        // Monthly credits are spent first, then purchased top-up credits. The split needs a
+        // read, so the cross-balance path uses optimistic concurrency (retry once if either
+        // balance moved between read and write); the monthly-only path stays a single
+        // atomic conditional decrement.
+        for (var attempt = 0; attempt < 2; attempt++)
         {
-            var request = new UpdateItemRequest
+            var user = await Get(id);
+            if (user is null)
             {
-                TableName = config.TableName,
-                Key = new Dictionary<string, AttributeValue>
-                {
-                    { "Id", new AttributeValue { S = id } }
-                },
-                UpdateExpression = "SET Credits = Credits - :credits",
-                ConditionExpression = "attribute_exists(Id) AND Credits >= :credits",
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    { ":credits", new AttributeValue { N = credits.ToString(CultureInfo.InvariantCulture) } }
-                }
-            };
+                return false;
+            }
 
-            var response = await dynamodb.UpdateItemAsync(request);
-            return response.HttpStatusCode == HttpStatusCode.OK;
+            if (user.Credits + user.PurchasedCredits < credits)
+            {
+                logger.LogWarning(
+                    "Unable to debit {Credits} credits from user {UserId}; insufficient balance ({Monthly} monthly + {Purchased} purchased)",
+                    credits, id, user.Credits, user.PurchasedCredits);
+                return false;
+            }
+
+            try
+            {
+                if (user.Credits >= credits)
+                {
+                    var request = new UpdateItemRequest
+                    {
+                        TableName = config.TableName,
+                        Key = new Dictionary<string, AttributeValue>
+                        {
+                            { "Id", new AttributeValue { S = id } }
+                        },
+                        UpdateExpression = "SET Credits = Credits - :credits",
+                        ConditionExpression = "attribute_exists(Id) AND Credits >= :credits",
+                        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                        {
+                            { ":credits", new AttributeValue { N = credits.ToString(CultureInfo.InvariantCulture) } }
+                        }
+                    };
+
+                    var response = await dynamodb.UpdateItemAsync(request);
+                    return response.HttpStatusCode == HttpStatusCode.OK;
+                }
+                else
+                {
+                    var newPurchased = user.PurchasedCredits - (credits - user.Credits);
+                    var request = new UpdateItemRequest
+                    {
+                        TableName = config.TableName,
+                        Key = new Dictionary<string, AttributeValue>
+                        {
+                            { "Id", new AttributeValue { S = id } }
+                        },
+                        UpdateExpression = "SET Credits = :zero, PurchasedCredits = :newPurchased",
+                        ConditionExpression = "attribute_exists(Id) AND Credits = :expectedCredits AND PurchasedCredits = :expectedPurchased",
+                        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                        {
+                            { ":zero", new AttributeValue { N = "0" } },
+                            { ":newPurchased", new AttributeValue { N = newPurchased.ToString(CultureInfo.InvariantCulture) } },
+                            { ":expectedCredits", new AttributeValue { N = user.Credits.ToString(CultureInfo.InvariantCulture) } },
+                            { ":expectedPurchased", new AttributeValue { N = user.PurchasedCredits.ToString(CultureInfo.InvariantCulture) } }
+                        }
+                    };
+
+                    var response = await dynamodb.UpdateItemAsync(request);
+                    return response.HttpStatusCode == HttpStatusCode.OK;
+                }
+            }
+            catch (ConditionalCheckFailedException)
+            {
+                logger.LogWarning(
+                    "Debit of {Credits} credits for user {UserId} hit a concurrent balance change (attempt {Attempt}); retrying",
+                    credits, id, attempt + 1);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error debiting credits for user {UserId}: {Message}", id, ex.Message);
+                return false;
+            }
         }
-        catch (ConditionalCheckFailedException)
-        {
-            logger.LogWarning("Unable to debit {Credits} credits from user {UserId}; balance changed or user does not exist", credits, id);
-            return false;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error debiting credits for user {UserId}: {Message}", id, ex.Message);
-            return false;
-        }
+
+        logger.LogWarning("Unable to debit {Credits} credits from user {UserId}; balance kept changing", credits, id);
+        return false;
     }
 }

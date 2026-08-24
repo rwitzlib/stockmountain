@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using MarketViewer.Api.Authorization;
 using MarketViewer.Application.Handlers.Market;
 using MarketViewer.Contracts.Enums;
@@ -16,7 +16,7 @@ public class StocksController(
     ILogger<StocksController> logger) : ControllerBase
 {
     [HttpPost]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]

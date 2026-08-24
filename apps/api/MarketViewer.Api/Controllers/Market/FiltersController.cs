@@ -13,7 +13,7 @@ public class FiltersController(FilterValidateHandler handler) : ControllerBase
 {
     [HttpPost]
     [Route("validate")]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public IActionResult Validate([FromBody] FilterValidateRequest request)
     {
         var response = handler.Validate(request);
@@ -28,7 +28,7 @@ public class FiltersController(FilterValidateHandler handler) : ControllerBase
 
     [HttpGet]
     [Route("functions")]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public IActionResult Functions([FromQuery] string? context = null)
     {
         var response = handler.Functions(context);

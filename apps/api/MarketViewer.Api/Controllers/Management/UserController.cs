@@ -20,7 +20,7 @@ public class UserController(UserReadHandler userReadHandler, AuthContext context
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [Authorize]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> Read([FromRoute] string userId)
     {
         try
