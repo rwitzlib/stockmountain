@@ -5,6 +5,7 @@ using System.Text.Json;
 using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Models.Backtest;
 using Backtest.Lambda.Services;
+using Backtest.Lambda.Utilities;
 using MarketViewer.Contracts.Requests.Market.Backtest;
 using MarketViewer.Core.Services;
 using MarketViewer.Contracts.Responses.Market.Backtest;
@@ -22,7 +23,6 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
     private readonly BacktestWorkerService _workerService = serviceProvider.GetService<BacktestWorkerService>();
     private readonly ILogger<OrchestratorFunction> _logger = serviceProvider.GetService<ILogger<OrchestratorFunction>>();
 
-    private const int ESTIMATED_DAILY_CREDIT_COST = 120;
 
     public OrchestratorFunction() : this(Startup.ConfigureServices()) { }
 
@@ -66,15 +66,16 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
                 return;
             }
 
-            var estimatedCreditCost = ((request.End - request.Start).Days + 1) * ESTIMATED_DAILY_CREDIT_COST;
+            var estimatedCreditCost = CreditMeter.EstimateForRange(request.Start, request.End);
             wideEvent.Set("estimated_credit_cost", estimatedCreditCost);
 
             var user = await _userRepository.Get(record.UserId);
-            if (user == null || user.Credits < estimatedCreditCost)
+            var availableCredits = (user?.Credits ?? 0) + (user?.PurchasedCredits ?? 0);
+            if (user == null || availableCredits < estimatedCreditCost)
             {
                 wideEvent.Set("backtest_status", "Failed")
                     .Set("failure_reason", "insufficient_credits")
-                    .Set("available_credits", user?.Credits ?? 0);
+                    .Set("available_credits", availableCredits);
 
                 record.Status = BacktestStatus.Failed;
                 record.CreditsUsed = 0;

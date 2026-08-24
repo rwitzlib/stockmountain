@@ -199,7 +199,7 @@ public class ToolsController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> FilterAggregate([FromBody] ToolsFilterRequest request)
     {
         try

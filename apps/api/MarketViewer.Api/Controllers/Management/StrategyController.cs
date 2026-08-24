@@ -26,7 +26,7 @@ public class StrategyController(
 {
     [HttpPost]
     [Authorize]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<ActionResult<StrategyResponse>> Create(StrategyCreateRequest request)
     {
         try
@@ -97,7 +97,7 @@ public class StrategyController(
 
     [HttpPut("{id}")]
     [Authorize]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> Update(string id, StrategyUpdateRequest request)
     {
         try
@@ -123,7 +123,7 @@ public class StrategyController(
 
     [HttpDelete("{id}")]
     [Authorize]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> Delete(string id)
     {
         try
@@ -149,7 +149,7 @@ public class StrategyController(
 
     [HttpPost("optimize/{id}")]
     [Authorize]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> Optimize(string id, [FromBody] StrategyOptimizeRequest request)
     {
         try
@@ -188,7 +188,7 @@ public class StrategyController(
     /// </summary>
     [HttpGet("{id}/state")]
     [Authorize]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<ActionResult<StrategyStateResponse>> GetState(string id)
     {
         try
@@ -214,7 +214,7 @@ public class StrategyController(
     /// </summary>
     [HttpGet("{id}/balance-history")]
     [Authorize]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<ActionResult<BalanceHistoryResponse>> GetBalanceHistory(
         string id,
         [FromQuery] string startDate = null,

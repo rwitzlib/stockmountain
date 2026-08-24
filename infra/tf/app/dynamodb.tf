@@ -216,6 +216,33 @@ resource "aws_dynamodb_table" "meta" {
   }
 }
 
+# Append-only billing ledger (plan 16): one item per money/credit event (subscription
+# payment, top-up purchase, refund, monthly refill, grants). PK = Clerk user id,
+# SK = "{ISO timestamp}#{stripe event id}" — webhook idempotency is a conditional put on
+# attribute_not_exists(EventKey), and per-user LTV is a sum over the partition.
+resource "aws_dynamodb_table" "billing_ledger" {
+  name         = "${var.team}-${var.environment}-billing-ledger"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "UserId"
+  range_key    = "EventKey"
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  deletion_protection_enabled = true
+
+  attribute {
+    name = "UserId"
+    type = "S"
+  }
+
+  attribute {
+    name = "EventKey"
+    type = "S"
+  }
+}
+
 resource "aws_dynamodb_table" "backtest" {
   name         = "${var.team}-${var.environment}-backtest-store"
   billing_mode = "PAY_PER_REQUEST"

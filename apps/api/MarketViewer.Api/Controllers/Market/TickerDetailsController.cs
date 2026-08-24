@@ -17,7 +17,7 @@ namespace MarketViewer.Api.Controllers.Market
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        [RequiresTier(UserRole.Basic)]
+        [RequiresTier(UserRole.Free)]
         public async Task<IActionResult> HandleTickerDetailsRequest(string ticker)
         {
             if (string.IsNullOrWhiteSpace(ticker))

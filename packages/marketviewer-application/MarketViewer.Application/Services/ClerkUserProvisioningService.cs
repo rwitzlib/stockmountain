@@ -10,7 +10,8 @@ public class ClerkUserProvisioningService(
     IUserRepository userRepository,
     ILogger<ClerkUserProvisioningService> logger)
 {
-    private const float StartingCredits = 0;
+    /// <summary>Free-tier monthly grant (plan 16 phase 0); issued at signup and on each monthly refill.</summary>
+    private const float StartingCredits = 100;
 
     public async Task<bool> Provision(ClerkUserProfile profile)
     {
@@ -26,8 +27,9 @@ public class ClerkUserProvisioningService(
             AvatarUrl = profile.AvatarUrl ?? string.Empty,
             Credits = StartingCredits,
             MaxCredits = StartingCredits,
+            PurchasedCredits = 0,
             IsPublic = false,
-            Role = UserRole.Basic,
+            Role = UserRole.Free,
             IsAdmin = false,
             Tokens = []
         };

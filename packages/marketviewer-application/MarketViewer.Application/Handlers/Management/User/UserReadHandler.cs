@@ -86,6 +86,7 @@ public class UserReadHandler(
                 IsPublic = userRecord.IsPublic,
                 Credits = userRecord.Credits,
                 MaxCredits = userRecord.MaxCredits,
+                PurchasedCredits = userRecord.PurchasedCredits,
             };
 
             logger.LogInformation("Successfully retrieved user {UserId} with role {Role}", request.UserId, userRecord.Role);

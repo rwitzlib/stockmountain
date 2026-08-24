@@ -61,7 +61,7 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             var userRecord = new UserRecord
             {
                 Id = queryResponse.Item["Id"].S,
-                Role = Enum.Parse<UserRole>(queryResponse.Item["Role"].S),
+                Role = UserRoleParser.Parse(queryResponse.Item["Role"].S),
                 IsAdmin = queryResponse.Item.TryGetValue("IsAdmin", out var isAdmin) && isAdmin.BOOL == true,
                 AvatarUrl = queryResponse.Item["AvatarUrl"].S,
                 IsPublic = bool.Parse(queryResponse.Item["IsPublic"].S),

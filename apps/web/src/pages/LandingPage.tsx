@@ -746,7 +746,7 @@ function Pricing() {
 const FAQS = [
   {
     q: 'What is a backtest credit?',
-    a: 'Backtests are metered by the compute they use — bigger universes, finer timeframes, and longer date ranges cost more credits. A typical single-strategy test costs a handful of credits, and your allowance resets every month.',
+    a: 'Backtests are metered by the compute they use — bigger universes, finer timeframes, and longer date ranges cost more credits. A typical single-strategy test costs a few dozen credits, and your allowance resets every month.',
   },
   {
     q: 'Is my strategy private?',

@@ -74,7 +74,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
             if (strategyEntries.Count == 0)
             {
-                var creditsUsed = MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds;
+                var creditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds);
                 wideEvent.Set("result_count", 0).Set("credits_used", creditsUsed);
                 return new WorkerResponse
                 {
@@ -93,14 +93,14 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 .Set("result_count", backtestResults.Count)
                 .Set("dropped_signal_count", entryErrors.Count)
                 .Set("gate_skipped_count", gateSkipped)
-                .Set("credits_used", MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds);
+                .Set("credits_used", CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds));
 
             if (backtestResults.Count == 0)
             {
                 return new WorkerResponse
                 {
                     Date = request.Date.Date,
-                    CreditsUsed = MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds,
+                    CreditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds),
                     Results = [],
                     Errors = SummarizeErrors(entryErrors)
                 };
@@ -115,7 +115,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             return new WorkerResponse
             {
                 Date = request.Date,
-                CreditsUsed = MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds,
+                CreditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds),
                 Hold = new BacktestEntryStats
                 {
                     WinRatio = holdProfits.Count + holdLosses.Count > 0 ? (float)holdProfits.Count / (holdProfits.Count + holdLosses.Count) : 0,
@@ -137,11 +137,11 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         catch (Exception ex)
         {
             _logger.LogError(ex, "Backtest worker failed for {BacktestDate}", request.Date.ToString("yyyy-MM-dd"));
-            wideEvent.SetError(ex).Set("credits_used", MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds);
+            wideEvent.SetError(ex).Set("credits_used", CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds));
             return new WorkerResponse
             {
                 Date = request.Date.Date,
-                CreditsUsed = MEMORY_FACTOR * (float)sp.Elapsed.TotalSeconds,
+                CreditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds),
                 Results = [],
                 Errors = [$"Day failed: {ex.Message}"]
             };
@@ -211,7 +211,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             // timeline; the signal is priced if either timeline can take it, and the
             // portfolio simulator enforces per-type eligibility against actual fills.
             // Eligibility runs on the execution clock (signal bar + 1) because recorded
-            // closes are execution minutes — live checks cooldowns at buy time the same way.
+            // closes are execution minutes â€” live checks cooldowns at buy time the same way.
             var executionTime = entry.Start.AddMinutes(1);
             var holdEligible = gate.IsEligible("hold", executionTime);
             var highEligible = gate.IsEligible("high", executionTime);
@@ -287,7 +287,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             }
 
             // A successful response can omit results entirely when the ticker has no
-            // bars in the window — that's legitimate no-data, not an error.
+            // bars in the window â€” that's legitimate no-data, not an error.
             if (massiveResponse.Results is null || !massiveResponse.Results.Any())
             {
                 return (null, null);
@@ -497,7 +497,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         if (CheckStopLoss(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var stopLoss, out var stopLossFill))
         {
             // Book the modeled fill: the stop price, or the open when a bar gaps through
-            // the stop — losses can exceed the configured value, matching live behavior.
+            // the stop â€” losses can exceed the configured value, matching live behavior.
             var stopLossValue = stopLossFill * shares - entryPosition;
 
             // On a same-bar tie, assume the worst case: the stop fills before the target.
@@ -554,7 +554,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
     /// <summary>
     /// A bar timestamped T is only observable once it completes at T+1, which is when
-    /// live executes against it and stamps the trade — mirror that convention.
+    /// live executes against it and stamps the trade â€” mirror that convention.
     /// </summary>
     private static DateTimeOffset ToExecutionMinute(long barTimestampMs)
     {
@@ -609,7 +609,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         }
 
         // Intrabar trigger: live paper exits evaluate the forming websocket bar, so any
-        // dip through the stop fires — modeled here by the bar low. A bar that opens
+        // dip through the stop fires â€” modeled here by the bar low. A bar that opens
         // through the stop gaps the fill to its open; otherwise the stop price fills.
         stopLossCandle = results.FirstOrDefault(bar => bar.Low <= stopPrice);
 
@@ -645,7 +645,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             return false;
         }
 
-        // Intrabar trigger with gap-through fills — see CheckStopLoss.
+        // Intrabar trigger with gap-through fills â€” see CheckStopLoss.
         profitTargetCandle = results.FirstOrDefault(bar => bar.High >= targetPrice);
 
         if (profitTargetCandle is null)

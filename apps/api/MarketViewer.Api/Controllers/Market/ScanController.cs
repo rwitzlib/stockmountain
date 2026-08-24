@@ -23,7 +23,7 @@ public class TickerController(ScanHandler scanHandler, ILogger<TickerController>
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> Scan([FromBody] ScanRequest request)
     {
         var response = await scanHandler.Handle(request, HttpContext.RequestAborted);

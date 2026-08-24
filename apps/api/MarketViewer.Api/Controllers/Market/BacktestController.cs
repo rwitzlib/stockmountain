@@ -19,7 +19,7 @@ public class BacktestController(
     ILogger<BacktestController> logger) : ControllerBase
 {
     [HttpPost]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> StartBacktest([FromBody] BacktestCreateRequest request)
     {
         var response = await handler.Create(request);
@@ -34,7 +34,7 @@ public class BacktestController(
 
     [HttpGet]
     [Route("{id}")]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> GetBacktestEntry(string id)
     {
         var response = await handler.GetEntry(id);
@@ -48,7 +48,7 @@ public class BacktestController(
     }
 
     [HttpGet]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> ListBacktestEntries()
     {
         var userId = authContext.UserId;
@@ -65,7 +65,7 @@ public class BacktestController(
 
     [HttpGet]
     [Route("result/{id}")]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> GetBacktestResult(string id)
     {
         var response = await handler.GetResult(id);
@@ -84,7 +84,7 @@ public class BacktestController(
     /// </summary>
     [HttpPost]
     [Route("{id}/share")]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> CreateShare(string id, [FromBody] BacktestShareCreateRequest request)
     {
         var response = await shareHandler.CreateShare(id, request);
@@ -103,7 +103,7 @@ public class BacktestController(
     /// </summary>
     [HttpGet]
     [Route("universe/{id}")]
-    [RequiresTier(UserRole.Basic)]
+    [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> GetBacktestUniverse(string id)
     {
         var response = await handler.GetUniverse(id);

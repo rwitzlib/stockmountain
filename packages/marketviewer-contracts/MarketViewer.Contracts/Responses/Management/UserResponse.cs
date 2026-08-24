@@ -10,6 +10,7 @@ public class UserResponse
     public string AvatarUrl { get; set; }
     public float Credits { get; set; }
     public float MaxCredits { get; set; }
+    public float PurchasedCredits { get; set; }
     public bool IsPublic { get; set; }
     public UserRole Role { get; set; }
 }

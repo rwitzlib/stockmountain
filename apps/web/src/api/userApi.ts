@@ -8,7 +8,8 @@ export interface UserDetails {
 	credits: number;
 	maxCredits: number;
 	isPublic: boolean;
-	role: 'Basic' | 'Advanced' | 'Premium';
+	role: 'Free' | 'Pro' | 'Premium';
+	purchasedCredits?: number;
 	isAdmin: boolean;
 }
 
