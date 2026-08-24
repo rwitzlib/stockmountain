@@ -10,4 +10,11 @@ public interface IBillingLedgerRepository
     /// Throws on transport errors so callers can surface a retryable failure.
     /// </summary>
     Task<bool> TryAppend(BillingLedgerRecord entry);
+
+    /// <summary>
+    /// Rolls back a just-appended entry whose guarded mutation failed, so that a webhook
+    /// redelivery can retry the append+mutation as a unit. Not for general deletes — the
+    /// ledger stays append-only for applied events.
+    /// </summary>
+    Task Remove(string userId, string eventKey);
 }

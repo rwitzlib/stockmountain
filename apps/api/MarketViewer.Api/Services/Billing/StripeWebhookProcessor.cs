@@ -62,6 +62,12 @@ public class StripeWebhookProcessor(
             {
                 await userRepository.SetStripeCustomerId(userId, session.CustomerId);
             }
+            else if (user is not null && user.StripeCustomerId != session.CustomerId)
+            {
+                logger.LogWarning(
+                    "Checkout session {SessionId} completed on Stripe customer {SessionCustomerId} but user {UserId} is linked to {StoredCustomerId}",
+                    session.Id, session.CustomerId, userId, user.StripeCustomerId);
+            }
         }
 
         if (session.Mode != "payment")
@@ -79,24 +85,19 @@ public class StripeWebhookProcessor(
             return true;
         }
 
-        var appended = await ledger.TryAppend(new BillingLedgerRecord
-        {
-            UserId = userId,
-            EventKey = EventKey(stripeEvent),
-            Type = BillingLedgerEntryType.TopupPurchase,
-            AmountCents = session.AmountTotal ?? 0,
-            Credits = credits,
-            StripeEventId = stripeEvent.Id,
-            StripePaymentIntentId = session.PaymentIntentId,
-            Description = $"Credit pack {packId}"
-        });
-
-        if (!appended)
-        {
-            return true;
-        }
-
-        return await userRepository.AddPurchasedCredits(userId, credits);
+        return await ApplyLedgeredMutation(
+            new BillingLedgerRecord
+            {
+                UserId = userId,
+                EventKey = EventKey(stripeEvent),
+                Type = BillingLedgerEntryType.TopupPurchase,
+                AmountCents = session.AmountTotal ?? 0,
+                Credits = credits,
+                StripeEventId = stripeEvent.Id,
+                StripePaymentIntentId = session.PaymentIntentId,
+                Description = $"Credit pack {packId}"
+            },
+            () => userRepository.AddPurchasedCredits(userId, credits));
     }
 
     private async Task<bool> HandleInvoicePaid(Event stripeEvent)
@@ -121,25 +122,22 @@ public class StripeWebhookProcessor(
         var isUpgradeProration = invoice.BillingReason == "subscription_update";
         var grant = catalog.GetMonthlyGrant(tier);
 
-        var appended = await ledger.TryAppend(new BillingLedgerRecord
-        {
-            UserId = userId,
-            EventKey = EventKey(stripeEvent),
-            Type = BillingLedgerEntryType.SubscriptionPayment,
-            AmountCents = invoice.AmountPaid,
-            Credits = isUpgradeProration ? 0 : grant,
-            StripeEventId = stripeEvent.Id,
-            StripeInvoiceId = invoice.Id,
-            Tier = tier.ToString(),
-            Description = $"Subscription invoice ({invoice.BillingReason})"
-        });
-
-        if (!appended || isUpgradeProration)
-        {
-            return true;
-        }
-
-        return await userRepository.ApplySubscriptionGrant(userId, tier, grant);
+        return await ApplyLedgeredMutation(
+            new BillingLedgerRecord
+            {
+                UserId = userId,
+                EventKey = EventKey(stripeEvent),
+                Type = BillingLedgerEntryType.SubscriptionPayment,
+                AmountCents = invoice.AmountPaid,
+                Credits = isUpgradeProration ? 0 : grant,
+                StripeEventId = stripeEvent.Id,
+                StripeInvoiceId = invoice.Id,
+                Tier = tier.ToString(),
+                Description = $"Subscription invoice ({invoice.BillingReason})"
+            },
+            () => isUpgradeProration
+                ? Task.FromResult(true)
+                : userRepository.ApplySubscriptionGrant(userId, tier, grant));
     }
 
     private async Task<bool> HandleSubscriptionUpdated(Event stripeEvent)
@@ -177,24 +175,19 @@ public class StripeWebhookProcessor(
         var newGrant = catalog.GetMonthlyGrant(newTier);
         var creditsDelta = Math.Max(newGrant - catalog.GetMonthlyGrant(user.Role), 0);
 
-        var appended = await ledger.TryAppend(new BillingLedgerRecord
-        {
-            UserId = userId,
-            EventKey = EventKey(stripeEvent),
-            Type = BillingLedgerEntryType.UpgradeGrant,
-            AmountCents = 0,
-            Credits = creditsDelta,
-            StripeEventId = stripeEvent.Id,
-            Tier = newTier.ToString(),
-            Description = $"Immediate upgrade {user.Role} -> {newTier}"
-        });
-
-        if (!appended)
-        {
-            return true;
-        }
-
-        return await userRepository.ApplyUpgradeGrant(userId, newTier, newGrant, creditsDelta);
+        return await ApplyLedgeredMutation(
+            new BillingLedgerRecord
+            {
+                UserId = userId,
+                EventKey = EventKey(stripeEvent),
+                Type = BillingLedgerEntryType.UpgradeGrant,
+                AmountCents = 0,
+                Credits = creditsDelta,
+                StripeEventId = stripeEvent.Id,
+                Tier = newTier.ToString(),
+                Description = $"Immediate upgrade {user.Role} -> {newTier}"
+            },
+            () => userRepository.ApplyUpgradeGrant(userId, newTier, newGrant, creditsDelta));
     }
 
     private async Task<bool> HandleSubscriptionDeleted(Event stripeEvent)
@@ -247,6 +240,32 @@ public class StripeWebhookProcessor(
         });
 
         return true;
+    }
+
+    /// <summary>
+    /// Appends the ledger row, then applies the mutation. If the mutation fails, the row is
+    /// rolled back before signalling a retry — otherwise Stripe's redelivery would collide
+    /// with the orphaned ledger key, read as "already applied", and the grant would be
+    /// permanently lost. An append collision without a rollback means the mutation already
+    /// succeeded, so redelivery stays a no-op.
+    /// </summary>
+    private async Task<bool> ApplyLedgeredMutation(BillingLedgerRecord entry, Func<Task<bool>> mutation)
+    {
+        if (!await ledger.TryAppend(entry))
+        {
+            return true;
+        }
+
+        if (await mutation())
+        {
+            return true;
+        }
+
+        logger.LogError(
+            "Mutation for ledger entry {EventKey} (user {UserId}, {Type}) failed; rolling back for redelivery",
+            entry.EventKey, entry.UserId, entry.Type);
+        await ledger.Remove(entry.UserId, entry.EventKey);
+        return false;
     }
 
     private async Task<string> ResolveUserId(Event stripeEvent, string metadataUserId, string customerId)

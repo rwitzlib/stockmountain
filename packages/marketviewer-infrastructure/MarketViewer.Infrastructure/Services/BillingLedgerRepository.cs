@@ -51,6 +51,21 @@ public class BillingLedgerRepository(BillingLedgerConfig config, IAmazonDynamoDB
         }
     }
 
+    public async Task Remove(string userId, string eventKey)
+    {
+        logger.LogWarning("Rolling back billing ledger entry {EventKey} for user {UserId}", eventKey, userId);
+
+        await dynamodb.DeleteItemAsync(new DeleteItemRequest
+        {
+            TableName = config.TableName,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                { "UserId", new AttributeValue { S = userId } },
+                { "EventKey", new AttributeValue { S = eventKey } }
+            }
+        });
+    }
+
     private static void AddIfPresent(Dictionary<string, AttributeValue> item, string name, string value)
     {
         if (!string.IsNullOrEmpty(value))

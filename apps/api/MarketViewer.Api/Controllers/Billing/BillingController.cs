@@ -68,7 +68,20 @@ public class BillingController(
         if (string.IsNullOrEmpty(customerId))
         {
             customerId = await stripeGateway.CreateCustomer(user.Id);
-            await userRepository.SetStripeCustomerId(user.Id, customerId);
+            if (!await userRepository.SetStripeCustomerId(user.Id, customerId))
+            {
+                // Lost a concurrent first-checkout race: a parallel request linked its
+                // customer first. Use the stored one so this session lands on the customer
+                // the portal will open; the extra Stripe customer is a harmless orphan.
+                var refreshed = await userRepository.Get(user.Id);
+                if (string.IsNullOrEmpty(refreshed?.StripeCustomerId))
+                {
+                    logger.LogError("Failed to link Stripe customer {CustomerId} to user {UserId}", customerId, user.Id);
+                    return StatusCode(StatusCodes.Status500InternalServerError, new[] { "Could not set up billing; try again" });
+                }
+
+                customerId = refreshed.StripeCustomerId;
+            }
         }
 
         var returnUrlBase = stripeOptions.Value.ReturnUrlBase.TrimEnd('/');

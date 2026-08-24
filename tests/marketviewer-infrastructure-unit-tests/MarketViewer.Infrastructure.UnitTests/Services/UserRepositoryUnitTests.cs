@@ -170,7 +170,7 @@ public class UserRepositoryUnitTests
     }
 
     [Fact]
-    public async Task SetStripeCustomerId_RequiresExistingRecord()
+    public async Task SetStripeCustomerId_OnlyLinksFirstWriter()
     {
         UpdateItemRequest captured = null;
         _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
@@ -181,8 +181,19 @@ public class UserRepositoryUnitTests
 
         result.Should().BeTrue();
         captured.UpdateExpression.Should().Be("SET StripeCustomerId = :customerId");
-        captured.ConditionExpression.Should().Be("attribute_exists(Id)");
+        captured.ConditionExpression.Should().Be("attribute_exists(Id) AND (attribute_not_exists(StripeCustomerId) OR StripeCustomerId = :customerId)");
         captured.ExpressionAttributeValues[":customerId"].S.Should().Be("cus_1");
+    }
+
+    [Fact]
+    public async Task SetStripeCustomerId_AlreadyLinkedToDifferentCustomer_ReturnsFalseWithoutOverwriting()
+    {
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .ThrowsAsync(new ConditionalCheckFailedException("already linked"));
+
+        var result = await _repository.SetStripeCustomerId("user-1", "cus_other");
+
+        result.Should().BeFalse();
     }
 
     [Fact]

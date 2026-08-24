@@ -230,14 +230,40 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
 
     public async Task<bool> SetStripeCustomerId(string id, string stripeCustomerId)
     {
-        return await UpdateExisting(id, new UpdateItemRequest
+        // First-writer-wins: concurrent first checkouts each create a Stripe customer, and
+        // whichever links first must own the record — otherwise a completed checkout can
+        // hang off a customer the stored id no longer points at.
+        try
         {
-            UpdateExpression = "SET StripeCustomerId = :customerId",
-            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            var response = await dynamodb.UpdateItemAsync(new UpdateItemRequest
             {
-                { ":customerId", new AttributeValue { S = stripeCustomerId } }
-            }
-        });
+                TableName = config.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { "Id", new AttributeValue { S = id } }
+                },
+                UpdateExpression = "SET StripeCustomerId = :customerId",
+                ConditionExpression = "attribute_exists(Id) AND (attribute_not_exists(StripeCustomerId) OR StripeCustomerId = :customerId)",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":customerId", new AttributeValue { S = stripeCustomerId } }
+                }
+            });
+
+            return response.HttpStatusCode == HttpStatusCode.OK;
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            logger.LogWarning(
+                "User {UserId} is missing or already linked to a different Stripe customer; not overwriting with {StripeCustomerId}",
+                id, stripeCustomerId);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error linking Stripe customer for user {UserId}: {Message}", id, ex.Message);
+            return false;
+        }
     }
 
     public async Task<bool> ApplySubscriptionGrant(string id, UserRole role, float monthlyGrant)

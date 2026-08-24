@@ -193,6 +193,7 @@ public class StripeWebhookProcessorUnitTests
 
         result.Should().BeTrue();
         _users.Verify(u => u.AddPurchasedCredits("user-1", 250), Times.Once);
+        _ledger.Verify(l => l.Remove(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         entry.Type.Should().Be(BillingLedgerEntryType.TopupPurchase);
         entry.UserId.Should().Be("user-1");
         entry.AmountCents.Should().Be(1000);
@@ -281,13 +282,28 @@ public class StripeWebhookProcessorUnitTests
     }
 
     [Fact]
-    public async Task InvoicePaid_GrantFails_SignalsRetry()
+    public async Task InvoicePaid_GrantFails_RollsBackLedgerAndSignalsRetry()
     {
         _users.Setup(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000)).ReturnsAsync(false);
 
         var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", "subscription_cycle")));
 
         result.Should().BeFalse();
+        // Without the rollback, Stripe's redelivery would collide with the orphaned ledger
+        // key and the grant would be lost forever.
+        _ledger.Verify(l => l.Remove("user-1", It.Is<string>(k => k.EndsWith("#evt_invoice_1"))), Times.Once);
+    }
+
+    [Fact]
+    public async Task PackPurchase_MutationFails_RollsBackLedgerAndSignalsRetry()
+    {
+        SetupUser(UserRole.Free, stripeCustomerId: "cus_1");
+        _users.Setup(u => u.AddPurchasedCredits("user-1", 250)).ReturnsAsync(false);
+
+        var result = await _processor.Process(ParseEvent(CheckoutSessionJson("payment")));
+
+        result.Should().BeFalse();
+        _ledger.Verify(l => l.Remove("user-1", It.Is<string>(k => k.EndsWith("#evt_checkout_1"))), Times.Once);
     }
 
     [Fact]

@@ -91,6 +91,21 @@ public class BillingLedgerRepositoryUnitTests
     }
 
     [Fact]
+    public async Task Remove_DeletesByUserAndEventKey()
+    {
+        DeleteItemRequest captured = null;
+        _dynamo.Setup(d => d.DeleteItemAsync(It.IsAny<DeleteItemRequest>(), default))
+            .Callback<DeleteItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new DeleteItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        await _repository.Remove("user-1", "2026-08-24T12:00:00Z#evt_1");
+
+        captured.TableName.Should().Be("billing-ledger");
+        captured.Key["UserId"].S.Should().Be("user-1");
+        captured.Key["EventKey"].S.Should().Be("2026-08-24T12:00:00Z#evt_1");
+    }
+
+    [Fact]
     public async Task TryAppend_TransportError_Throws()
     {
         _dynamo.Setup(d => d.PutItemAsync(It.IsAny<PutItemRequest>(), default))

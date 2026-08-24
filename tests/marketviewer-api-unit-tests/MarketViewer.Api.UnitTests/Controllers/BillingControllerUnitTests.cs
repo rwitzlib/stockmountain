@@ -91,6 +91,34 @@ public class BillingControllerUnitTests
     }
 
     [Fact]
+    public async Task CheckoutSession_LostCustomerLinkRace_ReusesStoredCustomer()
+    {
+        _gateway.Setup(g => g.CreateCustomer("user-1")).ReturnsAsync("cus_loser");
+        // A concurrent request linked its customer first; the conditional write refuses ours.
+        _users.Setup(u => u.SetStripeCustomerId("user-1", "cus_loser")).ReturnsAsync(false);
+        var reads = 0;
+        _users.Setup(u => u.Get("user-1")).ReturnsAsync(() => new UserRecord
+        {
+            Id = "user-1",
+            Role = UserRole.Free,
+            StripeCustomerId = ++reads == 1 ? null : "cus_winner"
+        });
+        CheckoutSessionSpec spec = null;
+        _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
+            .Callback<CheckoutSessionSpec>(s => spec = s)
+            .ReturnsAsync("https://checkout.stripe.com/session_4");
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Subscription,
+            Id = "Pro"
+        });
+
+        result.Should().BeOfType<OkObjectResult>();
+        spec.CustomerId.Should().Be("cus_winner");
+    }
+
+    [Fact]
     public async Task CheckoutSession_Pack_UsesPaymentModeAndExistingCustomer()
     {
         SetupUser(stripeCustomerId: "cus_1");
