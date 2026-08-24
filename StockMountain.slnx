@@ -9,9 +9,6 @@
   <Folder Name="/apps/backtester/">
     <Project Path="apps/backtester/Backtest.Lambda/Backtest.Lambda.csproj" />
   </Folder>
-  <Folder Name="/apps/management-api/">
-    <Project Path="apps/management-api/Management/Management.csproj" />
-  </Folder>
   <Folder Name="/apps/paper-bot-runner/">
     <Project Path="apps/paper-bot-runner/Optimus/Optimus.csproj" />
   </Folder>
