@@ -9,6 +9,7 @@ locals {
     aws_dynamodb_table.trade.name,
     aws_dynamodb_table.scan.name,
     aws_dynamodb_table.meta.name,
+    aws_dynamodb_table.billing_ledger.name,
     # "${var.team}-${var.environment}-security-master-store",
   ]
 

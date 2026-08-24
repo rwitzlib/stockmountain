@@ -1,0 +1,263 @@
+using FluentAssertions;
+using MarketViewer.Api.Config;
+using MarketViewer.Api.Controllers.Billing;
+using MarketViewer.Api.Services.Billing;
+using MarketViewer.Contracts.Enums;
+using MarketViewer.Contracts.Records;
+using MarketViewer.Contracts.Requests.Billing;
+using MarketViewer.Contracts.Responses.Billing;
+using MarketViewer.Core.Auth;
+using MarketViewer.Core.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Moq;
+using Xunit;
+
+namespace MarketViewer.Api.UnitTests.Controllers;
+
+public class BillingControllerUnitTests
+{
+    private readonly Mock<IUserRepository> _users = new();
+    private readonly Mock<IStripeGateway> _gateway = new();
+    private readonly BillingController _classUnderTest;
+
+    public BillingControllerUnitTests()
+    {
+        var catalog = new BillingCatalog(
+            new Dictionary<UserRole, float> { { UserRole.Free, 100 }, { UserRole.Pro, 1000 }, { UserRole.Premium, 5000 } },
+            new Dictionary<string, float> { { "PackSmall", 250 }, { "PackLarge", 1000 } },
+            new Dictionary<string, string>
+            {
+                { "Pro", "price_pro" },
+                { "Premium", "price_premium" },
+                { "PackSmall", "price_pack_small" },
+                { "PackLarge", "price_pack_large" }
+            });
+
+        _classUnderTest = new BillingController(
+            _users.Object,
+            _gateway.Object,
+            catalog,
+            Options.Create(new StripeConfig { ReturnUrlBase = "https://app.test/" }),
+            new AuthContext { UserId = "user-1", IsAuthenticated = true },
+            NullLogger<BillingController>.Instance);
+    }
+
+    private UserRecord SetupUser(UserRole role = UserRole.Free, string stripeCustomerId = null, string subscriptionStatus = null)
+    {
+        var user = new UserRecord
+        {
+            Id = "user-1",
+            Role = role,
+            Credits = 73,
+            MaxCredits = 100,
+            PurchasedCredits = 250,
+            StripeCustomerId = stripeCustomerId,
+            SubscriptionStatus = subscriptionStatus
+        };
+        _users.Setup(u => u.Get("user-1")).ReturnsAsync(user);
+        return user;
+    }
+
+    [Fact]
+    public async Task CheckoutSession_FirstPurchase_CreatesAndLinksStripeCustomer()
+    {
+        SetupUser();
+        _gateway.Setup(g => g.CreateCustomer("user-1")).ReturnsAsync("cus_new");
+        _users.Setup(u => u.SetStripeCustomerId("user-1", "cus_new")).ReturnsAsync(true);
+        CheckoutSessionSpec spec = null;
+        _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
+            .Callback<CheckoutSessionSpec>(s => spec = s)
+            .ReturnsAsync("https://checkout.stripe.com/session_1");
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Subscription,
+            Id = "Pro"
+        });
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeOfType<CheckoutSessionResponse>()
+            .Which.Url.Should().Be("https://checkout.stripe.com/session_1");
+        _users.Verify(u => u.SetStripeCustomerId("user-1", "cus_new"), Times.Once);
+        spec.CustomerId.Should().Be("cus_new");
+        spec.PriceId.Should().Be("price_pro");
+        spec.IsSubscription.Should().BeTrue();
+        spec.PackId.Should().BeNull();
+        spec.SuccessUrl.Should().Be("https://app.test/billing?status=success");
+        spec.CancelUrl.Should().Be("https://app.test/billing?status=cancelled");
+    }
+
+    [Fact]
+    public async Task CheckoutSession_LostCustomerLinkRace_ReusesStoredCustomer()
+    {
+        _gateway.Setup(g => g.CreateCustomer("user-1")).ReturnsAsync("cus_loser");
+        // A concurrent request linked its customer first; the conditional write refuses ours.
+        _users.Setup(u => u.SetStripeCustomerId("user-1", "cus_loser")).ReturnsAsync(false);
+        var reads = 0;
+        _users.Setup(u => u.Get("user-1")).ReturnsAsync(() => new UserRecord
+        {
+            Id = "user-1",
+            Role = UserRole.Free,
+            StripeCustomerId = ++reads == 1 ? null : "cus_winner"
+        });
+        CheckoutSessionSpec spec = null;
+        _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
+            .Callback<CheckoutSessionSpec>(s => spec = s)
+            .ReturnsAsync("https://checkout.stripe.com/session_4");
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Subscription,
+            Id = "Pro"
+        });
+
+        result.Should().BeOfType<OkObjectResult>();
+        spec.CustomerId.Should().Be("cus_winner");
+    }
+
+    [Fact]
+    public async Task CheckoutSession_Pack_UsesPaymentModeAndExistingCustomer()
+    {
+        SetupUser(stripeCustomerId: "cus_1");
+        CheckoutSessionSpec spec = null;
+        _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
+            .Callback<CheckoutSessionSpec>(s => spec = s)
+            .ReturnsAsync("https://checkout.stripe.com/session_2");
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Pack,
+            Id = "PackSmall"
+        });
+
+        result.Should().BeOfType<OkObjectResult>();
+        _gateway.Verify(g => g.CreateCustomer(It.IsAny<string>()), Times.Never);
+        spec.CustomerId.Should().Be("cus_1");
+        spec.PriceId.Should().Be("price_pack_small");
+        spec.IsSubscription.Should().BeFalse();
+        spec.PackId.Should().Be("PackSmall");
+    }
+
+    [Fact]
+    public async Task CheckoutSession_PackForActiveSubscriber_IsAllowed()
+    {
+        SetupUser(role: UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
+        _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
+            .ReturnsAsync("https://checkout.stripe.com/session_3");
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Pack,
+            Id = "PackLarge"
+        });
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task CheckoutSession_SubscriptionWhileSubscribed_IsRejected()
+    {
+        SetupUser(role: UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Subscription,
+            Id = "Premium"
+        });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _gateway.Verify(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(CheckoutKind.Subscription, "Free")]
+    [InlineData(CheckoutKind.Subscription, "Gold")]
+    [InlineData(CheckoutKind.Pack, "PackHuge")]
+    public async Task CheckoutSession_UnknownItem_IsRejected(CheckoutKind kind, string id)
+    {
+        SetupUser();
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest { Kind = kind, Id = id });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _gateway.Verify(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutSession_MissingPriceConfig_Returns500()
+    {
+        SetupUser();
+        var controllerWithoutPrices = new BillingController(
+            _users.Object,
+            _gateway.Object,
+            new BillingCatalog(
+                new Dictionary<UserRole, float> { { UserRole.Pro, 1000 } },
+                new Dictionary<string, float>(),
+                new Dictionary<string, string>()),
+            Options.Create(new StripeConfig { ReturnUrlBase = "https://app.test" }),
+            new AuthContext { UserId = "user-1", IsAuthenticated = true },
+            NullLogger<BillingController>.Instance);
+
+        var result = await controllerWithoutPrices.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Subscription,
+            Id = "Pro"
+        });
+
+        result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+    }
+
+    [Fact]
+    public async Task PortalSession_WithoutBillingAccount_IsRejected()
+    {
+        SetupUser(stripeCustomerId: null);
+
+        var result = await _classUnderTest.CreatePortalSession();
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task PortalSession_ReturnsPortalUrl()
+    {
+        SetupUser(stripeCustomerId: "cus_1");
+        _gateway.Setup(g => g.CreatePortalSession("cus_1", "https://app.test/billing"))
+            .ReturnsAsync("https://billing.stripe.com/portal_1");
+
+        var result = await _classUnderTest.CreatePortalSession();
+
+        result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeOfType<PortalSessionResponse>()
+            .Which.Url.Should().Be("https://billing.stripe.com/portal_1");
+    }
+
+    [Fact]
+    public async Task Summary_MapsUserRecordWithDefaultStatus()
+    {
+        SetupUser(role: UserRole.Pro);
+
+        var result = await _classUnderTest.GetSummary();
+
+        var summary = result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeOfType<BillingSummaryResponse>().Subject;
+        summary.Tier.Should().Be(UserRole.Pro);
+        summary.Credits.Should().Be(73);
+        summary.MaxCredits.Should().Be(100);
+        summary.PurchasedCredits.Should().Be(250);
+        summary.SubscriptionStatus.Should().Be("none");
+    }
+
+    [Fact]
+    public async Task Summary_UnknownUser_Returns404()
+    {
+        _users.Setup(u => u.Get("user-1")).ReturnsAsync((UserRecord)null);
+
+        var result = await _classUnderTest.GetSummary();
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+}

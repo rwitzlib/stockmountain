@@ -215,10 +215,39 @@ apply pending); `UserResponse.PurchasedCredits` + web `UserDetails` type updated
 CreditUnitVersion=2 — run only AFTER the rescaled lambda deploys). 21 new unit tests;
 all touched suites green (infra 18, contracts 7, application 105, api 26, backtest 128).
 
-**Phase 2 — Stripe core.** Stripe.net package, config/secrets plumbing (terraform var →
-Railway env, same as Clerk's signing secret), `BillingController`,
-`StripeWebhookController` + handlers per above, ledger writes with idempotency. Integration
-tests with Stripe's test fixtures (constructed events, no network).
+**Phase 2 — Stripe core. ✅ DONE 2026-08-24 (uncommitted, branch
+`feature/stripe-billing-core`).** Stripe.net 52.3.0 in the API. `BillingController`
+(`POST /billing/checkout-session`, `POST /billing/portal-session`, `GET /billing/summary`);
+checkout for an already-subscribed user returns 400 pointing at the Portal (plan changes are
+Portal-side; Checkout would create a second subscription). `StripeWebhookController`
+(`[AllowAnonymous]`, `EventUtility.ConstructEvent` with `throwOnApiVersionMismatch: false`;
+explicit guard for a missing `Stripe-Signature` header — the SDK NREs instead of throwing
+`StripeException`; fails closed with 500 while the signing secret is unset; processor
+failure → 500 so Stripe redelivers). `StripeWebhookProcessor` handles the six event types
+per the design, each credit/role mutation guarded by the idempotent ledger append; user
+resolution = event metadata (`client_reference_id` / subscription metadata / charge
+metadata) → Stripe customer `userId` metadata fallback. `IStripeGateway` wraps all Stripe
+network calls (customer create/get, checkout + portal sessions) so everything is testable
+with constructed events, no network. Checkout sessions stamp `userId` into session,
+subscription, and payment-intent metadata. New `IBillingLedgerRepository` +
+`BillingLedgerRepository` (conditional put on `attribute_not_exists(EventKey)`);
+`IUserRepository` gained `SetStripeCustomerId` / `ApplySubscriptionGrant` /
+`ApplyUpgradeGrant` / `AddPurchasedCredits` / `SetSubscriptionStatus` /
+`CancelSubscription` (min-clamp via optimistic retry). `BillingCatalog` reads the new
+`Tiers` / `Packs` sections (base appsettings.json: 100/1,000/5,000 + 250/1,000) and
+`Stripe:Prices`. Terraform: `stripe_*` variables → `Stripe__*` env vars in
+`api_aws_environment_variables`, `BillingLedgerConfig__TableName`, ledger table added to
+the API IAM allow-list (validate OK, apply pending). Tests: 15 processor fixture tests
+(SDK-parsed events), 10 BillingController, 5 signature-verification, 4 ledger, 9 new
+user-repo tests — all suites green (api 58, infra 30, contracts 7, application 105,
+backtest 128, integration boot).
+
+Manual setup still required before the flow works on dev: create test-mode products/prices
+in the Stripe dashboard, register the dev webhook endpoint (`/api/webhooks/stripe`, the six
+event types above), then set GitHub secrets `TF_VAR_stripe_secret_key`,
+`TF_VAR_stripe_webhook_signing_secret`, `TF_VAR_stripe_price_id_pro` / `_premium` /
+`_pack_small` / `_pack_large` (empty values are dropped by the Railway push, so billing
+stays fail-closed until then).
 
 **Phase 3 — refill Lambda.** `Billing.Lambda`, ECR repo, terraform (lambda + EventBridge +
 permission + IAM), app-deploy.yml docker entry. Manual invoke on dev to verify legacy

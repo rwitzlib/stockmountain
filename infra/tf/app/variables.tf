@@ -192,6 +192,44 @@ variable "alpaca_api_secret_key" {
   description = "Alpaca API secret key."
 }
 
+variable "stripe_secret_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Stripe API secret key (test-mode on dev, live on prod)."
+}
+
+variable "stripe_webhook_signing_secret" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Signing secret of the environment's Stripe webhook endpoint."
+}
+
+variable "stripe_price_id_pro" {
+  type        = string
+  default     = ""
+  description = "Stripe Price id for the Pro subscription."
+}
+
+variable "stripe_price_id_premium" {
+  type        = string
+  default     = ""
+  description = "Stripe Price id for the Premium subscription."
+}
+
+variable "stripe_price_id_pack_small" {
+  type        = string
+  default     = ""
+  description = "Stripe Price id for the small one-time credit pack."
+}
+
+variable "stripe_price_id_pack_large" {
+  type        = string
+  default     = ""
+  description = "Stripe Price id for the large one-time credit pack."
+}
+
 variable "cache_warmup_enabled" {
   type        = string
   default     = "true"
