@@ -67,7 +67,7 @@ jobs:
       terraform_variables: |
         {
           "environment": "${{ inputs.environment || 'dev' }}",
-          "image_tag": "${{ github.ref_name }}"
+          "image_tag": "sha-${{ github.sha }}"
         }
     secrets: inherit
 
