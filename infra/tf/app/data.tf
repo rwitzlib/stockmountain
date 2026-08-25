@@ -16,6 +16,11 @@ data "aws_ecr_image" "backtester" {
   image_tag       = var.image_tag
 }
 
+data "aws_ecr_image" "billing" {
+  repository_name = "${var.team}-${var.environment}-billing"
+  image_tag       = var.image_tag
+}
+
 data "aws_secretsmanager_secret" "massive_token" {
   name = "${var.team}-${var.environment}-massive-token"
 }

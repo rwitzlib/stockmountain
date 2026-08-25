@@ -59,6 +59,56 @@ resource "aws_iam_role" "market_data_aggregator_lambda" {
   }
 }
 
+resource "aws_iam_role" "billing_lambda" {
+  name = "${var.team}-${var.environment}-billing-lambdas"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      },
+    ]
+  })
+
+  managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  ]
+
+  inline_policy {
+    name = "${var.team}-${var.environment}-billing-lambdas-access"
+
+    policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "dynamodb:Scan",
+            "dynamodb:GetItem",
+            "dynamodb:UpdateItem"
+          ]
+          Resource = aws_dynamodb_table.user.arn
+        },
+        {
+          # DeleteItem rolls back a refill ledger row whose credit mutation failed,
+          # so a re-run can retry the append+mutation as a unit.
+          Effect = "Allow"
+          Action = [
+            "dynamodb:PutItem",
+            "dynamodb:DeleteItem"
+          ]
+          Resource = aws_dynamodb_table.billing_ledger.arn
+        }
+      ]
+    })
+  }
+}
+
 resource "aws_iam_role" "backtest_lambda" {
   name = "${var.team}-${var.environment}-backtest-lambdas"
 

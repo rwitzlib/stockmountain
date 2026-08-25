@@ -249,9 +249,26 @@ event types above), then set GitHub secrets `TF_VAR_stripe_secret_key`,
 `_pack_small` / `_pack_large` (empty values are dropped by the Railway push, so billing
 stays fail-closed until then).
 
-**Phase 3 — refill Lambda.** `Billing.Lambda`, ECR repo, terraform (lambda + EventBridge +
-permission + IAM), app-deploy.yml docker entry. Manual invoke on dev to verify legacy
-zero-credit users get healed.
+**Phase 3 — refill Lambda. ✅ DONE 2026-08-24 (uncommitted, branch
+`feature/stripe-billing-core`).** New `apps/billing/Billing.Lambda` (image-based, aggregator
+pattern): `RefillFunction` handler (period defaults to current UTC "yyyy-MM"; supports
+`{ "period": "...", "dryRun": true }` for manual invokes) + `MonthlyRefillService` — paginated
+user-store scan filtered server-side to `Role in (Free, Basic)` and `SubscriptionStatus <>
+active`, then per user: idempotent ledger append (`monthly_refill`, EventKey
+`{period}#{userId}`) guarding a conditional `SET Credits = :grant, MaxCredits = :grant` that
+re-checks eligibility at write time (a user subscribing mid-run is skipped, ledger rolled
+back — same append→mutate→rollback pattern as the webhooks). Refuses to run when the
+configured grant is ≤ 0 (missing Tiers config would otherwise zero every free user). Grant
+lives in the Lambda's appsettings (`Tiers:Free:MonthlyCredits` = 100, env-var overridable);
+table names from terraform env vars. Reuses `BillingLedgerRepository`/`UserConfig` from the
+infrastructure package. Terraform: `billing` ECR repo (core), `billing-refill` lambda +
+`billing_lambda` IAM role (user-store Scan/Get/Update, ledger Put/Delete) + EventBridge
+`cron(0 6 1 * ? *)` rule/target/permission (app; validate OK, apply pending — core must
+apply before the first app deploy so the ECR repo exists). app-deploy.yml gained the billing
+docker entry; both solution files updated. 10 new unit tests (Billing.Lambda.UnitTests),
+all green. **Remaining: manual invoke on dev after deploy** to verify legacy zero-credit
+users get healed (invoke with `{"dryRun": true}` first; result JSON reports
+eligible/refilled/alreadyRefilled/skipped/failed).
 
 **Phase 4 — frontend.** `/billing` page, sidebar entry, landing CTA wiring, summary endpoint
 consumption, success-return polling.

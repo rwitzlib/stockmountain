@@ -8,6 +8,7 @@ locals {
   repositories = [
     "api",
     "backtester",
+    "billing",
     "market-data-aggregator",
     "optimus"
     # "kesha",
