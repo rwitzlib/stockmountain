@@ -77,6 +77,53 @@ resource "aws_lambda_permission" "market_data_aggregator_cloudwatch" {
 
 // ------- Market Data Aggregator Lambda Function -------
 
+// ------- Billing Refill Lambda Function -------
+
+// Monthly free-tier credit refill (plans/16). Paid subscribers refill via the Stripe
+// invoice.paid webhook in the API; this Lambda heals Free/legacy users from tier config.
+resource "aws_lambda_function" "billing_refill" {
+  function_name = "${var.team}-${var.environment}-${local.billing_refill_service}"
+  role          = aws_iam_role.billing_lambda.arn
+
+  memory_size = 512
+  timeout     = 900
+
+  architectures = ["x86_64"]
+
+  package_type = "Image"
+  image_uri    = data.aws_ecr_image.billing.image_uri
+
+  image_config {
+    command = ["Billing.Lambda::Billing.Lambda.RefillFunction::FunctionHandler"]
+  }
+
+  logging_config {
+    log_format            = "JSON"
+    application_log_level = "INFO"
+    system_log_level      = "INFO"
+  }
+
+  environment {
+    variables = {
+      ASPNETCORE_ENVIRONMENT          = var.environment
+      UserConfig__TableName           = aws_dynamodb_table.user.name
+      BillingLedgerConfig__TableName  = aws_dynamodb_table.billing_ledger.name
+    }
+  }
+
+  kms_key_arn = data.aws_kms_key.lambda.arn
+}
+
+resource "aws_lambda_permission" "billing_refill_cloudwatch" {
+  statement_id  = "AllowExecutionFromCloudWatch"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.billing_refill.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.billing_monthly_refill.arn
+}
+
+// ------- Billing Refill Lambda Function -------
+
 // ------- Backtest Lambda Function -------
 
 resource "aws_lambda_function" "backtest_worker" {

@@ -11,5 +11,7 @@ locals {
   backtest_worker_service       = "backtest-worker"
   backtest_orchestrator_service = "backtest-orchestrator"
 
+  billing_refill_service = "billing-refill"
+
   web_service_name = "stockmountain-app"
 }

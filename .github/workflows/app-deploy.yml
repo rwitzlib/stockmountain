@@ -43,6 +43,12 @@ jobs:
             "build-args": "COMMIT_SHA=${{ github.sha }}"
           },
           {
+            "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-billing",
+            "dockerfile": "apps/billing/Dockerfile",
+            "context": ".",
+            "build-args": "COMMIT_SHA=${{ github.sha }}"
+          },
+          {
             "ecr_repo": "stockmountain-${{ inputs.environment || 'dev' }}-api",
             "dockerfile": "apps/api/Dockerfile",
             "context": ".",

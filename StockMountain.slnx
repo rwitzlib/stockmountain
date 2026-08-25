@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/apps/" />
+  <Folder Name="/apps/billing/">
+    <Project Path="apps/billing/Billing.Lambda/Billing.Lambda.csproj" />
+  </Folder>
   <Folder Name="/apps/market-data-aggregator/">
     <Project Path="apps/market-data-aggregator/MarketDataAggregator/MarketDataAggregator.csproj" />
   </Folder>
@@ -51,6 +54,9 @@
   </Folder>
   <Folder Name="/tests/massive-client-unit-tests/">
     <Project Path="tests/massive-client-unit-tests/Massive.Client.UnitTests/Massive.Client.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/billing-lambda-unit-tests/">
+    <Project Path="tests/billing-lambda-unit-tests/Billing.Lambda.UnitTests/Billing.Lambda.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/market-data-aggregator-unit-tests/">
     <Project Path="tests/market-data-aggregator-unit-tests/MarketDataAggregator.UnitTests/MarketDataAggregator.UnitTests.csproj" />

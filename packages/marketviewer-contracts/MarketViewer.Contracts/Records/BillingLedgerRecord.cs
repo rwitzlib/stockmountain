@@ -29,6 +29,19 @@ public class BillingLedgerRecord
     public string StripePaymentIntentId { get; set; }
     public string Tier { get; set; }
     public string Description { get; set; }
+
+    /// <summary>
+    /// <see cref="BillingLedgerStatus.Pending"/> while the credit mutation this row guards has
+    /// not been applied yet; absent (null) once applied. Rows written without a status are
+    /// applied. Lets a re-run resume a row whose mutation was interrupted instead of treating
+    /// the collision as already-applied.
+    /// </summary>
+    public string Status { get; set; }
+}
+
+public static class BillingLedgerStatus
+{
+    public const string Pending = "pending";
 }
 
 public static class BillingLedgerEntryType

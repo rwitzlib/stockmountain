@@ -59,6 +59,60 @@ resource "aws_iam_role" "market_data_aggregator_lambda" {
   }
 }
 
+resource "aws_iam_role" "billing_lambda" {
+  name = "${var.team}-${var.environment}-billing-lambdas"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      },
+    ]
+  })
+
+  managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  ]
+
+  inline_policy {
+    name = "${var.team}-${var.environment}-billing-lambdas-access"
+
+    policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "dynamodb:Scan",
+            "dynamodb:GetItem",
+            "dynamodb:UpdateItem"
+          ]
+          Resource = aws_dynamodb_table.user.arn
+        },
+        {
+          # Refill ledger rows go through a pending->applied lifecycle: PutItem appends the
+          # pending row, GetItem (IsPending) lets a re-run resume an interrupted refill,
+          # UpdateItem (MarkApplied) settles it, and DeleteItem removes the pending row when
+          # the user stopped being eligible between scan and write.
+          Effect = "Allow"
+          Action = [
+            "dynamodb:PutItem",
+            "dynamodb:GetItem",
+            "dynamodb:UpdateItem",
+            "dynamodb:DeleteItem"
+          ]
+          Resource = aws_dynamodb_table.billing_ledger.arn
+        }
+      ]
+    })
+  }
+}
+
 resource "aws_iam_role" "backtest_lambda" {
   name = "${var.team}-${var.environment}-backtest-lambdas"
 

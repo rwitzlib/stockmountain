@@ -106,6 +106,104 @@ public class BillingLedgerRepositoryUnitTests
     }
 
     [Fact]
+    public async Task TryAppend_PendingStatus_IsWritten()
+    {
+        PutItemRequest captured = null;
+        _dynamo.Setup(d => d.PutItemAsync(It.IsAny<PutItemRequest>(), default))
+            .Callback<PutItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new PutItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        var entry = Entry();
+        entry.Status = BillingLedgerStatus.Pending;
+
+        await _repository.TryAppend(entry);
+
+        captured.Item["Status"].S.Should().Be("pending");
+    }
+
+    [Fact]
+    public async Task TryAppend_NoStatus_OmitsAttribute()
+    {
+        PutItemRequest captured = null;
+        _dynamo.Setup(d => d.PutItemAsync(It.IsAny<PutItemRequest>(), default))
+            .Callback<PutItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new PutItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        await _repository.TryAppend(Entry());
+
+        captured.Item.Should().NotContainKey("Status");
+    }
+
+    [Fact]
+    public async Task IsPending_PendingEntry_ReturnsTrue()
+    {
+        GetItemRequest captured = null;
+        _dynamo.Setup(d => d.GetItemAsync(It.IsAny<GetItemRequest>(), default))
+            .Callback<GetItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new GetItemResponse
+            {
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    { "Status", new AttributeValue { S = "pending" } }
+                }
+            });
+
+        var result = await _repository.IsPending("user-1", "2026-09#user-1");
+
+        result.Should().BeTrue();
+        captured.TableName.Should().Be("billing-ledger");
+        captured.Key["UserId"].S.Should().Be("user-1");
+        captured.Key["EventKey"].S.Should().Be("2026-09#user-1");
+        captured.ExpressionAttributeNames["#status"].Should().Be("Status");
+        captured.ConsistentRead.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task IsPending_AppliedOrMissingEntry_ReturnsFalse(bool itemExists)
+    {
+        _dynamo.Setup(d => d.GetItemAsync(It.IsAny<GetItemRequest>(), default))
+            .ReturnsAsync(new GetItemResponse
+            {
+                Item = itemExists ? [] : null
+            });
+
+        var result = await _repository.IsPending("user-1", "2026-09#user-1");
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task MarkApplied_RemovesStatusAttribute()
+    {
+        UpdateItemRequest captured = null;
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .Callback<UpdateItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        await _repository.MarkApplied("user-1", "2026-09#user-1");
+
+        captured.TableName.Should().Be("billing-ledger");
+        captured.Key["UserId"].S.Should().Be("user-1");
+        captured.Key["EventKey"].S.Should().Be("2026-09#user-1");
+        captured.UpdateExpression.Should().Be("REMOVE #status");
+        captured.ExpressionAttributeNames["#status"].Should().Be("Status");
+        captured.ConditionExpression.Should().Be("attribute_exists(EventKey)");
+    }
+
+    [Fact]
+    public async Task MarkApplied_TransportError_Throws()
+    {
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .ThrowsAsync(new AmazonDynamoDBException("throttled"));
+
+        var act = () => _repository.MarkApplied("user-1", "2026-09#user-1");
+
+        await act.Should().ThrowAsync<AmazonDynamoDBException>();
+    }
+
+    [Fact]
     public async Task TryAppend_TransportError_Throws()
     {
         _dynamo.Setup(d => d.PutItemAsync(It.IsAny<PutItemRequest>(), default))
