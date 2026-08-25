@@ -1,0 +1,19 @@
+{
+  "name": "stockmountain-e2e",
+  "private": true,
+  "description": "Playwright end-to-end suite for the deployed dev environment (plan 16 phase 5)",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.716.0",
+    "@clerk/testing": "^1.4.0",
+    "@playwright/test": "^1.49.0",
+    "dotenv": "^16.4.7",
+    "stripe": "^17.5.0",
+    "typescript": "^5.7.2"
+  }
+}
