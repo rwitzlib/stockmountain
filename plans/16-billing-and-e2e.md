@@ -306,11 +306,15 @@ banner. Small web change: `BacktestDetailPage` now renders a failure banner from
 the record but was never shown). Safety guards: reset helpers refuse user-store tables
 without `-dev-` and any non-`sk_test_` Stripe key. CI: `.github/workflows/e2e.yml` —
 nightly cron + `workflow_dispatch`, OIDC AWS role for the Dynamo reset, uploads the
-Playwright HTML report artifact, not PR-blocking. **Remaining manual setup:** create the
-three fixed dev test users (`e2e-billing/backtest/broke+clerk_test@…`, code 424242), then
-set GitHub dev-environment secrets `E2E_CLERK_PUBLISHABLE_KEY` / `E2E_CLERK_SECRET_KEY` /
-`E2E_STRIPE_SECRET_KEY` and variables `E2E_STRIPE_PRICE_PREMIUM` +
-`E2E_{BILLING,BACKTEST,BROKE}_USER_{EMAIL,ID}` (see tests/e2e/README.md). Original scope:
+Playwright HTML report artifact, not PR-blocking. Fixed test-user **emails live in source**
+(`src/env.ts` `FIXED_USER_EMAILS`: `e2e_billing/e2e_backtest/e2e_broke+clerk_test@example.com`,
+created on the dev Clerk instance 2026-08-25); their Clerk ids are **resolved at startup**
+via the backend API (global setup stashes them in `process.env`, which Playwright propagates
+to workers) — no per-user configuration, and a deleted/recreated user fails loudly instead
+of going stale. Likewise no price-id config: the upgrade test resolves the Premium price at
+runtime from the Stripe product's `tier` metadata (part of the required dashboard setup).
+**Remaining manual setup:** set GitHub dev-environment secrets `E2E_CLERK_PUBLISHABLE_KEY` /
+`E2E_CLERK_SECRET_KEY` / `E2E_STRIPE_SECRET_KEY` (see tests/e2e/README.md). Original scope:
 
 Env-driven config (dev base URL, Clerk test creds, AWS creds for state assertions/reset).
 Suites:

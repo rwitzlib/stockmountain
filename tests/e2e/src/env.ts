@@ -18,8 +18,6 @@ export const env = {
   signupEmailDomain: process.env.E2E_SIGNUP_EMAIL_DOMAIN ?? 'example.com',
   /** Stripe test-mode secret key; enables customer cleanup + the upgrade test. */
   stripeSecretKey: process.env.STRIPE_SECRET_KEY,
-  /** Stripe test-mode Price id for the Premium tier (upgrade test). */
-  premiumPriceId: process.env.E2E_STRIPE_PRICE_PREMIUM,
 };
 
 // Tier grants and pack sizes — mirror Tiers/Packs in the API appsettings and
@@ -36,22 +34,33 @@ export interface FixedUser {
   id: string;
 }
 
-function required(name: string): string {
-  const value = process.env[name];
-  if (!value) {
+export type FixedUserKind = 'BILLING' | 'BACKTEST' | 'BROKE';
+
+/**
+ * The three fixed dev test users (pre-created once on the dev Clerk instance,
+ * OTP 424242). Emails live in source; their Clerk ids are resolved from these
+ * via the backend API in global setup.
+ */
+export const FIXED_USER_EMAILS: Record<FixedUserKind, string> = {
+  BILLING: 'e2e_billing+clerk_test@example.com',
+  BACKTEST: 'e2e_backtest+clerk_test@example.com',
+  BROKE: 'e2e_broke+clerk_test@example.com',
+};
+
+/**
+ * The three fixed dev test users; rows are reset before each suite runs.
+ * Ids are stashed in process.env by global setup (Playwright propagates env
+ * to workers), so this stays synchronous inside tests.
+ */
+export function fixedUser(kind: FixedUserKind): FixedUser {
+  const id = process.env[`E2E_${kind}_USER_ID`];
+  if (!id) {
     throw new Error(
-      `Missing required env var ${name} — see tests/e2e/README.md for setup.`
+      `No resolved Clerk id for the ${kind} test user (${FIXED_USER_EMAILS[kind]}) — ` +
+        'global setup should have resolved it; does the user exist on the dev instance?'
     );
   }
-  return value;
-}
-
-/** The three fixed dev test users; rows are reset before each suite runs. */
-export function fixedUser(kind: 'BILLING' | 'BACKTEST' | 'BROKE'): FixedUser {
-  return {
-    email: required(`E2E_${kind}_USER_EMAIL`),
-    id: required(`E2E_${kind}_USER_ID`),
-  };
+  return { email: FIXED_USER_EMAILS[kind], id };
 }
 
 export function assertDevSafety(): void {

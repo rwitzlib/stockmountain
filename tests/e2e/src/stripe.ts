@@ -43,6 +43,33 @@ export async function cleanupStripeCustomers(userId: string): Promise<void> {
 }
 
 /**
+ * Resolve a tier's subscription price from the Stripe test-mode catalog via
+ * the product's `tier` metadata (part of the required dashboard setup, and
+ * how the webhook processor maps products back to tiers). Looked up at
+ * runtime so the suite needs no per-environment price-id config.
+ */
+export async function findPriceIdForTier(tier: 'Pro' | 'Premium'): Promise<string> {
+  const stripe = stripeClient();
+  const products = await stripe.products.search({
+    query: `active:'true' AND metadata['tier']:'${tier}'`,
+  });
+  const product = products.data[0];
+  if (!product) {
+    throw new Error(
+      `No active Stripe product tagged metadata tier=${tier} — is the test-mode dashboard setup complete?`
+    );
+  }
+  const defaultPriceId =
+    typeof product.default_price === 'string' ? product.default_price : product.default_price?.id;
+  if (defaultPriceId) return defaultPriceId;
+  const prices = await stripe.prices.list({ product: product.id, active: true, limit: 1 });
+  if (!prices.data[0]) {
+    throw new Error(`Stripe product ${product.id} (tier=${tier}) has no active price`);
+  }
+  return prices.data[0].id;
+}
+
+/**
  * Switch the user's active subscription to a new price, invoicing the
  * proration immediately — the same shape the Customer Portal produces on an
  * upgrade. Driving the Portal UI itself is too brittle (Stripe-owned DOM), and

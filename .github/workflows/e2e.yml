@@ -60,13 +60,9 @@ jobs:
           CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
           STRIPE_SECRET_KEY: ${{ secrets.E2E_STRIPE_SECRET_KEY }}
-          E2E_STRIPE_PRICE_PREMIUM: ${{ vars.E2E_STRIPE_PRICE_PREMIUM }}
-          E2E_BILLING_USER_EMAIL: ${{ vars.E2E_BILLING_USER_EMAIL }}
-          E2E_BILLING_USER_ID: ${{ vars.E2E_BILLING_USER_ID }}
-          E2E_BACKTEST_USER_EMAIL: ${{ vars.E2E_BACKTEST_USER_EMAIL }}
-          E2E_BACKTEST_USER_ID: ${{ vars.E2E_BACKTEST_USER_ID }}
-          E2E_BROKE_USER_EMAIL: ${{ vars.E2E_BROKE_USER_EMAIL }}
-          E2E_BROKE_USER_ID: ${{ vars.E2E_BROKE_USER_ID }}
+          # Fixed test-user emails live in source (tests/e2e/src/env.ts); ids
+          # are resolved from Clerk at startup, and Stripe price ids from
+          # product tier metadata.
 
       - name: Upload Playwright report
         if: always()

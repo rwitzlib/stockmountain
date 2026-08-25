@@ -10,7 +10,12 @@ import {
   PRO_GRANT,
 } from '../src/env';
 import { deleteUserRow, resetUserRow } from '../src/reset';
-import { cleanupStripeCustomers, completeStripeCheckout, upgradeSubscription } from '../src/stripe';
+import {
+  cleanupStripeCustomers,
+  completeStripeCheckout,
+  findPriceIdForTier,
+  upgradeSubscription,
+} from '../src/stripe';
 
 /** Poll the billing summary until `predicate` holds (webhook lag is expected). */
 async function waitForSummary(
@@ -123,17 +128,15 @@ test.describe('subscription lifecycle', () => {
   });
 
   test('upgrading Pro → Premium bumps the grant immediately', async ({ page }) => {
-    test.skip(
-      !env.stripeSecretKey || !env.premiumPriceId,
-      'Needs STRIPE_SECRET_KEY and E2E_STRIPE_PRICE_PREMIUM'
-    );
+    test.skip(!env.stripeSecretKey, 'Needs STRIPE_SECRET_KEY');
     const user = fixedUser('BILLING');
 
     // Plan changes go through the Customer Portal, whose Stripe-owned DOM is
     // too brittle to automate. Reproduce the portal's upgrade through the
     // Stripe API instead — what's under test is our
     // customer.subscription.updated handling, which is identical either way.
-    await upgradeSubscription(user.id, env.premiumPriceId!);
+    // The Premium price is resolved from the product's tier metadata.
+    await upgradeSubscription(user.id, await findPriceIdForTier('Premium'));
 
     await signIn(page, user.email);
     await page.goto('/billing');

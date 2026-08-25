@@ -78,25 +78,38 @@ export async function currentUserId(page: Page): Promise<string> {
   });
 }
 
+function clerkApiHeaders(): { Authorization: string } {
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) throw new Error('CLERK_SECRET_KEY is not set');
+  return { Authorization: `Bearer ${secretKey}` };
+}
+
+/** Resolve a Clerk user id from an email via the backend API. */
+export async function lookupClerkUserId(email: string): Promise<string | null> {
+  const lookup = await fetch(
+    `https://api.clerk.com/v1/users?email_address=${encodeURIComponent(email)}`,
+    { headers: clerkApiHeaders() }
+  );
+  if (!lookup.ok) {
+    throw new Error(`Clerk user lookup for ${email} failed: ${lookup.status}`);
+  }
+  const users = (await lookup.json()) as { id: string }[];
+  return users[0]?.id ?? null;
+}
+
 /**
  * Best-effort deletion of a throwaway signup user via the Clerk backend API,
  * so nightly runs don't accumulate test users on the dev instance.
  * Returns the deleted user's id, or null if not found / no secret key.
  */
 export async function deleteClerkUserByEmail(email: string): Promise<string | null> {
-  const secretKey = process.env.CLERK_SECRET_KEY;
-  if (!secretKey) return null;
-  const headers = { Authorization: `Bearer ${secretKey}` };
-
-  const lookup = await fetch(
-    `https://api.clerk.com/v1/users?email_address=${encodeURIComponent(email)}`,
-    { headers }
-  );
-  if (!lookup.ok) return null;
-  const users = (await lookup.json()) as { id: string }[];
-  const userId = users[0]?.id;
+  if (!process.env.CLERK_SECRET_KEY) return null;
+  const userId = await lookupClerkUserId(email).catch(() => null);
   if (!userId) return null;
 
-  await fetch(`https://api.clerk.com/v1/users/${userId}`, { method: 'DELETE', headers });
+  await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+    method: 'DELETE',
+    headers: clerkApiHeaders(),
+  });
   return userId;
 }
