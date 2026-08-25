@@ -18,12 +18,19 @@ export interface BillingSummary {
 async function authedGet<T>(page: Page, path: string): Promise<T> {
   return page.evaluate(
     async (url: string) => {
-      const clerkGlobal = (
-        window as unknown as {
-          Clerk?: { session?: { getToken(): Promise<string | null> } };
-        }
-      ).Clerk;
-      const token = await clerkGlobal?.session?.getToken();
+      // Right after a navigation clerk-js may still be bootstrapping; wait for
+      // the session like the app's own authFetch does.
+      const clerk = () =>
+        (
+          window as unknown as {
+            Clerk?: { loaded?: boolean; session?: { getToken(): Promise<string | null> } };
+          }
+        ).Clerk;
+      const deadline = Date.now() + 10_000;
+      while ((!clerk()?.loaded || !clerk()?.session) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      const token = await clerk()?.session?.getToken();
       if (!token) throw new Error('No Clerk session token available');
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
