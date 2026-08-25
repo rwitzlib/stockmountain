@@ -6,6 +6,10 @@
  * Required env vars are only read lazily (inside tests/hooks) so that
  * `playwright test --list` and typechecking work without a full .env.
  */
+// Load .env before the snapshot below reads process.env. ES imports are
+// hoisted, so this must live here (not in playwright.config.ts) to run first
+// in every entry point — config, global setup, and worker processes alike.
+import 'dotenv/config';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'https://dev.stockmountain.io';
 

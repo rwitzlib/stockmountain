@@ -25,11 +25,14 @@ jobs:
       run:
         working-directory: tests/e2e
     steps:
+      # Actions are SHA-pinned: this job mints an OIDC token, assumes the AWS
+      # deployment role, and holds Clerk/Stripe secrets, so a repointed
+      # mutable tag must not be able to run unreviewed code here.
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -43,7 +46,7 @@ jobs:
 
       # Dynamo access for the test-state reset (fixed dev test users only).
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           mask-aws-account-id: true
           role-duration-seconds: 3600
@@ -61,7 +64,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report
           path: tests/e2e/playwright-report/

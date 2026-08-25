@@ -1,8 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
-import * as dotenv from 'dotenv';
+// src/env loads dotenv itself, before its process.env snapshot.
 import { env } from './src/env';
-
-dotenv.config();
 
 /**
  * E2e suite against the deployed dev environment (plan 16 phase 5).
