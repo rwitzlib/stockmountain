@@ -5,9 +5,10 @@ interface BacktestSummaryProps {
   results: BacktestEntry[];
   credits: number | null;
   maxCredits: number | null;
+  purchasedCredits?: number | null;
 }
 
-export const BacktestSummary = ({ results, credits, maxCredits }: BacktestSummaryProps) => {
+export const BacktestSummary = ({ results, credits, maxCredits, purchasedCredits }: BacktestSummaryProps) => {
   const totalBacktests = results.length;
   const inProgress = results.filter(r => r.status === 'InProgress').length;
 
@@ -50,6 +51,11 @@ export const BacktestSummary = ({ results, credits, maxCredits }: BacktestSummar
                 : `${Math.round(credits)} left`}
             </div>
           </div>
+          {purchasedCredits != null && purchasedCredits > 0 && (
+            <div className="text-[10.5px] tabular-nums text-muted-foreground">
+              +{Math.round(purchasedCredits)} purchased
+            </div>
+          )}
           {hasAllowance && (
             <div
               role="progressbar"

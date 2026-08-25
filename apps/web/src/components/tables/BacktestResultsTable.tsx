@@ -399,7 +399,7 @@ export function BacktestResultsTable({
                           <div>
                             <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">Credits Used</div>
                             <div className="text-foreground tabular-nums">
-                              {result.creditsUsed}
+                              {typeof result.creditsUsed === 'number' ? result.creditsUsed.toFixed(1) : result.creditsUsed}
                             </div>
                           </div>
                         </div>

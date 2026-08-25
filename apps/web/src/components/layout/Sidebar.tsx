@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Wrench,
   CandlestickChart,
+  CreditCard,
   Search,
   User,
   Bot,
@@ -26,6 +27,7 @@ const navItems = [
   { path: '/optimus', icon: Bot, label: 'Optimus' },
   { path: '/tools', icon: Wrench, label: 'Tools' },
   { path: '/live', icon: LineChart, label: 'Live Trading' },
+  { path: '/billing', icon: CreditCard, label: 'Billing' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 

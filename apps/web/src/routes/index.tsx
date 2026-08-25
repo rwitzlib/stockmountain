@@ -9,6 +9,7 @@ import { ToolsPage } from '../pages/tools/ToolsPage';
 import { ScannerPage } from '../pages/ScannerPage';
 import { SharedBacktestPage } from '../pages/SharedBacktestPage';
 import { FilterDocsPage } from '../pages/docs/FilterDocsPage';
+import { BillingPage } from '../pages/BillingPage';
 
 // Lazy load tool pages for better performance
 const AggregatePage = lazy(() => import('../pages/tools/aggregate/AggregatePage').then(module => ({ default: module.AggregatePage })));
@@ -99,6 +100,10 @@ export const routes: RouteObject[] = [
   {
     path: '/settings',
     element: <div className="p-6">Settings Page</div>,
+  },
+  {
+    path: '/billing',
+    element: <BillingPage />,
   },
   {
     path: '*',
