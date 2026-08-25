@@ -95,11 +95,15 @@ resource "aws_iam_role" "billing_lambda" {
           Resource = aws_dynamodb_table.user.arn
         },
         {
-          # DeleteItem rolls back a refill ledger row whose credit mutation failed,
-          # so a re-run can retry the append+mutation as a unit.
+          # Refill ledger rows go through a pending->applied lifecycle: PutItem appends the
+          # pending row, GetItem (IsPending) lets a re-run resume an interrupted refill,
+          # UpdateItem (MarkApplied) settles it, and DeleteItem removes the pending row when
+          # the user stopped being eligible between scan and write.
           Effect = "Allow"
           Action = [
             "dynamodb:PutItem",
+            "dynamodb:GetItem",
+            "dynamodb:UpdateItem",
             "dynamodb:DeleteItem"
           ]
           Resource = aws_dynamodb_table.billing_ledger.arn
