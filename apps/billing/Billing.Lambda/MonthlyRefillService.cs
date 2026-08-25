@@ -73,20 +73,34 @@ public class MonthlyRefillService(
             period, result.Eligible, result.Refilled, result.AlreadyRefilled, result.SkippedConcurrentChange, result.Failed,
             dryRun ? " [dry run]" : string.Empty);
 
+        // Failing the invocation is what makes Lambda's async retry re-run us; a normal return
+        // would leave the failed users unrefilled until next month's (different-period) run.
+        // The full scan has completed by now, and a re-run is idempotent: applied ledger rows
+        // no-op and pending ones resume.
+        if (result.Failed > 0)
+        {
+            throw new RefillIncompleteException(
+                $"Monthly refill for {period}: {result.Failed} of {result.Eligible} eligible users failed " +
+                $"({result.Refilled} refilled, {result.AlreadyRefilled} already refilled, " +
+                $"{result.SkippedConcurrentChange} skipped); failing the invocation so the retry resumes them.");
+        }
+
         return result;
     }
 
     private async Task RefillUser(string userId, string period, float freeGrant, RefillResult result)
     {
-        // Same ordering as the webhook handlers: the idempotent ledger append guards the
-        // mutation, and a failed mutation rolls the ledger row back so a re-run can retry
-        // the pair as a unit.
+        // The ledger row is written pending-first and only marked applied after the credit
+        // update succeeds. A crash or failure anywhere in between leaves a pending row that
+        // the next run resumes — an applied row is the only thing treated as "already
+        // refilled", so an interrupted pair can never silently cost a user their refill.
+        // (Resuming re-applies an idempotent SET, so the worst double-run outcome is a
+        // topped-up balance, never a lost one.)
         var eventKey = $"{period}#{userId}";
 
-        bool appended;
         try
         {
-            appended = await ledger.TryAppend(new BillingLedgerRecord
+            var appended = await ledger.TryAppend(new BillingLedgerRecord
             {
                 UserId = userId,
                 EventKey = eventKey,
@@ -94,19 +108,20 @@ public class MonthlyRefillService(
                 AmountCents = 0,
                 Credits = freeGrant,
                 Tier = UserRole.Free.ToString(),
-                Description = $"Monthly free-tier refill for {period}"
+                Description = $"Monthly free-tier refill for {period}",
+                Status = BillingLedgerStatus.Pending
             });
+
+            if (!appended && !await ledger.IsPending(userId, eventKey))
+            {
+                result.AlreadyRefilled++;
+                return;
+            }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to append refill ledger entry for user {UserId}, period {Period}", userId, period);
             result.Failed++;
-            return;
-        }
-
-        if (!appended)
-        {
-            result.AlreadyRefilled++;
             return;
         }
 
@@ -133,34 +148,44 @@ public class MonthlyRefillService(
                     { ":grant", new AttributeValue { N = freeGrant.ToString(CultureInfo.InvariantCulture) } }
                 })
             });
-
-            result.Refilled++;
         }
         catch (ConditionalCheckFailedException)
         {
-            logger.LogWarning("User {UserId} stopped being refill-eligible between scan and write; rolling back ledger entry", userId);
-            await TryRemoveLedgerEntry(userId, eventKey);
-            result.SkippedConcurrentChange++;
+            // No refill happened, so the pending row must not stand as one: remove it. If the
+            // removal itself fails, the row stays pending and the next run lands back here —
+            // self-healing, no manual cleanup.
+            logger.LogWarning("User {UserId} stopped being refill-eligible between scan and write; removing pending ledger entry", userId);
+            try
+            {
+                await ledger.Remove(userId, eventKey);
+                result.SkippedConcurrentChange++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to remove pending ledger entry {EventKey} for user {UserId}; a re-run will retry", eventKey, userId);
+                result.Failed++;
+            }
+            return;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to apply refill for user {UserId}, period {Period}; rolling back ledger entry", userId, period);
-            await TryRemoveLedgerEntry(userId, eventKey);
+            // Leave the row pending: the retry resumes it.
+            logger.LogError(ex, "Failed to apply refill for user {UserId}, period {Period}; ledger entry left pending for the re-run", userId, period);
             result.Failed++;
+            return;
         }
-    }
 
-    private async Task TryRemoveLedgerEntry(string userId, string eventKey)
-    {
         try
         {
-            await ledger.Remove(userId, eventKey);
+            await ledger.MarkApplied(userId, eventKey);
+            result.Refilled++;
         }
         catch (Exception ex)
         {
-            // Orphaned ledger row: the user shows a refill that was not applied. Left in place,
-            // it blocks the re-run for this period, so it needs surfacing for manual cleanup.
-            logger.LogError(ex, "Failed to roll back ledger entry {EventKey} for user {UserId}; remove it manually before re-running", eventKey, userId);
+            // Credits are granted but the row is still pending; counted as failed so the retry
+            // re-runs this user (the SET is idempotent) and marks the row applied.
+            logger.LogError(ex, "Refill applied for user {UserId} but marking ledger entry {EventKey} applied failed; the re-run will settle it", userId, eventKey);
+            result.Failed++;
         }
     }
 

@@ -26,6 +26,7 @@ public class BillingLedgerRepository(BillingLedgerConfig config, IAmazonDynamoDB
         AddIfPresent(item, "StripePaymentIntentId", entry.StripePaymentIntentId);
         AddIfPresent(item, "Tier", entry.Tier);
         AddIfPresent(item, "Description", entry.Description);
+        AddIfPresent(item, "Status", entry.Status);
 
         try
         {
@@ -58,13 +59,52 @@ public class BillingLedgerRepository(BillingLedgerConfig config, IAmazonDynamoDB
         await dynamodb.DeleteItemAsync(new DeleteItemRequest
         {
             TableName = config.TableName,
-            Key = new Dictionary<string, AttributeValue>
-            {
-                { "UserId", new AttributeValue { S = userId } },
-                { "EventKey", new AttributeValue { S = eventKey } }
-            }
+            Key = Key(userId, eventKey)
         });
     }
+
+    public async Task<bool> IsPending(string userId, string eventKey)
+    {
+        // "Status" is a DynamoDB reserved word, hence the alias.
+        var response = await dynamodb.GetItemAsync(new GetItemRequest
+        {
+            TableName = config.TableName,
+            Key = Key(userId, eventKey),
+            ProjectionExpression = "#status",
+            ExpressionAttributeNames = new Dictionary<string, string>
+            {
+                { "#status", "Status" }
+            },
+            ConsistentRead = true
+        });
+
+        return response.Item != null
+            && response.Item.TryGetValue("Status", out var status)
+            && status.S == BillingLedgerStatus.Pending;
+    }
+
+    public async Task MarkApplied(string userId, string eventKey)
+    {
+        await dynamodb.UpdateItemAsync(new UpdateItemRequest
+        {
+            TableName = config.TableName,
+            Key = Key(userId, eventKey),
+            UpdateExpression = "REMOVE #status",
+            ConditionExpression = "attribute_exists(EventKey)",
+            ExpressionAttributeNames = new Dictionary<string, string>
+            {
+                { "#status", "Status" }
+            }
+        });
+
+        logger.LogInformation("Billing ledger entry {EventKey} for user {UserId} marked applied", eventKey, userId);
+    }
+
+    private static Dictionary<string, AttributeValue> Key(string userId, string eventKey) => new()
+    {
+        { "UserId", new AttributeValue { S = userId } },
+        { "EventKey", new AttributeValue { S = eventKey } }
+    };
 
     private static void AddIfPresent(Dictionary<string, AttributeValue> item, string name, string value)
     {

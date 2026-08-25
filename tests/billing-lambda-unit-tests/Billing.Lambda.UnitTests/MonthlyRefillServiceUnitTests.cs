@@ -29,6 +29,8 @@ public class MonthlyRefillServiceUnitTests
             NullLogger<MonthlyRefillService>.Instance);
 
         _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>())).ReturnsAsync(true);
+        _ledger.Setup(l => l.IsPending(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(false);
+        _ledger.Setup(l => l.MarkApplied(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
         _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
             .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
     }
@@ -67,7 +69,7 @@ public class MonthlyRefillServiceUnitTests
     }
 
     [Fact]
-    public async Task Run_RefillsEligibleUser_LedgerThenGuardedUpdate()
+    public async Task Run_RefillsEligibleUser_PendingLedgerThenGuardedUpdateThenApplied()
     {
         SetupSinglePage("user-1");
 
@@ -93,6 +95,7 @@ public class MonthlyRefillServiceUnitTests
         ledgerEntry.AmountCents.Should().Be(0);
         ledgerEntry.Credits.Should().Be(FreeGrant);
         ledgerEntry.Tier.Should().Be("Free");
+        ledgerEntry.Status.Should().Be(BillingLedgerStatus.Pending);
 
         update.TableName.Should().Be("user-store");
         update.Key["Id"].S.Should().Be("user-1");
@@ -100,13 +103,16 @@ public class MonthlyRefillServiceUnitTests
         update.ConditionExpression.Should().Contain("#role = :free OR #role = :basic");
         update.ConditionExpression.Should().Contain("SubscriptionStatus <> :active");
         update.ExpressionAttributeValues[":grant"].N.Should().Be("100");
+
+        _ledger.Verify(l => l.MarkApplied("user-1", "2026-09#user-1"), Times.Once);
     }
 
     [Fact]
-    public async Task Run_ExistingLedgerEntry_SkipsUpdate()
+    public async Task Run_ExistingAppliedLedgerEntry_SkipsUpdate()
     {
         SetupSinglePage("user-1");
         _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>())).ReturnsAsync(false);
+        _ledger.Setup(l => l.IsPending("user-1", "2026-09#user-1")).ReturnsAsync(false);
 
         var result = await _service.Run(Period, FreeGrant, dryRun: false);
 
@@ -116,7 +122,24 @@ public class MonthlyRefillServiceUnitTests
     }
 
     [Fact]
-    public async Task Run_UserBecameIneligibleBetweenScanAndWrite_RollsBackLedgerEntry()
+    public async Task Run_ExistingPendingLedgerEntry_ResumesInterruptedRefill()
+    {
+        // A previous run crashed (or failed) between the ledger append and the credit update;
+        // the pending row must be resumed, not read as already-refilled.
+        SetupSinglePage("user-1");
+        _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>())).ReturnsAsync(false);
+        _ledger.Setup(l => l.IsPending("user-1", "2026-09#user-1")).ReturnsAsync(true);
+
+        var result = await _service.Run(Period, FreeGrant, dryRun: false);
+
+        result.Refilled.Should().Be(1);
+        result.AlreadyRefilled.Should().Be(0);
+        _dynamo.Verify(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default), Times.Once);
+        _ledger.Verify(l => l.MarkApplied("user-1", "2026-09#user-1"), Times.Once);
+    }
+
+    [Fact]
+    public async Task Run_UserBecameIneligibleBetweenScanAndWrite_RemovesPendingEntry()
     {
         SetupSinglePage("user-1");
         _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
@@ -128,36 +151,71 @@ public class MonthlyRefillServiceUnitTests
         result.Refilled.Should().Be(0);
         result.Failed.Should().Be(0);
         _ledger.Verify(l => l.Remove("user-1", "2026-09#user-1"), Times.Once);
+        _ledger.Verify(l => l.MarkApplied(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
-    public async Task Run_UpdateThrows_RollsBackLedgerEntryAndContinues()
+    public async Task Run_IneligibleUserAndRemoveFails_CountsFailedSoRetryHeals()
+    {
+        // The row stays pending; the retry conditional-fails the update again and retries the
+        // remove, so no manual cleanup is ever needed.
+        SetupSinglePage("user-1");
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .ThrowsAsync(new ConditionalCheckFailedException("changed"));
+        _ledger.Setup(l => l.Remove("user-1", "2026-09#user-1"))
+            .ThrowsAsync(new AmazonDynamoDBException("throttled"));
+
+        var act = () => _service.Run(Period, FreeGrant, dryRun: false);
+
+        await act.Should().ThrowAsync<RefillIncompleteException>();
+        _ledger.Verify(l => l.Remove("user-1", "2026-09#user-1"), Times.Once);
+    }
+
+    [Fact]
+    public async Task Run_UpdateThrows_LeavesPendingEntryAndFailsInvocationAfterFullScan()
     {
         SetupSinglePage("user-1", "user-2");
         _dynamo.SetupSequence(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
             .ThrowsAsync(new AmazonDynamoDBException("boom"))
             .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
 
-        var result = await _service.Run(Period, FreeGrant, dryRun: false);
+        var act = () => _service.Run(Period, FreeGrant, dryRun: false);
 
-        result.Failed.Should().Be(1);
-        result.Refilled.Should().Be(1);
-        _ledger.Verify(l => l.Remove("user-1", "2026-09#user-1"), Times.Once);
-        _ledger.Verify(l => l.Remove("user-2", It.IsAny<string>()), Times.Never);
+        // The run finishes the scan (user-2 still refilled), leaves user-1's row pending for
+        // the retry to resume, then fails the invocation so the retry actually happens.
+        (await act.Should().ThrowAsync<RefillIncompleteException>())
+            .Which.Message.Should().Contain("1 of 2");
+        _ledger.Verify(l => l.Remove(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _ledger.Verify(l => l.MarkApplied("user-2", "2026-09#user-2"), Times.Once);
     }
 
     [Fact]
-    public async Task Run_LedgerAppendThrows_CountsFailureAndContinues()
+    public async Task Run_LedgerAppendThrows_FailsInvocationAfterFullScan()
     {
         SetupSinglePage("user-1", "user-2");
         _ledger.SetupSequence(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()))
             .ThrowsAsync(new AmazonDynamoDBException("boom"))
             .ReturnsAsync(true);
 
-        var result = await _service.Run(Period, FreeGrant, dryRun: false);
+        var act = () => _service.Run(Period, FreeGrant, dryRun: false);
 
-        result.Failed.Should().Be(1);
-        result.Refilled.Should().Be(1);
+        await act.Should().ThrowAsync<RefillIncompleteException>();
+        _ledger.Verify(l => l.MarkApplied("user-2", "2026-09#user-2"), Times.Once);
+    }
+
+    [Fact]
+    public async Task Run_MarkAppliedThrows_CountsFailedSoRetrySettlesIt()
+    {
+        // Credits were granted but the row is still pending: the retry re-applies the
+        // idempotent SET and marks the row applied.
+        SetupSinglePage("user-1");
+        _ledger.Setup(l => l.MarkApplied("user-1", "2026-09#user-1"))
+            .ThrowsAsync(new AmazonDynamoDBException("throttled"));
+
+        var act = () => _service.Run(Period, FreeGrant, dryRun: false);
+
+        await act.Should().ThrowAsync<RefillIncompleteException>();
+        _ledger.Verify(l => l.Remove(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -185,6 +243,7 @@ public class MonthlyRefillServiceUnitTests
         result.Eligible.Should().Be(2);
         result.Refilled.Should().Be(0);
         _ledger.Verify(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()), Times.Never);
+        _ledger.Verify(l => l.MarkApplied(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         _dynamo.Verify(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default), Times.Never);
     }
 
