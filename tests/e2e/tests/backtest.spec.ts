@@ -8,7 +8,10 @@ import { resetUserRow } from '../src/reset';
 // runs are cheap, fast, and deterministic.
 const START_DATE = '2026-08-03';
 const END_DATE = '2026-08-07';
-const ENTRY_FILTER = 'rsi(14) < 30 [5m]';
+// Must use a base timeframe ([1m]/[1h]/[1d]): the backtest worker loads
+// aggregates straight from S3, which only stores those three — a [5m]
+// filter fails data setup for every day.
+const ENTRY_FILTER = 'rsi(14) < 30 [1m]';
 
 /** Enough monthly credits for several short runs, reset before each suite run. */
 const BACKTEST_USER_CREDITS = 1_000;
@@ -29,9 +32,21 @@ async function createBacktest(page: Page): Promise<string> {
   await addButton.click();
   await expect(page.getByText(/1 entry filter\b/)).toBeVisible();
 
-  await page.getByRole('button', { name: 'Start Backtest' }).click();
-  await page.waitForURL(/\/backtest\/[^/]+$/, { timeout: 30_000 });
-  return page.url().split('/').pop()!;
+  // Take the id from the create response itself — a URL match would race
+  // (and /backtest/create already matches "/backtest/:id" patterns).
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().endsWith('/backtest') && r.request().method() === 'POST',
+      { timeout: 30_000 }
+    ),
+    page.getByRole('button', { name: 'Start Backtest' }).click(),
+  ]);
+  if (!response.ok()) {
+    throw new Error(`POST /backtest failed: ${response.status()} ${await response.text()}`);
+  }
+  const { id } = (await response.json()) as { id: string };
+  await page.waitForURL(`**/backtest/${id}`, { timeout: 15_000 });
+  return id;
 }
 
 test.describe('backtest', () => {
