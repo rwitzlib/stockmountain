@@ -286,8 +286,34 @@ lands with 60s timeout, `?status=cancelled` banner); sidebar `Billing` entry; la
 CTAs → `/billing` when signed in + honest reset copy; `BacktestSummary` shows "+N purchased";
 `creditsUsed` displays normalized to 1 decimal.
 
-**Phase 5 — e2e suite.** New `tests/e2e` Playwright TS project (own package.json). Env-driven
-config (dev base URL, Clerk test creds, AWS creds for state assertions/reset). Suites:
+**Phase 5 — e2e suite. ✅ DONE 2026-08-25 (uncommitted).** New `tests/e2e` Playwright TS
+project (own package.json + lockfile; Playwright 1.62, `@clerk/testing` for testing-token
+bot-detection bypass + programmatic `email_code` sign-in, `stripe` SDK, Dynamo SDK).
+Env-driven config per the design below (`.env.example` + README document every variable);
+single worker (shared fixed users + shared dev backend). `billing.spec`: fresh-signup test
+uses a per-run throwaway `+clerk_test` address driven through the real `<SignUp/>` UI
+(OTP 424242) with best-effort Clerk + user-store cleanup; the subscribe→pack→portal→upgrade
+chain runs `mode: 'serial'` with a `beforeAll` that resets the billing user's Dynamo row AND
+cancels/deletes their test-mode Stripe customers (found via customer metadata `userId`), so
+retries and repeat runs are self-healing. The Pro→Premium upgrade is performed via the
+Stripe API (`always_invoice` proration, same shape the Portal produces) rather than
+automating Stripe's Portal DOM — what's under test is our `customer.subscription.updated`
+handling. `backtest.spec`: fixed 2026-08-03→07 window, `rsi(14) < 30 [5m]` filter through
+the real composer; asserts Completed + results render + monthly balance drops by exactly
+`creditsUsed` (API-read); insufficient-credits user asserts the Failed state + rejection
+banner. Small web change: `BacktestDetailPage` now renders a failure banner from
+`backtestEntry.errors` when status is Failed (the "Insufficient credits" message existed in
+the record but was never shown). Safety guards: reset helpers refuse user-store tables
+without `-dev-` and any non-`sk_test_` Stripe key. CI: `.github/workflows/e2e.yml` —
+nightly cron + `workflow_dispatch`, OIDC AWS role for the Dynamo reset, uploads the
+Playwright HTML report artifact, not PR-blocking. **Remaining manual setup:** create the
+three fixed dev test users (`e2e-billing/backtest/broke+clerk_test@…`, code 424242), then
+set GitHub dev-environment secrets `E2E_CLERK_PUBLISHABLE_KEY` / `E2E_CLERK_SECRET_KEY` /
+`E2E_STRIPE_SECRET_KEY` and variables `E2E_STRIPE_PRICE_PREMIUM` +
+`E2E_{BILLING,BACKTEST,BROKE}_USER_{EMAIL,ID}` (see tests/e2e/README.md). Original scope:
+
+Env-driven config (dev base URL, Clerk test creds, AWS creds for state assertions/reset).
+Suites:
 
 - `billing.spec`: signup with `+clerk_test` email → Free grant (100) visible; subscribe Pro via
   test Checkout (4242 card) → role + credits granted (poll); buy pack → purchased balance

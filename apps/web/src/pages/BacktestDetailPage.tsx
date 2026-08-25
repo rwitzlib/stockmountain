@@ -567,6 +567,20 @@ export function BacktestDetailPage() {
           onOpenChange={setShareOpen}
         />
 
+        {/* ---------- Failure banner ---------- */}
+        {backtestEntry.status === 'Failed' && (backtestEntry.errors?.length ?? 0) > 0 && (
+          <Card className="mb-6 border-destructive/40 bg-destructive/10 p-4">
+            <h3 className="text-sm font-semibold text-destructive dark:text-red-400">
+              Backtest failed
+            </h3>
+            {backtestEntry.errors!.map((message) => (
+              <p key={message} className="mt-1 text-sm text-destructive/90 dark:text-red-400/90">
+                {message}
+              </p>
+            ))}
+          </Card>
+        )}
+
         {/* ---------- Processing banner ---------- */}
         {isProcessing && (
           <Card className="mb-6 border-yellow-500/30 bg-yellow-500/10 p-4">
