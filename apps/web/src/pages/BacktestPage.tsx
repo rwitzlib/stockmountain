@@ -189,6 +189,7 @@ export function BacktestPage() {
                 results={backtestResults}
                 credits={userDetails?.credits ?? null}
                 maxCredits={userDetails?.maxCredits ?? null}
+                purchasedCredits={userDetails?.purchasedCredits ?? null}
               />
 
               <BacktestResultsTable

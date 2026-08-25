@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { useUser } from '@clerk/react';
 import {
   ArrowRight,
   BarChart3,
@@ -659,6 +660,9 @@ const PLANS: Plan[] = [
 ];
 
 function Pricing() {
+  // Signed-in users go to /billing (where checkout lives) instead of sign-up.
+  const { isSignedIn } = useUser();
+  const ctaTarget = isSignedIn ? '/billing' : '/sign-up';
   return (
     <section id="pricing" className="relative scroll-mt-24 overflow-hidden">
       <CandleSticks className="right-[-70px] top-32 h-[560px] w-[300px]" />
@@ -712,7 +716,7 @@ function Pricing() {
                 ))}
               </ul>
               <Link
-                to="/sign-up"
+                to={ctaTarget}
                 className={cn(
                   'mt-6 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors',
                   plan.highlighted
@@ -729,7 +733,8 @@ function Pricing() {
 
       <Reveal>
         <p className="mx-auto mt-6 max-w-2xl text-center text-xs text-muted-foreground">
-          Launch pricing — cancel anytime, credits reset monthly. Live trading is rolling out
+          Launch pricing — cancel anytime. Monthly credits reset each billing cycle; one-time
+          credit packs never expire. Live trading is rolling out
           gradually to Premium members behind additional safety checks; every strategy climbs
           simulator → paper → live.
         </p>

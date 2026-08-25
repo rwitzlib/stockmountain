@@ -519,7 +519,7 @@ export function BacktestDetailPage() {
               )}
               {totalTrades > 0 && <> · {totalTrades.toLocaleString()} trades</>}
               {backtestEntry.creditsUsed != null && (
-                <> · {Math.round(backtestEntry.creditsUsed).toLocaleString()} credits</>
+                <> · {backtestEntry.creditsUsed.toLocaleString(undefined, { maximumFractionDigits: 1 })} credits</>
               )}
             </p>
           </div>
@@ -684,7 +684,7 @@ export function BacktestDetailPage() {
                     </h3>
                     <RailRow
                       label="Credits used"
-                      value={backtestEntry.creditsUsed != null ? backtestEntry.creditsUsed.toFixed(2) : 'N/A'}
+                      value={backtestEntry.creditsUsed != null ? backtestEntry.creditsUsed.toFixed(1) : 'N/A'}
                     />
                     <RailRow label="Duration" value={formatDuration(backtestEntry.durationSeconds)} />
                     <RailRow label="Created" value={new Date(backtestEntry.createdAt).toLocaleString()} />

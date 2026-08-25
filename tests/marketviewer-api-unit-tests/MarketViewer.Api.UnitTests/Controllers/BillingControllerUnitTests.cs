@@ -249,6 +249,20 @@ public class BillingControllerUnitTests
         summary.MaxCredits.Should().Be(100);
         summary.PurchasedCredits.Should().Be(250);
         summary.SubscriptionStatus.Should().Be("none");
+        summary.HasBillingAccount.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Summary_LinkedStripeCustomer_ReportsBillingAccount()
+    {
+        SetupUser(role: UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
+
+        var result = await _classUnderTest.GetSummary();
+
+        var summary = result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeOfType<BillingSummaryResponse>().Subject;
+        summary.SubscriptionStatus.Should().Be("active");
+        summary.HasBillingAccount.Should().BeTrue();
     }
 
     [Fact]

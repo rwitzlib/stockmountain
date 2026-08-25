@@ -279,8 +279,12 @@ all green. **Remaining: manual invoke on dev after deploy** to verify legacy zer
 users get healed (invoke with `{"dryRun": true}` first; result JSON reports
 eligible/refilled/alreadyRefilled/skipped/failed).
 
-**Phase 4 — frontend.** `/billing` page, sidebar entry, landing CTA wiring, summary endpoint
-consumption, success-return polling.
+**Phase 4 — frontend. ✅ DONE 2026-08-24.** `/billing` page (`BillingPage.tsx` + `billingApi.ts`:
+summary card with both balances + status badge, tier cards → checkout or portal depending on
+subscription state, pack cards, portal button, `?status=success` polling until the webhook
+lands with 60s timeout, `?status=cancelled` banner); sidebar `Billing` entry; landing pricing
+CTAs → `/billing` when signed in + honest reset copy; `BacktestSummary` shows "+N purchased";
+`creditsUsed` displays normalized to 1 decimal.
 
 **Phase 5 — e2e suite.** New `tests/e2e` Playwright TS project (own package.json). Env-driven
 config (dev base URL, Clerk test creds, AWS creds for state assertions/reset). Suites:
