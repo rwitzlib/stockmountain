@@ -145,7 +145,8 @@ public class BillingController(
             Credits = user.Credits,
             MaxCredits = user.MaxCredits,
             PurchasedCredits = user.PurchasedCredits,
-            SubscriptionStatus = string.IsNullOrEmpty(user.SubscriptionStatus) ? "none" : user.SubscriptionStatus
+            SubscriptionStatus = string.IsNullOrEmpty(user.SubscriptionStatus) ? "none" : user.SubscriptionStatus,
+            HasBillingAccount = !string.IsNullOrEmpty(user.StripeCustomerId)
         });
     }
 }

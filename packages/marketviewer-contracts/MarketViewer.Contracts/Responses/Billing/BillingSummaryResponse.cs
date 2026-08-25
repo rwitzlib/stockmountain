@@ -11,4 +11,7 @@ public class BillingSummaryResponse
 
     /// <summary>"active", "past_due", "canceled", or "none". Display only; Tier is the enforcement field.</summary>
     public string SubscriptionStatus { get; set; }
+
+    /// <summary>Whether a Stripe customer exists — the portal-session endpoint 400s without one.</summary>
+    public bool HasBillingAccount { get; set; }
 }

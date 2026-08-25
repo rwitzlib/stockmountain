@@ -10,6 +10,8 @@ export interface BillingSummary {
 	maxCredits: number;
 	purchasedCredits: number;
 	subscriptionStatus: SubscriptionStatus;
+	/** False until a Stripe customer exists — the portal endpoint rejects without one. */
+	hasBillingAccount: boolean;
 }
 
 export type CheckoutKind = 'subscription' | 'pack';

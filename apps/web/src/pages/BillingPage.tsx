@@ -382,15 +382,22 @@ function SummaryCard({
               : 'Credits refill when your monthly payment goes through.'}
           </p>
         </div>
-        <Button variant="outline" size="sm" disabled={busy} onClick={onOpenPortal}>
-          {portalPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <CreditCard className="h-3.5 w-3.5" />
-          )}
-          Manage billing
-          <ExternalLink className="h-3 w-3 opacity-60" />
-        </Button>
+        {summary.hasBillingAccount ? (
+          <Button variant="outline" size="sm" disabled={busy} onClick={onOpenPortal}>
+            {portalPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <CreditCard className="h-3.5 w-3.5" />
+            )}
+            Manage billing
+            <ExternalLink className="h-3 w-3 opacity-60" />
+          </Button>
+        ) : (
+          // Portal-session 400s until a Stripe customer exists (first checkout creates one).
+          <p className="max-w-[200px] text-right text-[11px] text-muted-foreground">
+            Receipts and card management appear here after your first purchase.
+          </p>
+        )}
       </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
