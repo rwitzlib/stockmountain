@@ -1,7 +1,5 @@
 name: E2E Tests
 
-# Nightly + on-demand browser suite against the deployed dev environment
-# (plan 16 phase 5). Deliberately not PR-blocking.
 on:
   schedule:
     - cron: '0 8 * * *' # nightly, 08:00 UTC (overnight US)
@@ -60,9 +58,6 @@ jobs:
           CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
           STRIPE_SECRET_KEY: ${{ secrets.E2E_STRIPE_SECRET_KEY }}
-          # Fixed test-user emails live in source (tests/e2e/src/env.ts); ids
-          # are resolved from Clerk at startup, and Stripe price ids from
-          # product tier metadata.
 
       - name: Upload Playwright report
         if: always()
