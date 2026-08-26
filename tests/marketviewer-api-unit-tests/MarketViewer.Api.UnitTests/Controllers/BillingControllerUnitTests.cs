@@ -32,6 +32,8 @@ public class BillingControllerUnitTests
             {
                 { "Pro", "price_pro" },
                 { "Premium", "price_premium" },
+                { "ProAnnual", "price_pro_annual" },
+                { "PremiumAnnual", "price_premium_annual" },
                 { "PackSmall", "price_pack_small" },
                 { "PackLarge", "price_pack_large" }
             });
@@ -234,7 +236,32 @@ public class BillingControllerUnitTests
     }
 
     [Theory]
+    [InlineData("ProAnnual", "price_pro_annual")]
+    [InlineData("PremiumAnnual", "price_premium_annual")]
+    public async Task CheckoutSession_AnnualTier_IsAcceptedAndUsesAnnualPrice(string id, string expectedPriceId)
+    {
+        SetupUser(stripeCustomerId: "cus_1");
+        CheckoutSessionSpec spec = null;
+        _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
+            .Callback<CheckoutSessionSpec>(s => spec = s)
+            .ReturnsAsync("cs_secret_annual");
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Subscription,
+            Id = id
+        });
+
+        result.Should().BeOfType<OkObjectResult>();
+        spec.PriceId.Should().Be(expectedPriceId);
+        spec.IsSubscription.Should().BeTrue();
+    }
+
+    [Theory]
     [InlineData(CheckoutKind.Subscription, "Free")]
+    [InlineData(CheckoutKind.Subscription, "FreeAnnual")]
+    [InlineData(CheckoutKind.Subscription, "GoldAnnual")]
+    [InlineData(CheckoutKind.Subscription, "ProAnnualPromo")]
     [InlineData(CheckoutKind.Subscription, "Gold")]
     [InlineData(CheckoutKind.Pack, "PackHuge")]
     public async Task CheckoutSession_UnknownItem_IsRejected(CheckoutKind kind, string id)

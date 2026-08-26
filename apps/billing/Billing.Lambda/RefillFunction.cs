@@ -1,4 +1,5 @@
 using Amazon.Lambda.Core;
+using MarketViewer.Contracts.Enums;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -22,12 +23,18 @@ public class RefillFunction(IServiceProvider serviceProvider)
             : request.Period;
         var dryRun = request?.DryRun ?? false;
 
-        var freeGrant = _configuration.GetSection("Tiers:Free").GetValue<float>("MonthlyCredits");
+        // One grant per parseable tier key ("Free", "Pro", "Premium"); annual subscribers
+        // refill from their tier's grant, free/legacy users from Free's.
+        var tierGrants = _configuration.GetSection("Tiers").GetChildren()
+            .Where(tier => Enum.TryParse<UserRole>(tier.Key, out _))
+            .ToDictionary(
+                tier => Enum.Parse<UserRole>(tier.Key),
+                tier => tier.GetValue<float>("MonthlyCredits"));
 
         _logger.LogInformation(
-            "Starting monthly free-tier refill for period {Period} (grant {Grant}, dry run: {DryRun})",
-            period, freeGrant, dryRun);
+            "Starting monthly refill for period {Period} (grants {@Grants}, dry run: {DryRun})",
+            period, tierGrants, dryRun);
 
-        return await _refillService.Run(period, freeGrant, dryRun);
+        return await _refillService.Run(period, tierGrants, dryRun);
     }
 }

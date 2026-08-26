@@ -12,7 +12,9 @@ by default (`E2E_BASE_URL` to override — never point this at production).
   webhook; buy the $10 pack → +250 purchased credits; Customer Portal opens;
   Pro→Premium upgrade → +4,000 immediately (driven through the Stripe API
   rather than the Portal's DOM — what's under test is our
-  `customer.subscription.updated` handling).
+  `customer.subscription.updated` handling); finally an annual Pro checkout
+  (fresh reset mid-chain, "Annual" toggle → modal) → Pro role, 1,000 monthly
+  grant, **and** the 1,000-credit annual bonus in the purchased balance.
 
   The embedded checkout only renders when the deployed web bundle was built
   with `VITE_STRIPE_PUBLISHABLE_KEY` (test-mode `pk_test_…` on dev — a live
@@ -44,9 +46,11 @@ covered by the phase-2 webhook processor unit tests
    sign-in factor (the suite signs in with the `email_code` strategy).
 3. **Stripe (test mode)** — the phase-2 dashboard setup must be live on dev:
    products/prices created with `tier` / `pack` metadata (the upgrade test
-   finds the Premium price via `metadata.tier`), the dev webhook endpoint
-   registered, and the API deployed with the Stripe secrets (billing
-   endpoints fail closed until then).
+   finds the Premium price via `metadata.tier`, filtered to the monthly
+   interval now that products also carry yearly prices — plan 17), the dev
+   webhook endpoint registered, and the API deployed with the Stripe secrets
+   including `Stripe__Prices__ProAnnual` / `__PremiumAnnual` (billing
+   endpoints and the annual buttons fail closed until then).
 4. **AWS credentials** with read/write on the dev user-store (`aws sso login`
    or exported keys locally; OIDC role in CI) — used to reset the fixed
    users' rows.

@@ -15,7 +15,13 @@ export interface BillingSummary {
 }
 
 export type CheckoutKind = 'subscription' | 'pack';
-export type CheckoutItemId = 'Pro' | 'Premium' | 'PackSmall' | 'PackLarge';
+export type CheckoutItemId =
+	| 'Pro'
+	| 'Premium'
+	| 'ProAnnual'
+	| 'PremiumAnnual'
+	| 'PackSmall'
+	| 'PackLarge';
 
 async function throwWithApiErrors(response: Response, fallback: string): Promise<never> {
 	// Error bodies are plain string arrays, e.g. ["Unknown credit pack 'X'"]

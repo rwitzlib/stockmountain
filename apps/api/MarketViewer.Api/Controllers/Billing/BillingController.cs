@@ -41,7 +41,9 @@ public class BillingController(
 
         if (isSubscription)
         {
-            if (!Enum.TryParse<UserRole>(request.Id, out var tier) || tier == UserRole.Free)
+            // Accepts "Pro"/"Premium" and their "{Tier}Annual" yearly variants; "Free",
+            // pack ids, and garbage are rejected here before any Stripe call.
+            if (!BillingCatalog.TryResolveTierFromKey(request.Id, out var tier, out _) || tier == UserRole.Free)
             {
                 return BadRequest(new[] { $"Unknown subscription tier '{request.Id}'" });
             }

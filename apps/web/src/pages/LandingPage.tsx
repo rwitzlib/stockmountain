@@ -606,6 +606,8 @@ type Plan = {
   name: string;
   price: string;
   period?: string;
+  /** Annual option: yearly price ÷ 12 (~20% off) plus a one-month bonus-credit grant. */
+  annual?: { perMonth: string; perYear: string; bonusCredits: string };
   tagline: string;
   cta: string;
   highlighted?: boolean;
@@ -630,6 +632,7 @@ const PLANS: Plan[] = [
     name: 'Pro',
     price: '$29',
     period: '/mo',
+    annual: { perMonth: '$23.25', perYear: '$279', bonusCredits: '1,000' },
     tagline: 'For traders building a real playbook.',
     cta: 'Start with Pro',
     highlighted: true,
@@ -646,6 +649,7 @@ const PLANS: Plan[] = [
     name: 'Premium',
     price: '$99',
     period: '/mo',
+    annual: { perMonth: '$79.08', perYear: '$949', bonusCredits: '5,000' },
     tagline: 'For traders ready to go live.',
     cta: 'Go Premium',
     features: [
@@ -660,9 +664,11 @@ const PLANS: Plan[] = [
 ];
 
 function Pricing() {
-  // Signed-in users go to /billing (where checkout lives) instead of sign-up.
+  // Signed-in users go to /billing (where checkout lives) instead of sign-up;
+  // the selected cycle rides along so they don't have to re-pick Annual there.
   const { isSignedIn } = useUser();
-  const ctaTarget = isSignedIn ? '/billing' : '/sign-up';
+  const [annual, setAnnual] = useState(false);
+  const ctaTarget = isSignedIn ? (annual ? '/billing?cycle=annual' : '/billing') : '/sign-up';
   return (
     <section id="pricing" className="relative scroll-mt-24 overflow-hidden">
       <CandleSticks className="right-[-70px] top-32 h-[560px] w-[300px]" />
@@ -676,6 +682,23 @@ function Pricing() {
           No courses. No signal groups. Just the tools to test your own ideas — priced like
           software.
         </p>
+        <div className="mt-6 inline-flex items-center rounded-lg border border-border bg-card p-0.5 text-sm">
+          {([false, true] as const).map((isAnnual) => (
+            <button
+              key={String(isAnnual)}
+              onClick={() => setAnnual(isAnnual)}
+              aria-pressed={annual === isAnnual}
+              className={cn(
+                'rounded-md px-4 py-1.5 font-medium transition-colors',
+                annual === isAnnual
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {isAnnual ? 'Annual · 20% off' : 'Monthly'}
+            </button>
+          ))}
+        </div>
       </Reveal>
 
       <div className="mt-12 grid gap-4 lg:grid-cols-3">
@@ -699,10 +722,25 @@ function Pricing() {
               </div>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="font-mono text-4xl font-semibold tabular-nums text-foreground">
-                  {plan.price}
+                  {annual && plan.annual ? plan.annual.perMonth : plan.price}
                 </span>
-                {plan.period && <span className="text-sm text-muted-foreground">{plan.period}</span>}
+                {(plan.period || (annual && plan.annual)) && (
+                  <span className="text-sm text-muted-foreground">/mo</span>
+                )}
               </div>
+              {annual && plan.annual && (
+                <>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    billed annually ({plan.annual.perYear}/yr)
+                  </p>
+                  <span
+                    className="mt-2 inline-flex w-fit rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                    style={{ color: 'var(--chart-gain)', backgroundColor: 'color-mix(in srgb, var(--chart-gain) 12%, transparent)' }}
+                  >
+                    20% off + {plan.annual.bonusCredits} bonus credits
+                  </span>
+                </>
+              )}
               <p className="mt-1.5 text-sm text-muted-foreground">{plan.tagline}</p>
               <ul className="mt-5 flex-1 space-y-2.5">
                 {plan.features.map((f) => (
@@ -733,10 +771,10 @@ function Pricing() {
 
       <Reveal>
         <p className="mx-auto mt-6 max-w-2xl text-center text-xs text-muted-foreground">
-          Launch pricing — cancel anytime. Monthly credits reset each billing cycle; one-time
-          credit packs never expire. Live trading is rolling out
-          gradually to Premium members behind additional safety checks; every strategy climbs
-          simulator → paper → live.
+          Launch pricing — cancel anytime and keep access through the period you've paid for.
+          Monthly credits reset each month on every plan; one-time credit packs and annual
+          bonus credits never expire. Live trading is rolling out gradually to Premium members
+          behind additional safety checks; every strategy climbs simulator → paper → live.
         </p>
       </Reveal>
       </div>
@@ -771,7 +809,11 @@ const FAQS = [
   },
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes. Subscriptions are month-to-month, and downgrading just adjusts your credit allowance and bot limits at the next cycle.',
+    a: 'Yes. Cancelling stops future charges and you keep full access until the end of the period you already paid for — the rest of the month on monthly plans, the rest of the year on annual plans. We don\'t issue automatic refunds for unused time. Downgrading adjusts your credit allowance and bot limits at the next cycle.',
+  },
+  {
+    q: 'How does annual billing work?',
+    a: 'Annual plans are the same product at 20% off, billed once a year, plus a one-time bonus of a full month\'s credits added to your never-expiring purchased balance at signup and again at each renewal. Your monthly credit allowance still resets every month. You can switch between monthly and annual in the billing portal.',
   },
 ];
 
