@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Check, CreditCard, ExternalLink, Loader2, X } from 'lucide-react';
+import { billingApi, BillingSummary, BillingTier, CheckoutItemId } from '../api/billingApi';
 import {
-  billingApi,
-  BillingSummary,
-  BillingTier,
-  CheckoutItemId,
-  CheckoutKind,
-} from '../api/billingApi';
+  CheckoutItem,
+  CheckoutModal,
+  isCheckoutConfigured,
+} from '../components/modals/CheckoutModal';
 import { Button } from '../components/ui/button';
 import { toast } from '../hooks/use-toast';
 import { cn } from '../utils/utils';
@@ -58,8 +57,8 @@ const PACKS: { id: CheckoutItemId; name: string; credits: number; price: string;
 
 const TIER_ORDER: Record<BillingTier, number> = { Free: 1, Pro: 2, Premium: 3 };
 
-// Webhook lag: after Checkout returns we poll the summary until the credit
-// grant lands (or give up quietly after a minute).
+// Webhook lag: after the embedded checkout completes we poll the summary until
+// the credit grant lands (or give up quietly after a minute).
 const SUCCESS_POLL_MS = 3000;
 const SUCCESS_POLL_TIMEOUT_MS = 60000;
 
@@ -71,10 +70,10 @@ function formatCredits(value: number): string {
 export function BillingPage() {
   const navigate = useNavigate();
   const { isLoaded, isSignedIn } = useUser();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const returnStatus = searchParams.get('status'); // 'success' | 'cancelled' | null
 
-  const [pollingForGrant, setPollingForGrant] = useState(returnStatus === 'success');
+  const [checkoutItem, setCheckoutItem] = useState<CheckoutItem | null>(null);
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [pollingForGrant, setPollingForGrant] = useState(false);
   const baselineRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -116,14 +115,6 @@ export function BillingPage() {
     return () => clearTimeout(timeout);
   }, [pollingForGrant]);
 
-  const checkoutMutation = useMutation({
-    mutationFn: ({ kind, id }: { kind: CheckoutKind; id: CheckoutItemId }) =>
-      billingApi.createCheckoutSession(kind, id),
-    onSuccess: url => window.location.assign(url),
-    onError: (e: Error) =>
-      toast({ title: 'Checkout failed', description: e.message, variant: 'destructive' }),
-  });
-
   const portalMutation = useMutation({
     mutationFn: billingApi.createPortalSession,
     onSuccess: url => window.location.assign(url),
@@ -131,13 +122,23 @@ export function BillingPage() {
       toast({ title: 'Billing portal unavailable', description: e.message, variant: 'destructive' }),
   });
 
-  const busy = checkoutMutation.isPending || portalMutation.isPending;
+  // Polling means a payment is being applied — hold new purchases until it lands
+  // (UI protection only; the API independently rejects duplicate subscriptions).
+  const busy = portalMutation.isPending || pollingForGrant;
   const hasSubscription =
     summary?.subscriptionStatus === 'active' || summary?.subscriptionStatus === 'past_due';
 
-  const dismissReturnBanner = () => {
-    searchParams.delete('status');
-    setSearchParams(searchParams, { replace: true });
+  // Payment finished inside the modal — close it and poll until the webhook
+  // applies the purchase to the account.
+  const handleCheckoutComplete = () => {
+    setCheckoutItem(null);
+    setShowSuccessBanner(true);
+    baselineRef.current = null;
+    setPollingForGrant(true);
+  };
+
+  const dismissSuccessBanner = () => {
+    setShowSuccessBanner(false);
     setPollingForGrant(false);
   };
 
@@ -151,8 +152,8 @@ export function BillingPage() {
           </p>
         </div>
 
-        {returnStatus === 'success' && (
-          <ReturnBanner tone="success" onDismiss={dismissReturnBanner}>
+        {showSuccessBanner && (
+          <ReturnBanner tone="success" onDismiss={dismissSuccessBanner}>
             {pollingForGrant ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -161,11 +162,6 @@ export function BillingPage() {
             ) : (
               'Payment received. Your account is up to date.'
             )}
-          </ReturnBanner>
-        )}
-        {returnStatus === 'cancelled' && (
-          <ReturnBanner tone="neutral" onDismiss={dismissReturnBanner}>
-            Checkout was cancelled — you haven't been charged.
           </ReturnBanner>
         )}
         {summary?.subscriptionStatus === 'past_due' && (
@@ -179,6 +175,12 @@ export function BillingPage() {
           <div className="rounded-xl bg-destructive/10 border border-destructive/40 text-destructive dark:text-red-400 px-4 py-3 text-sm">
             <span className="font-medium">Error:</span> Failed to load billing details. Try
             refreshing the page.
+          </div>
+        )}
+        {!isCheckoutConfigured && (
+          <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            Purchases are temporarily unavailable — checkout isn't configured in this
+            environment.
           </div>
         )}
 
@@ -239,12 +241,12 @@ export function BillingPage() {
                     summary={summary}
                     hasSubscription={hasSubscription}
                     busy={busy}
-                    checkoutPending={
-                      checkoutMutation.isPending &&
-                      checkoutMutation.variables?.id === plan.id
-                    }
                     onSubscribe={() =>
-                      checkoutMutation.mutate({ kind: 'subscription', id: plan.id as CheckoutItemId })
+                      setCheckoutItem({
+                        kind: 'subscription',
+                        id: plan.id as CheckoutItemId,
+                        label: `${plan.id} plan`,
+                      })
                     }
                     onOpenPortal={() => portalMutation.mutate()}
                   />
@@ -277,14 +279,16 @@ export function BillingPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={busy || isLoading}
-                  onClick={() => checkoutMutation.mutate({ kind: 'pack', id: pack.id })}
+                  disabled={busy || isLoading || !isCheckoutConfigured}
+                  onClick={() =>
+                    setCheckoutItem({
+                      kind: 'pack',
+                      id: pack.id,
+                      label: `${pack.credits.toLocaleString()} credits`,
+                    })
+                  }
                 >
-                  {checkoutMutation.isPending && checkoutMutation.variables?.id === pack.id ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    pack.price
-                  )}
+                  {pack.price}
                 </Button>
               </div>
             ))}
@@ -297,6 +301,12 @@ export function BillingPage() {
           billing portal.
         </p>
       </div>
+
+      <CheckoutModal
+        item={checkoutItem}
+        onClose={() => setCheckoutItem(null)}
+        onComplete={handleCheckoutComplete}
+      />
     </div>
   );
 }
@@ -475,7 +485,6 @@ function PlanAction({
   summary,
   hasSubscription,
   busy,
-  checkoutPending,
   onSubscribe,
   onOpenPortal,
 }: {
@@ -483,7 +492,6 @@ function PlanAction({
   summary: BillingSummary | undefined;
   hasSubscription: boolean;
   busy: boolean;
-  checkoutPending: boolean;
   onSubscribe: () => void;
   onOpenPortal: () => void;
 }) {
@@ -529,8 +537,8 @@ function PlanAction({
   }
 
   return (
-    <Button className="mt-5" disabled={busy} onClick={onSubscribe}>
-      {checkoutPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Subscribe to ${plan}`}
+    <Button className="mt-5" disabled={busy || !isCheckoutConfigured} onClick={onSubscribe}>
+      Subscribe to {plan}
     </Button>
   );
 }

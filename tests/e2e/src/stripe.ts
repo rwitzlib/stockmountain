@@ -1,7 +1,7 @@
 /**
- * Stripe helpers: driving the real test-mode hosted Checkout page in the
- * browser, and test-state management through the Stripe API (customer cleanup
- * between runs, plan upgrades).
+ * Stripe helpers: driving the real test-mode embedded Checkout (rendered in a
+ * Stripe iframe inside the app's checkout modal), and test-state management
+ * through the Stripe API (customer cleanup between runs, plan upgrades).
  */
 import type { Page } from '@playwright/test';
 import Stripe from 'stripe';
@@ -97,25 +97,31 @@ export async function upgradeSubscription(userId: string, priceId: string): Prom
 }
 
 /**
- * Fill the hosted Checkout card form with the 4242 test card and submit, then
- * wait for the redirect back to the app. Assumes the page is mid-navigation
- * to checkout.stripe.com when called.
+ * Fill the embedded Checkout card form with the 4242 test card and submit,
+ * then wait for the app to acknowledge the completed payment (the checkout
+ * modal closes and the success banner appears). Assumes the checkout modal
+ * was just opened; the form lives in a Stripe-owned iframe inside it.
  */
 export async function completeStripeCheckout(
   page: Page,
   options: { email?: string } = {}
 ): Promise<void> {
-  await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
+  // The iframe src is the one attribute Stripe documents nothing about but
+  // cannot change (the embed loads from checkout.stripe.com); anchor on it
+  // rather than on generated names/titles.
+  const frameSelector = 'iframe[src*="checkout.stripe.com"]';
+  await page.locator(frameSelector).waitFor({ state: 'attached', timeout: 30_000 });
+  const frame = page.frameLocator(frameSelector);
 
   // Hydration gate + layout detection in one step: Checkout renders either
   // the card fields directly, or a payment-method accordion (Card / Cash App /
   // Klarna / wallets) whose card fields only exist after selecting "Card".
   // A one-shot probe can't tell "accordion" from "still hydrating", so race
   // the two layout signals and let whichever renders first decide.
-  const cardNumber = page.locator('#cardNumber');
-  const cardRadio = page
+  const cardNumber = frame.locator('#cardNumber');
+  const cardRadio = frame
     .locator('input[type="radio"][value="card"]')
-    .or(page.getByRole('radio', { name: 'Card' }))
+    .or(frame.getByRole('radio', { name: 'Card' }))
     .first();
   const directLayout = cardNumber.waitFor({ state: 'visible', timeout: 30_000 });
   const accordionLayout = cardRadio.waitFor({ state: 'attached', timeout: 30_000 });
@@ -130,7 +136,7 @@ export async function completeStripeCheckout(
   if (!(await cardNumber.isVisible().catch(() => false))) {
     // The radio input itself may be visually hidden behind its label; force-check.
     await cardRadio.check({ force: true }).catch(async () => {
-      await page.getByText('Card', { exact: true }).first().click();
+      await frame.getByText('Card', { exact: true }).first().click();
     });
     await cardNumber.waitFor({ state: 'visible', timeout: 15_000 });
   }
@@ -140,9 +146,9 @@ export async function completeStripeCheckout(
   // or as static text showing the customer's saved email (later purchases).
   // Race the two signals so a slow mount can't cause a silent skip.
   if (options.email) {
-    const emailInput = page.locator('input[name="email"]');
+    const emailInput = frame.locator('input[name="email"]');
     const editableEmail = emailInput.waitFor({ state: 'visible', timeout: 15_000 });
-    const prefilledEmail = page
+    const prefilledEmail = frame
       .getByText(options.email)
       .first()
       .waitFor({ state: 'visible', timeout: 15_000 });
@@ -159,10 +165,10 @@ export async function completeStripeCheckout(
   }
 
   await cardNumber.fill(TEST_CARD);
-  await page.locator('#cardExpiry').fill('12 / 34');
-  await page.locator('#cardCvc').fill('123');
-  await page.locator('#billingName').fill('StockMountain E2E');
-  const postalCode = page.locator('#billingPostalCode');
+  await frame.locator('#cardExpiry').fill('12 / 34');
+  await frame.locator('#cardCvc').fill('123');
+  await frame.locator('#billingName').fill('StockMountain E2E');
+  const postalCode = frame.locator('#billingPostalCode');
   if (await postalCode.isVisible().catch(() => false)) {
     await postalCode.fill('54301');
   }
@@ -171,20 +177,34 @@ export async function completeStripeCheckout(
   // submission. Opt out last — the box only renders once the form is active.
   // If the opt-out verifiably fails, satisfying the phone requirement is the
   // only way forward, so that fallback is mandatory (not best-effort): a
-  // throw here beats a silent 90s wait for a redirect that never comes.
-  const saveInfo = page
+  // throw here beats a silent 90s wait for a completion that never comes.
+  const saveInfo = frame
     .getByRole('checkbox', { name: /Save my information/i })
-    .or(page.locator('#enableStripePass'))
+    .or(frame.locator('#enableStripePass'))
     .first();
   if (await saveInfo.isChecked().catch(() => false)) {
     await saveInfo.uncheck({ force: true }).catch(() => {});
     if (await saveInfo.isChecked().catch(() => false)) {
-      const phone = page.locator('#phoneNumber');
+      const phone = frame.locator('#phoneNumber');
       await phone.waitFor({ state: 'visible', timeout: 5_000 });
       await phone.fill('(201) 555-0123');
     }
   }
 
-  await page.getByTestId('hosted-payment-submit-button').click();
-  await page.waitForURL((url) => url.host !== 'checkout.stripe.com', { timeout: 90_000 });
+  // Embedded mode reuses hosted Checkout's submit testid today; the
+  // type="submit" fallback survives a rename.
+  await frame
+    .getByTestId('hosted-payment-submit-button')
+    .or(frame.locator('button[type="submit"]'))
+    .first()
+    .click();
+
+  // No redirect in embedded mode: onComplete closes the modal (detaching the
+  // iframe) and the page shows its success banner while it polls for the
+  // webhook. Wait for the iframe to go away FIRST — the banner text alone
+  // could match a stale banner from an earlier purchase on the same page.
+  await page.locator(frameSelector).waitFor({ state: 'detached', timeout: 90_000 });
+  await page
+    .getByText('Payment received', { exact: false })
+    .waitFor({ state: 'visible', timeout: 15_000 });
 }

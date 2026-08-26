@@ -70,7 +70,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("https://checkout.stripe.com/session_1");
+            .ReturnsAsync("cs_secret_1");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -80,14 +80,12 @@ public class BillingControllerUnitTests
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeOfType<CheckoutSessionResponse>()
-            .Which.Url.Should().Be("https://checkout.stripe.com/session_1");
+            .Which.ClientSecret.Should().Be("cs_secret_1");
         _users.Verify(u => u.SetStripeCustomerId("user-1", "cus_new"), Times.Once);
         spec.CustomerId.Should().Be("cus_new");
         spec.PriceId.Should().Be("price_pro");
         spec.IsSubscription.Should().BeTrue();
         spec.PackId.Should().BeNull();
-        spec.SuccessUrl.Should().Be("https://app.test/billing?status=success");
-        spec.CancelUrl.Should().Be("https://app.test/billing?status=cancelled");
     }
 
     [Fact]
@@ -106,7 +104,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("https://checkout.stripe.com/session_4");
+            .ReturnsAsync("cs_secret_4");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -125,7 +123,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("https://checkout.stripe.com/session_2");
+            .ReturnsAsync("cs_secret_2");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -146,7 +144,7 @@ public class BillingControllerUnitTests
     {
         SetupUser(role: UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
-            .ReturnsAsync("https://checkout.stripe.com/session_3");
+            .ReturnsAsync("cs_secret_3");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -170,6 +168,69 @@ public class BillingControllerUnitTests
 
         result.Should().BeOfType<BadRequestObjectResult>();
         _gateway.Verify(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutSession_LostRaceToSubscribedCustomer_IsRejected()
+    {
+        // First-purchase race where the winning request's checkout already produced a
+        // subscription: the loser adopts the winner's customer and must still be
+        // stopped by the live-subscription guard (it runs on the RESOLVED customer).
+        _gateway.Setup(g => g.CreateCustomer("user-1")).ReturnsAsync("cus_loser");
+        _users.Setup(u => u.SetStripeCustomerId("user-1", "cus_loser")).ReturnsAsync(false);
+        var reads = 0;
+        _users.Setup(u => u.Get("user-1")).ReturnsAsync(() => new UserRecord
+        {
+            Id = "user-1",
+            Role = UserRole.Free,
+            StripeCustomerId = ++reads == 1 ? null : "cus_winner"
+        });
+        _gateway.Setup(g => g.HasLiveSubscription("cus_winner")).ReturnsAsync(true);
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Subscription,
+            Id = "Pro"
+        });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _gateway.Verify(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutSession_SubscriptionDuringWebhookLag_IsRejected()
+    {
+        // Payment completed but the webhook hasn't set SubscriptionStatus yet: our
+        // record still says no subscription, Stripe already has one.
+        SetupUser(stripeCustomerId: "cus_1", subscriptionStatus: null);
+        _gateway.Setup(g => g.HasLiveSubscription("cus_1")).ReturnsAsync(true);
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Subscription,
+            Id = "Pro"
+        });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _gateway.Verify(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutSession_PackDuringWebhookLag_IsAllowed()
+    {
+        // The live-subscription guard only applies to subscription checkouts.
+        SetupUser(stripeCustomerId: "cus_1", subscriptionStatus: null);
+        _gateway.Setup(g => g.HasLiveSubscription("cus_1")).ReturnsAsync(true);
+        _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
+            .ReturnsAsync("cs_secret_5");
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Pack,
+            Id = "PackSmall"
+        });
+
+        result.Should().BeOfType<OkObjectResult>();
     }
 
     [Theory]

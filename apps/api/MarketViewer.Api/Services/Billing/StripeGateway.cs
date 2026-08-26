@@ -32,6 +32,27 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
         return await new CustomerService(_client.Value).GetAsync(customerId);
     }
 
+    public async Task<bool> HasLiveSubscription(string customerId)
+    {
+        // Auto-paging: ListAsync returns a single page, and a live subscription could
+        // hide behind a page of dead ones.
+        var subscriptions = new SubscriptionService(_client.Value).ListAutoPagingAsync(new SubscriptionListOptions
+        {
+            Customer = customerId,
+            Status = "all"
+        });
+
+        await foreach (var subscription in subscriptions)
+        {
+            if (subscription.Status is not ("canceled" or "incomplete_expired"))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public async Task<string> CreateCheckoutSession(CheckoutSessionSpec spec)
     {
         var sessionOptions = new CheckoutSessionCreateOptions
@@ -43,8 +64,11 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
             [
                 new CheckoutSessionLineItemOptions { Price = spec.PriceId, Quantity = 1 }
             ],
-            SuccessUrl = spec.SuccessUrl,
-            CancelUrl = spec.CancelUrl,
+            // Rendered inside our own modal; success is handled in-page via onComplete,
+            // so there is no return redirect at all.
+            UiMode = "embedded",
+            RedirectOnCompletion = "never",
+            AllowPromotionCodes = true,
             Metadata = new Dictionary<string, string> { { "userId", spec.UserId } }
         };
 
@@ -69,7 +93,7 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
         }
 
         var session = await new CheckoutSessionService(_client.Value).CreateAsync(sessionOptions);
-        return session.Url;
+        return session.ClientSecret;
     }
 
     public async Task<string> CreatePortalSession(string customerId, string returnUrl)

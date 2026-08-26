@@ -7,11 +7,16 @@ by default (`E2E_BASE_URL` to override — never point this at production).
 
 - `tests/billing.spec.ts` — fresh signup via the real sign-up UI → Free grant
   (100) visible; then a serial chain on the fixed billing user: subscribe Pro
-  via test Checkout (4242 card) → role + 1,000 grant land via webhook; buy
-  the $10 pack → +250 purchased credits; Customer Portal opens; Pro→Premium
-  upgrade → +4,000 immediately (driven through the Stripe API rather than the
-  Portal's DOM — what's under test is our `customer.subscription.updated`
-  handling).
+  via test Checkout (4242 card, driven inside the **embedded-checkout
+  iframe** in the app's modal — plan 17) → role + 1,000 grant land via
+  webhook; buy the $10 pack → +250 purchased credits; Customer Portal opens;
+  Pro→Premium upgrade → +4,000 immediately (driven through the Stripe API
+  rather than the Portal's DOM — what's under test is our
+  `customer.subscription.updated` handling).
+
+  The embedded checkout only renders when the deployed web bundle was built
+  with `VITE_STRIPE_PUBLISHABLE_KEY` (test-mode `pk_test_…` on dev — a live
+  key would refuse the dev API's test-mode sessions).
 - `tests/backtest.spec.ts` — create a short backtest through the UI
   (2026-08-03→07, `rsi(14) < 30 [5m]`), wait for completion, verify results
   render and the monthly balance drops by exactly `creditsUsed`; a

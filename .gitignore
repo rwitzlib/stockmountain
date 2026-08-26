@@ -46,3 +46,4 @@ coverage/
 .github/skills-lock.json
 
 **.sln
+*.tsbuildinfo
