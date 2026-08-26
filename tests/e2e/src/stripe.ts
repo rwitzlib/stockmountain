@@ -135,18 +135,27 @@ export async function completeStripeCheckout(
     await cardNumber.waitFor({ state: 'visible', timeout: 15_000 });
   }
 
-  // The form is fully hydrated past the gate above, so a one-shot probe is
-  // reliable here. First purchase: our Stripe customers are created without
-  // an email (the user store has none), so Checkout renders a required email
-  // input. Later purchases: the email is static text with no input at all —
-  // which is why this can't be a fixed wait.
-  const email = page.locator('input[name="email"]');
-  if (
-    options.email &&
-    (await email.isVisible().catch(() => false)) &&
-    (await email.isEditable({ timeout: 2_000 }).catch(() => false))
-  ) {
-    await email.fill(options.email);
+  // Contact info renders as a required email input (first purchase — our
+  // Stripe customers are created without an email, the user store has none)
+  // or as static text showing the customer's saved email (later purchases).
+  // Race the two signals so a slow mount can't cause a silent skip.
+  if (options.email) {
+    const emailInput = page.locator('input[name="email"]');
+    const editableEmail = emailInput.waitFor({ state: 'visible', timeout: 15_000 });
+    const prefilledEmail = page
+      .getByText(options.email)
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
+    editableEmail.catch(() => {});
+    prefilledEmail.catch(() => {});
+    await Promise.race([editableEmail, prefilledEmail]).catch(() => {
+      throw new Error(
+        `Stripe Checkout rendered neither an email input nor the customer email (${options.email})`
+      );
+    });
+    if (await emailInput.isVisible().catch(() => false)) {
+      await emailInput.fill(options.email);
+    }
   }
 
   await cardNumber.fill(TEST_CARD);
@@ -160,18 +169,20 @@ export async function completeStripeCheckout(
 
   // "Save my information" (Link) defaults on and its empty phone field blocks
   // submission. Opt out last — the box only renders once the form is active.
+  // If the opt-out verifiably fails, satisfying the phone requirement is the
+  // only way forward, so that fallback is mandatory (not best-effort): a
+  // throw here beats a silent 90s wait for a redirect that never comes.
   const saveInfo = page
     .getByRole('checkbox', { name: /Save my information/i })
     .or(page.locator('#enableStripePass'))
     .first();
   if (await saveInfo.isChecked().catch(() => false)) {
     await saveInfo.uncheck({ force: true }).catch(() => {});
-  }
-  // Belt and braces: if the phone field is still shown and required, feed it
-  // a US test number rather than fail validation.
-  const phone = page.locator('#phoneNumber');
-  if (await phone.isVisible().catch(() => false)) {
-    await phone.fill('(201) 555-0123').catch(() => {});
+    if (await saveInfo.isChecked().catch(() => false)) {
+      const phone = page.locator('#phoneNumber');
+      await phone.waitFor({ state: 'visible', timeout: 5_000 });
+      await phone.fill('(201) 555-0123');
+    }
   }
 
   await page.getByTestId('hosted-payment-submit-button').click();
