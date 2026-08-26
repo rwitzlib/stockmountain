@@ -664,10 +664,11 @@ const PLANS: Plan[] = [
 ];
 
 function Pricing() {
-  // Signed-in users go to /billing (where checkout lives) instead of sign-up.
+  // Signed-in users go to /billing (where checkout lives) instead of sign-up;
+  // the selected cycle rides along so they don't have to re-pick Annual there.
   const { isSignedIn } = useUser();
-  const ctaTarget = isSignedIn ? '/billing' : '/sign-up';
   const [annual, setAnnual] = useState(false);
+  const ctaTarget = isSignedIn ? (annual ? '/billing?cycle=annual' : '/billing') : '/sign-up';
   return (
     <section id="pricing" className="relative scroll-mt-24 overflow-hidden">
       <CandleSticks className="right-[-70px] top-32 h-[560px] w-[300px]" />

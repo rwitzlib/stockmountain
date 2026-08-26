@@ -78,13 +78,17 @@ public class MonthlyRefillService(
                 var grant = freeGrant;
                 if (isAnnual)
                 {
+                    // Read once, tolerating an absent attribute — the annual scan clause
+                    // doesn't require Role, and indexing the item inside the catch would
+                    // throw the very exception being handled.
+                    var storedRole = item.TryGetValue("Role", out var roleAttribute) ? roleAttribute.S : null;
                     try
                     {
-                        role = UserRoleParser.Parse(item["Role"].S);
+                        role = UserRoleParser.Parse(storedRole);
                     }
                     catch (Exception ex)
                     {
-                        logger.LogError(ex, "Annual subscriber {UserId} has unparseable role '{Role}'; skipping", userId, item["Role"].S);
+                        logger.LogError(ex, "Annual subscriber {UserId} has missing or unparseable role '{Role}'; skipping", userId, storedRole);
                         result.Failed++;
                         continue;
                     }

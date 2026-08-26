@@ -93,14 +93,16 @@ public class BillingCatalog(
             return false;
         }
 
-        if (Enum.TryParse(key, out tier))
+        // IsDefined guards against Enum.TryParse's numeric-string quirk ("999" parses to an
+        // undefined enum value and would slip through controller validation).
+        if (Enum.TryParse(key, out tier) && Enum.IsDefined(tier))
         {
             interval = BillingInterval.Month;
             return true;
         }
 
         const string suffix = "Annual";
-        if (key.EndsWith(suffix) && Enum.TryParse(key[..^suffix.Length], out tier))
+        if (key.EndsWith(suffix) && Enum.TryParse(key[..^suffix.Length], out tier) && Enum.IsDefined(tier))
         {
             interval = BillingInterval.Year;
             return true;

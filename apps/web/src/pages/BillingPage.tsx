@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUser } from '@clerk/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Check, CreditCard, ExternalLink, Loader2, X } from 'lucide-react';
@@ -78,7 +78,11 @@ export function BillingPage() {
   const { isLoaded, isSignedIn } = useUser();
 
   const [checkoutItem, setCheckoutItem] = useState<CheckoutItem | null>(null);
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
+  // ?cycle=annual carries the landing page's toggle selection into this page.
+  const [searchParams] = useSearchParams();
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>(() =>
+    searchParams.get('cycle') === 'annual' ? 'annual' : 'monthly',
+  );
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [pollingForGrant, setPollingForGrant] = useState(false);
   const baselineRef = useRef<string | null>(null);
@@ -440,7 +444,9 @@ function SummaryCard({
           <p className="mt-0.5 text-xs text-muted-foreground">
             {summary.tier === 'Free'
               ? 'Free plan — monthly credits refill automatically.'
-              : 'Credits refill when your monthly payment goes through.'}
+              : // Interval-neutral: monthly plans refill on each paid invoice, annual
+                // plans via the monthly refill job — either way, monthly cadence.
+                'Credits refill every month while your subscription is active.'}
           </p>
         </div>
         {summary.hasBillingAccount ? (

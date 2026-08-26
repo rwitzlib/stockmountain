@@ -76,6 +76,8 @@ public class BillingCatalogUnitTests
     [InlineData("PromoAnnual")]
     [InlineData("Annual")]
     [InlineData("Gold")]
+    [InlineData("999")] // Enum.TryParse accepts numeric strings; IsDefined must reject them
+    [InlineData("999Annual")]
     [InlineData("")]
     [InlineData(null)]
     public void TryResolveTierFromKey_NonTierKeys_DoNotResolve(string key)

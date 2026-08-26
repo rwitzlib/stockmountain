@@ -191,6 +191,25 @@ public class MonthlyRefillServiceUnitTests
     }
 
     [Fact]
+    public async Task Run_AnnualSubscriberWithoutRoleAttribute_CountsFailedWithoutCrashing()
+    {
+        // The annual scan clause matches on status+interval alone, so an item can arrive
+        // without Role; it must land in Failed, not throw out of the run loop.
+        SetupSinglePageItems(new Dictionary<string, AttributeValue>
+        {
+            { "Id", new AttributeValue { S = "user-1" } },
+            { "SubscriptionStatus", new AttributeValue { S = "active" } },
+            { "BillingInterval", new AttributeValue { S = "year" } }
+        });
+
+        var act = () => _service.Run(Period, Grants, dryRun: false);
+
+        await act.Should().ThrowAsync<RefillIncompleteException>();
+        _ledger.Verify(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()), Times.Never);
+        _dynamo.Verify(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default), Times.Never);
+    }
+
+    [Fact]
     public async Task Run_MixedPage_RefillsFreeAndAnnualUsersWithTheirOwnGrants()
     {
         SetupSinglePageItems(
