@@ -113,10 +113,15 @@ Frontend:
 - **Duplicate-subscription guard.** Between payment completing and the webhook landing,
   `SubscriptionStatus` is still not `active`, so the controller's already-subscribed 400
   doesn't fire and a second subscription checkout could create a second real subscription.
-  Server-side: before creating a subscription-mode session for an existing customer, ask
-  Stripe (the authoritative record — no local claim state needed) whether the customer
-  already has a live/in-flight subscription and 400 if so. Frontend: purchase buttons
-  disabled while the post-payment poll runs, as UI protection only.
+  Server-side: before creating a subscription-mode session, resolve the Stripe customer
+  first, then ask Stripe (the authoritative record — no local claim state needed) whether
+  that customer already has a live/in-flight subscription and 400 if so; checking after
+  resolution also covers the first-purchase race path where a request adopts a customer
+  another request linked. Frontend: purchase buttons disabled while the post-payment poll
+  runs, as UI protection only. Accepted residual risk: two truly concurrent session
+  creations before either payment exists are invisible to any Stripe-side check (and a
+  local claim would still have to expire on abandoned checkouts); exploiting it requires
+  the same user completing two payments in parallel tabs within seconds.
 - Embedded Checkout itself needs no origin allow-listing — it works on any origin with the
   publishable key. But **Payment Method Domains registration is separate**: Link, Apple
   Pay, and Google Pay require every domain/subdomain that hosts the payment form to be
@@ -131,8 +136,8 @@ E2e:
   but undocumented — anchor on a stable attribute). Card `4242…` entry, email, and the
   accordion-layout handling all move inside the frame locator. The PR #27 Link-opt-out and
   deterministic-wait logic carries over conceptually but every selector changes.
-- Success assertion changes from "redirected to `/billing?status=success`" to "modal shows
-  finalizing → summary reflects the purchase".
+- Success assertion changes from "redirected to `/billing?status=success`" to "checkout
+  iframe detaches → page shows the success banner → summary reflects the purchase".
 
 ### Phase 2 — Annual billing
 

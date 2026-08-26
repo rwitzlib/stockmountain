@@ -171,6 +171,33 @@ public class BillingControllerUnitTests
     }
 
     [Fact]
+    public async Task CheckoutSession_LostRaceToSubscribedCustomer_IsRejected()
+    {
+        // First-purchase race where the winning request's checkout already produced a
+        // subscription: the loser adopts the winner's customer and must still be
+        // stopped by the live-subscription guard (it runs on the RESOLVED customer).
+        _gateway.Setup(g => g.CreateCustomer("user-1")).ReturnsAsync("cus_loser");
+        _users.Setup(u => u.SetStripeCustomerId("user-1", "cus_loser")).ReturnsAsync(false);
+        var reads = 0;
+        _users.Setup(u => u.Get("user-1")).ReturnsAsync(() => new UserRecord
+        {
+            Id = "user-1",
+            Role = UserRole.Free,
+            StripeCustomerId = ++reads == 1 ? null : "cus_winner"
+        });
+        _gateway.Setup(g => g.HasLiveSubscription("cus_winner")).ReturnsAsync(true);
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Subscription,
+            Id = "Pro"
+        });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _gateway.Verify(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CheckoutSession_SubscriptionDuringWebhookLag_IsRejected()
     {
         // Payment completed but the webhook hasn't set SubscriptionStatus yet: our

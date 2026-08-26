@@ -65,17 +65,6 @@ public class BillingController(
         }
 
         var customerId = user.StripeCustomerId;
-
-        // Webhook-lag guard: after an embedded checkout completes, SubscriptionStatus
-        // stays non-active until the webhook lands, so the check above can't stop a
-        // second subscription purchase. Stripe itself is the authoritative record —
-        // ask it directly rather than keeping local pending-claim state.
-        if (isSubscription && !string.IsNullOrEmpty(customerId)
-            && await stripeGateway.HasLiveSubscription(customerId))
-        {
-            return BadRequest(new[] { "A subscription already exists or is being processed. Use the billing portal to change plans." });
-        }
-
         if (string.IsNullOrEmpty(customerId))
         {
             customerId = await stripeGateway.CreateCustomer(user.Id);
@@ -93,6 +82,19 @@ public class BillingController(
 
                 customerId = refreshed.StripeCustomerId;
             }
+        }
+
+        // Webhook-lag guard, checked on the RESOLVED customer (covering the race path
+        // above where we adopt another request's customer): after a checkout completes,
+        // SubscriptionStatus stays non-active until the webhook lands, so the check at
+        // the top can't stop a second subscription purchase. Stripe itself is the
+        // authoritative record — ask it directly rather than keeping local pending-claim
+        // state. Residual risk accepted: two truly concurrent sessions created before
+        // EITHER payment exists can't be caught here (nothing exists on Stripe yet) —
+        // that needs the same user paying twice in parallel tabs within seconds.
+        if (isSubscription && await stripeGateway.HasLiveSubscription(customerId))
+        {
+            return BadRequest(new[] { "A subscription already exists or is being processed. Use the billing portal to change plans." });
         }
 
         var clientSecret = await stripeGateway.CreateCheckoutSession(new CheckoutSessionSpec

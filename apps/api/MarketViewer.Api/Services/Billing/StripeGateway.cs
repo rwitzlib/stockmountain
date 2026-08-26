@@ -34,13 +34,23 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
 
     public async Task<bool> HasLiveSubscription(string customerId)
     {
-        var subscriptions = await new SubscriptionService(_client.Value).ListAsync(new SubscriptionListOptions
+        // Auto-paging: ListAsync returns a single page, and a live subscription could
+        // hide behind a page of dead ones.
+        var subscriptions = new SubscriptionService(_client.Value).ListAutoPagingAsync(new SubscriptionListOptions
         {
             Customer = customerId,
             Status = "all"
         });
 
-        return subscriptions.Data.Any(s => s.Status is not ("canceled" or "incomplete_expired"));
+        await foreach (var subscription in subscriptions)
+        {
+            if (subscription.Status is not ("canceled" or "incomplete_expired"))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public async Task<string> CreateCheckoutSession(CheckoutSessionSpec spec)
