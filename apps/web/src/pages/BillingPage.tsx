@@ -13,12 +13,16 @@ import { Button } from '../components/ui/button';
 import { toast } from '../hooks/use-toast';
 import { cn } from '../utils/utils';
 
+export type BillingCycle = 'monthly' | 'annual';
+
 // Display copy for the tier/pack cards. Prices and grants mirror the Stripe
-// products and the Tiers/Packs config in the API (appsettings.json).
+// products and the Tiers/Packs config in the API (appsettings.json). Annual
+// per-month figures are the yearly price ÷ 12 (~20% off the monthly price).
 const TIER_PLANS: {
   id: BillingTier;
   price: string;
   period?: string;
+  annual?: { id: CheckoutItemId; perMonth: string; perYear: string; bonusCredits: string };
   credits: number;
   tagline: string;
   features: string[];
@@ -35,6 +39,7 @@ const TIER_PLANS: {
     id: 'Pro',
     price: '$29',
     period: '/mo',
+    annual: { id: 'ProAnnual', perMonth: '$23.25', perYear: '$279', bonusCredits: '1,000' },
     credits: 1000,
     tagline: 'For traders building a real playbook.',
     highlighted: true,
@@ -44,6 +49,7 @@ const TIER_PLANS: {
     id: 'Premium',
     price: '$99',
     period: '/mo',
+    annual: { id: 'PremiumAnnual', perMonth: '$79.08', perYear: '$949', bonusCredits: '5,000' },
     credits: 5000,
     tagline: 'For traders ready to go live.',
     features: ['5,000 credits / month', 'Unlimited paper trading bots', 'Live trading — early access', 'Priority queue'],
@@ -72,6 +78,7 @@ export function BillingPage() {
   const { isLoaded, isSignedIn } = useUser();
 
   const [checkoutItem, setCheckoutItem] = useState<CheckoutItem | null>(null);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [pollingForGrant, setPollingForGrant] = useState(false);
   const baselineRef = useRef<string | null>(null);
@@ -193,10 +200,14 @@ export function BillingPage() {
         />
 
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold tracking-tight text-foreground">Plans</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">Plans</h2>
+            <CycleToggle cycle={billingCycle} onChange={setBillingCycle} />
+          </div>
           <div className="grid gap-4 lg:grid-cols-3">
             {TIER_PLANS.map(plan => {
               const isCurrent = summary?.tier === plan.id;
+              const annual = billingCycle === 'annual' ? plan.annual : undefined;
               return (
                 <div
                   key={plan.id}
@@ -218,12 +229,22 @@ export function BillingPage() {
                   </div>
                   <div className="mt-2 flex items-baseline gap-1">
                     <span className="font-mono text-3xl font-semibold tabular-nums text-foreground">
-                      {plan.price}
+                      {annual ? annual.perMonth : plan.price}
                     </span>
-                    {plan.period && (
-                      <span className="text-sm text-muted-foreground">{plan.period}</span>
+                    {(annual || plan.period) && (
+                      <span className="text-sm text-muted-foreground">/mo</span>
                     )}
                   </div>
+                  {annual && (
+                    <>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        billed annually ({annual.perYear}/yr)
+                      </p>
+                      <span className="mt-1.5 inline-flex w-fit rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        20% off + {annual.bonusCredits} bonus credits
+                      </span>
+                    </>
+                  )}
                   <p className="mt-1 text-xs text-muted-foreground">{plan.tagline}</p>
                   <ul className="mt-4 flex-1 space-y-2">
                     {plan.features.map(f => (
@@ -244,8 +265,8 @@ export function BillingPage() {
                     onSubscribe={() =>
                       setCheckoutItem({
                         kind: 'subscription',
-                        id: plan.id as CheckoutItemId,
-                        label: `${plan.id} plan`,
+                        id: annual ? annual.id : (plan.id as CheckoutItemId),
+                        label: annual ? `${plan.id} plan (annual)` : `${plan.id} plan`,
                       })
                     }
                     onOpenPortal={() => portalMutation.mutate()}
@@ -296,9 +317,11 @@ export function BillingPage() {
         </section>
 
         <p className="text-xs text-muted-foreground">
-          Monthly credits reset with each billing cycle and don't roll over; purchased credits
-          never expire. Invoices, receipts, card changes, and cancellation are handled in the
-          billing portal.
+          Monthly credits reset every month on annual plans too, and don't roll over; purchased
+          credits (including annual bonus credits) never expire. Cancelling keeps your access
+          until the end of the period you've paid for — no automatic refunds. Invoices,
+          receipts, card changes, plan switches, and cancellation are handled in the billing
+          portal.
         </p>
       </div>
 
@@ -307,6 +330,34 @@ export function BillingPage() {
         onClose={() => setCheckoutItem(null)}
         onComplete={handleCheckoutComplete}
       />
+    </div>
+  );
+}
+
+function CycleToggle({
+  cycle,
+  onChange,
+}: {
+  cycle: BillingCycle;
+  onChange: (cycle: BillingCycle) => void;
+}) {
+  return (
+    <div className="inline-flex items-center rounded-lg border border-border bg-card p-0.5 text-xs">
+      {(['monthly', 'annual'] as const).map(option => (
+        <button
+          key={option}
+          onClick={() => onChange(option)}
+          aria-pressed={cycle === option}
+          className={cn(
+            'rounded-md px-3 py-1 font-medium transition-colors',
+            cycle === option
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {option === 'monthly' ? 'Monthly' : 'Annual · 20% off'}
+        </button>
+      ))}
     </div>
   );
 }

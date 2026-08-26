@@ -52,4 +52,12 @@ public static class BillingLedgerEntryType
     public const string MonthlyRefill = "monthly_refill";
     public const string SignupGrant = "signup_grant";
     public const string UpgradeGrant = "upgrade_grant";
+
+    /// <summary>
+    /// One month's grant added to PurchasedCredits for committing to a year (new annual
+    /// signup, annual renewal, or monthly→annual switch). When the same Stripe event also
+    /// writes a subscription_payment row, this row's EventKey carries a "#bonus" suffix so
+    /// both conditional puts stay independently idempotent.
+    /// </summary>
+    public const string AnnualBonus = "annual_bonus";
 }

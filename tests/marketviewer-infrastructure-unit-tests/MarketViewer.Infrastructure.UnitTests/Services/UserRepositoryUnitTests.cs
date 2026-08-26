@@ -204,13 +204,14 @@ public class UserRepositoryUnitTests
             .Callback<UpdateItemRequest, CancellationToken>((r, _) => captured = r)
             .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
 
-        var result = await _repository.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000);
+        var result = await _repository.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, "year");
 
         result.Should().BeTrue();
-        captured.UpdateExpression.Should().Be("SET #role = :role, Credits = :grant, MaxCredits = :grant, SubscriptionStatus = :status");
+        captured.UpdateExpression.Should().Be("SET #role = :role, Credits = :grant, MaxCredits = :grant, SubscriptionStatus = :status, BillingInterval = :interval");
         captured.ExpressionAttributeValues[":role"].S.Should().Be("Pro");
         captured.ExpressionAttributeValues[":grant"].N.Should().Be("1000");
         captured.ExpressionAttributeValues[":status"].S.Should().Be("active");
+        captured.ExpressionAttributeValues[":interval"].S.Should().Be("year");
     }
 
     [Fact]
@@ -221,13 +222,30 @@ public class UserRepositoryUnitTests
             .Callback<UpdateItemRequest, CancellationToken>((r, _) => captured = r)
             .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
 
-        var result = await _repository.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000);
+        var result = await _repository.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000, "month");
 
         result.Should().BeTrue();
-        captured.UpdateExpression.Should().Be("SET #role = :role, MaxCredits = :grant, SubscriptionStatus = :status ADD Credits :delta");
+        captured.UpdateExpression.Should().Be("SET #role = :role, MaxCredits = :grant, SubscriptionStatus = :status, BillingInterval = :interval ADD Credits :delta");
         captured.ExpressionAttributeValues[":role"].S.Should().Be("Premium");
         captured.ExpressionAttributeValues[":grant"].N.Should().Be("5000");
         captured.ExpressionAttributeValues[":delta"].N.Should().Be("4000");
+        captured.ExpressionAttributeValues[":interval"].S.Should().Be("month");
+    }
+
+    [Fact]
+    public async Task SetBillingInterval_UsesIdempotentSet()
+    {
+        UpdateItemRequest captured = null;
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .Callback<UpdateItemRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        var result = await _repository.SetBillingInterval("user-1", "year");
+
+        result.Should().BeTrue();
+        captured.UpdateExpression.Should().Be("SET BillingInterval = :interval");
+        captured.ConditionExpression.Should().Be("attribute_exists(Id)");
+        captured.ExpressionAttributeValues[":interval"].S.Should().Be("year");
     }
 
     [Fact]
@@ -273,6 +291,9 @@ public class UserRepositoryUnitTests
         captured.ExpressionAttributeValues[":credits"].N.Should().Be("100");
         captured.ExpressionAttributeValues[":maxCredits"].N.Should().Be("100");
         captured.ExpressionAttributeValues[":status"].S.Should().Be("canceled");
+        // The interval is cleared with the subscription — a stale "year" would keep the
+        // ex-subscriber inside the refill Lambda's annual branch.
+        captured.UpdateExpression.Should().EndWith("REMOVE BillingInterval");
         captured.ConditionExpression.Should().Contain("Credits = :expectedCredits");
         captured.ExpressionAttributeValues[":expectedCredits"].N.Should().Be("3000");
     }

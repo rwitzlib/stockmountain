@@ -40,6 +40,8 @@ public class StripeWebhookProcessorUnitTests
             {
                 { "Pro", "price_pro" },
                 { "Premium", "price_premium" },
+                { "ProAnnual", "price_pro_annual" },
+                { "PremiumAnnual", "price_premium_annual" },
                 { "PackSmall", "price_pack_small" },
                 { "PackLarge", "price_pack_large" }
             });
@@ -144,8 +146,34 @@ public class StripeWebhookProcessorUnitTests
         """;
     }
 
-    private static string SubscriptionJson(string type, string priceId)
+    private static string SubscriptionJson(string type, string priceId, string previousPriceId = null, string previousInterval = "month")
     {
+        // The previous_attributes shape mirrors a real test-mode capture of a
+        // monthly→annual price switch (API 2025-06-30.basil): the old price appears at
+        // items.data[*].price/plan and as a top-level "plan" mirror.
+        var previousAttributes = previousPriceId is null
+            ? string.Empty
+            : $$"""
+            ,
+            "previous_attributes": {
+              "billing_cycle_anchor": 1756036000,
+              "items": {
+                "data": [
+                  {
+                    "id": "si_1",
+                    "object": "subscription_item",
+                    "plan": { "id": "{{previousPriceId}}", "object": "plan", "interval": "{{previousInterval}}", "product": "prod_1" },
+                    "price": { "id": "{{previousPriceId}}", "object": "price", "recurring": { "interval": "{{previousInterval}}" } },
+                    "quantity": 1,
+                    "subscription": "sub_1"
+                  }
+                ]
+              },
+              "latest_invoice": "in_0",
+              "plan": { "id": "{{previousPriceId}}", "interval": "{{previousInterval}}" }
+            }
+            """;
+
         return $$"""
         {
           "id": "evt_sub_1",
@@ -173,7 +201,7 @@ public class StripeWebhookProcessorUnitTests
                 "has_more": false,
                 "url": "/v1/subscription_items?subscription=sub_1"
               }
-            }
+            }{{previousAttributes}}
           }
         }
         """;
@@ -226,13 +254,13 @@ public class StripeWebhookProcessorUnitTests
         result.Should().BeTrue();
         _users.Verify(u => u.SetStripeCustomerId("user-1", "cus_1"), Times.Once);
         _ledger.Verify(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()), Times.Never);
-        _users.Verify(u => u.ApplySubscriptionGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>()), Times.Never);
+        _users.Verify(u => u.ApplySubscriptionGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
     public async Task InvoicePaid_RenewalGrantsMonthlyCredits()
     {
-        _users.Setup(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000)).ReturnsAsync(true);
+        _users.Setup(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, "month")).ReturnsAsync(true);
         BillingLedgerRecord entry = null;
         _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()))
             .Callback<BillingLedgerRecord>(e => entry = e)
@@ -241,7 +269,8 @@ public class StripeWebhookProcessorUnitTests
         var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", "subscription_cycle")));
 
         result.Should().BeTrue();
-        _users.Verify(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000), Times.Once);
+        _users.Verify(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, "month"), Times.Once);
+        _users.Verify(u => u.AddPurchasedCredits(It.IsAny<string>(), It.IsAny<float>()), Times.Never);
         entry.Type.Should().Be(BillingLedgerEntryType.SubscriptionPayment);
         entry.AmountCents.Should().Be(2900);
         entry.Credits.Should().Be(1000);
@@ -249,18 +278,85 @@ public class StripeWebhookProcessorUnitTests
         entry.Tier.Should().Be("Pro");
     }
 
-    [Fact]
-    public async Task InvoicePaid_UpgradeProration_IsMoneyOnly()
+    [Theory]
+    [InlineData("subscription_create")]
+    [InlineData("subscription_cycle")]
+    public async Task InvoicePaid_Annual_GrantsMonthlyCreditsAndBonus(string billingReason)
     {
+        // Annual signup and every annual renewal: the normal grant (with the year interval
+        // recorded) plus one month's grant into the never-expiring purchased balance.
+        _users.Setup(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, "year")).ReturnsAsync(true);
+        _users.Setup(u => u.AddPurchasedCredits("user-1", 1000)).ReturnsAsync(true);
+        var entries = new List<BillingLedgerRecord>();
+        _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()))
+            .Callback<BillingLedgerRecord>(entries.Add)
+            .ReturnsAsync(true);
+
+        var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", billingReason, "price_pro_annual")));
+
+        result.Should().BeTrue();
+        _users.Verify(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, "year"), Times.Once);
+        _users.Verify(u => u.AddPurchasedCredits("user-1", 1000), Times.Once);
+
+        entries.Should().HaveCount(2);
+        entries[0].Type.Should().Be(BillingLedgerEntryType.SubscriptionPayment);
+        entries[0].Credits.Should().Be(1000);
+        var bonus = entries[1];
+        bonus.Type.Should().Be(BillingLedgerEntryType.AnnualBonus);
+        bonus.Credits.Should().Be(1000);
+        bonus.AmountCents.Should().Be(0);
+        bonus.Tier.Should().Be("Pro");
+        // Independent idempotency: the bonus row must not collide with the payment row.
+        bonus.EventKey.Should().EndWith("#evt_invoice_1#bonus");
+    }
+
+    [Fact]
+    public async Task InvoicePaid_AnnualBonusAlreadyGranted_DoesNotGrantTwice()
+    {
+        // Redelivery after a partial apply: the payment row exists, the bonus row exists —
+        // neither mutation may run again.
+        _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>())).ReturnsAsync(false);
+
+        var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", "subscription_create", "price_pro_annual")));
+
+        result.Should().BeTrue();
+        _users.Verify(u => u.ApplySubscriptionGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>(), It.IsAny<string>()), Times.Never);
+        _users.Verify(u => u.AddPurchasedCredits(It.IsAny<string>(), It.IsAny<float>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InvoicePaid_AnnualBonusFails_RollsBackBonusRowAndSignalsRetry()
+    {
+        _users.Setup(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, "year")).ReturnsAsync(true);
+        _users.Setup(u => u.AddPurchasedCredits("user-1", 1000)).ReturnsAsync(false);
+
+        var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", "subscription_create", "price_pro_annual")));
+
+        result.Should().BeFalse();
+        // Only the bonus row rolls back; the applied payment row must stand so the
+        // redelivery no-ops the grant and retries just the bonus.
+        _ledger.Verify(l => l.Remove("user-1", It.Is<string>(k => k.EndsWith("#evt_invoice_1#bonus"))), Times.Once);
+        _ledger.Verify(l => l.Remove("user-1", It.Is<string>(k => k.EndsWith("#evt_invoice_1"))), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("price_premium")]
+    [InlineData("price_premium_annual")]
+    public async Task InvoicePaid_UpgradeProration_IsMoneyOnly(string priceId)
+    {
+        // Applies to the prorated invoice of a tier upgrade AND of a monthly→annual switch
+        // (both billing_reason subscription_update): the credit delta and the switch bonus
+        // ride customer.subscription.updated, never this invoice.
         BillingLedgerRecord entry = null;
         _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()))
             .Callback<BillingLedgerRecord>(e => entry = e)
             .ReturnsAsync(true);
 
-        var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", "subscription_update", "price_premium")));
+        var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", "subscription_update", priceId)));
 
         result.Should().BeTrue();
-        _users.Verify(u => u.ApplySubscriptionGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>()), Times.Never);
+        _users.Verify(u => u.ApplySubscriptionGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>(), It.IsAny<string>()), Times.Never);
+        _users.Verify(u => u.AddPurchasedCredits(It.IsAny<string>(), It.IsAny<float>()), Times.Never);
         entry.Credits.Should().Be(0);
         entry.AmountCents.Should().Be(2900);
     }
@@ -273,18 +369,18 @@ public class StripeWebhookProcessorUnitTests
             Id = "cus_1",
             Metadata = new Dictionary<string, string> { { "userId", "user-1" } }
         });
-        _users.Setup(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000)).ReturnsAsync(true);
+        _users.Setup(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, "month")).ReturnsAsync(true);
 
         var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", "subscription_cycle", withMetadata: false)));
 
         result.Should().BeTrue();
-        _users.Verify(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000), Times.Once);
+        _users.Verify(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, "month"), Times.Once);
     }
 
     [Fact]
     public async Task InvoicePaid_GrantFails_RollsBackLedgerAndSignalsRetry()
     {
-        _users.Setup(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000)).ReturnsAsync(false);
+        _users.Setup(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, "month")).ReturnsAsync(false);
 
         var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", "subscription_cycle")));
 
@@ -310,7 +406,7 @@ public class StripeWebhookProcessorUnitTests
     public async Task SubscriptionUpdated_Upgrade_GrantsDeltaImmediately()
     {
         SetupUser(UserRole.Pro);
-        _users.Setup(u => u.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000)).ReturnsAsync(true);
+        _users.Setup(u => u.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000, "month")).ReturnsAsync(true);
         BillingLedgerRecord entry = null;
         _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()))
             .Callback<BillingLedgerRecord>(e => entry = e)
@@ -319,11 +415,129 @@ public class StripeWebhookProcessorUnitTests
         var result = await _processor.Process(ParseEvent(SubscriptionJson("customer.subscription.updated", "price_premium")));
 
         result.Should().BeTrue();
-        _users.Verify(u => u.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000), Times.Once);
+        _users.Verify(u => u.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000, "month"), Times.Once);
+        _users.Verify(u => u.AddPurchasedCredits(It.IsAny<string>(), It.IsAny<float>()), Times.Never);
         entry.Type.Should().Be(BillingLedgerEntryType.UpgradeGrant);
         entry.Credits.Should().Be(4000);
         entry.AmountCents.Should().Be(0);
         entry.Tier.Should().Be("Premium");
+    }
+
+    [Fact]
+    public async Task SubscriptionUpdated_SameTierMonthlyToAnnualSwitch_GrantsBonusAndSetsInterval()
+    {
+        // Pro monthly → Pro annual through the portal: role and monthly credits untouched,
+        // interval recorded, one month's grant into the purchased balance.
+        SetupUser(UserRole.Pro);
+        _users.Setup(u => u.SetBillingInterval("user-1", "year")).ReturnsAsync(true);
+        _users.Setup(u => u.AddPurchasedCredits("user-1", 1000)).ReturnsAsync(true);
+        BillingLedgerRecord entry = null;
+        _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()))
+            .Callback<BillingLedgerRecord>(e => entry = e)
+            .ReturnsAsync(true);
+
+        var result = await _processor.Process(ParseEvent(
+            SubscriptionJson("customer.subscription.updated", "price_pro_annual", previousPriceId: "price_pro")));
+
+        result.Should().BeTrue();
+        _users.Verify(u => u.SetBillingInterval("user-1", "year"), Times.Once);
+        _users.Verify(u => u.AddPurchasedCredits("user-1", 1000), Times.Once);
+        _users.Verify(u => u.ApplyUpgradeGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>(), It.IsAny<float>(), It.IsAny<string>()), Times.Never);
+        entry.Type.Should().Be(BillingLedgerEntryType.AnnualBonus);
+        entry.Credits.Should().Be(1000);
+        entry.Tier.Should().Be("Pro");
+        entry.EventKey.Should().EndWith("#evt_sub_1#bonus");
+    }
+
+    [Fact]
+    public async Task SubscriptionUpdated_SameTierSwitch_Redelivery_DoesNotGrantTwice()
+    {
+        SetupUser(UserRole.Pro);
+        _users.Setup(u => u.SetBillingInterval("user-1", "year")).ReturnsAsync(true);
+        _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>())).ReturnsAsync(false);
+
+        var result = await _processor.Process(ParseEvent(
+            SubscriptionJson("customer.subscription.updated", "price_pro_annual", previousPriceId: "price_pro")));
+
+        result.Should().BeTrue();
+        _users.Verify(u => u.AddPurchasedCredits(It.IsAny<string>(), It.IsAny<float>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubscriptionUpdated_UpgradeWithMonthlyToAnnualSwitch_GrantsDeltaAndBonus()
+    {
+        // Pro monthly → Premium annual: the upgrade delta plus the switch bonus (the year
+        // commitment is new), as two independently idempotent ledger rows.
+        SetupUser(UserRole.Pro);
+        _users.Setup(u => u.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000, "year")).ReturnsAsync(true);
+        _users.Setup(u => u.AddPurchasedCredits("user-1", 5000)).ReturnsAsync(true);
+        var entries = new List<BillingLedgerRecord>();
+        _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()))
+            .Callback<BillingLedgerRecord>(entries.Add)
+            .ReturnsAsync(true);
+
+        var result = await _processor.Process(ParseEvent(
+            SubscriptionJson("customer.subscription.updated", "price_premium_annual", previousPriceId: "price_pro")));
+
+        result.Should().BeTrue();
+        _users.Verify(u => u.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000, "year"), Times.Once);
+        _users.Verify(u => u.AddPurchasedCredits("user-1", 5000), Times.Once);
+        entries.Should().HaveCount(2);
+        entries[0].Type.Should().Be(BillingLedgerEntryType.UpgradeGrant);
+        entries[1].Type.Should().Be(BillingLedgerEntryType.AnnualBonus);
+        entries[1].EventKey.Should().EndWith("#evt_sub_1#bonus");
+    }
+
+    [Fact]
+    public async Task SubscriptionUpdated_AnnualToAnnualUpgrade_GrantsDeltaWithoutBonus()
+    {
+        // The year commitment was already rewarded; only the tier delta applies.
+        SetupUser(UserRole.Pro);
+        _users.Setup(u => u.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000, "year")).ReturnsAsync(true);
+        var entries = new List<BillingLedgerRecord>();
+        _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()))
+            .Callback<BillingLedgerRecord>(entries.Add)
+            .ReturnsAsync(true);
+
+        var result = await _processor.Process(ParseEvent(
+            SubscriptionJson("customer.subscription.updated", "price_premium_annual", previousPriceId: "price_pro_annual", previousInterval: "year")));
+
+        result.Should().BeTrue();
+        _users.Verify(u => u.ApplyUpgradeGrant("user-1", UserRole.Premium, 5000, 4000, "year"), Times.Once);
+        _users.Verify(u => u.AddPurchasedCredits(It.IsAny<string>(), It.IsAny<float>()), Times.Never);
+        entries.Should().ContainSingle().Which.Type.Should().Be(BillingLedgerEntryType.UpgradeGrant);
+    }
+
+    [Fact]
+    public async Task SubscriptionUpdated_AnnualSignup_WithoutPreviousPrice_GrantsNoBonus()
+    {
+        // A fresh annual signup can emit subscription.updated (e.g. incomplete→active) with
+        // no price change in previous_attributes; the signup bonus rides invoice.paid, so
+        // granting here would double it.
+        SetupUser(UserRole.Pro);
+
+        var result = await _processor.Process(ParseEvent(
+            SubscriptionJson("customer.subscription.updated", "price_pro_annual")));
+
+        result.Should().BeTrue();
+        _ledger.Verify(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()), Times.Never);
+        _users.Verify(u => u.AddPurchasedCredits(It.IsAny<string>(), It.IsAny<float>()), Times.Never);
+        _users.Verify(u => u.SetBillingInterval(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SubscriptionUpdated_AnnualToMonthlySwitch_DoesNothingUntilRenewal()
+    {
+        // Interval-lengthening is immediate, shortening is scheduled: the flip back to
+        // "month" lands via invoice.paid at the period-end renewal.
+        SetupUser(UserRole.Pro);
+
+        var result = await _processor.Process(ParseEvent(
+            SubscriptionJson("customer.subscription.updated", "price_pro", previousPriceId: "price_pro_annual", previousInterval: "year")));
+
+        result.Should().BeTrue();
+        _ledger.Verify(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()), Times.Never);
+        _users.Verify(u => u.SetBillingInterval(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -335,7 +549,7 @@ public class StripeWebhookProcessorUnitTests
 
         result.Should().BeTrue();
         _ledger.Verify(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()), Times.Never);
-        _users.Verify(u => u.ApplyUpgradeGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>(), It.IsAny<float>()), Times.Never);
+        _users.Verify(u => u.ApplyUpgradeGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>(), It.IsAny<float>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -369,7 +583,7 @@ public class StripeWebhookProcessorUnitTests
 
         result.Should().BeTrue();
         _users.Verify(u => u.SetSubscriptionStatus("user-1", "past_due"), Times.Once);
-        _users.Verify(u => u.ApplySubscriptionGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>()), Times.Never);
+        _users.Verify(u => u.ApplySubscriptionGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>(), It.IsAny<string>()), Times.Never);
         _users.Verify(u => u.CancelSubscription(It.IsAny<string>(), It.IsAny<float>()), Times.Never);
     }
 

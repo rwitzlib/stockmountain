@@ -10,11 +10,17 @@ using System.Globalization;
 namespace Billing.Lambda;
 
 /// <summary>
-/// Monthly free-tier credit refill (plan 16, decision 1). Paid subscribers refill on Stripe's
-/// invoice.paid webhook; this Lambda covers everyone else: users whose role is Free (or the
-/// legacy "Basic" string) without an active subscription get their monthly allowance reset to
-/// the tier grant. Grants come from tier config, never from the stored MaxCredits — existing
-/// records have MaxCredits = 0 and would otherwise be topped up to zero forever.
+/// Monthly credit refill (plan 16 decision 1, extended by plan 17 decision 3). Monthly paid
+/// subscribers refill on Stripe's invoice.paid webhook; this Lambda covers everyone else:
+/// users whose role is Free (or the legacy "Basic" string) without an active subscription,
+/// and annual subscribers (whose invoice.paid only fires once a year) — both get their
+/// monthly allowance reset to the tier grant on the 1st. Grants come from tier config, never
+/// from the stored MaxCredits — existing records have MaxCredits = 0 and would otherwise be
+/// topped up to zero forever.
+///
+/// Annual anniversary-month overlap (this Lambda on the 1st plus invoice.paid on the renewal
+/// date) is harmless: both are idempotent SETs of the same tier grant with independent
+/// ledger keys, and the renewal's annual bonus rides the invoice event's own idempotency.
 /// </summary>
 public class MonthlyRefillService(
     IAmazonDynamoDB dynamodb,
@@ -22,8 +28,10 @@ public class MonthlyRefillService(
     IBillingLedgerRepository ledger,
     ILogger<MonthlyRefillService> logger)
 {
-    public async Task<RefillResult> Run(string period, float freeGrant, bool dryRun)
+    public async Task<RefillResult> Run(string period, IReadOnlyDictionary<UserRole, float> tierGrants, bool dryRun)
     {
+        var freeGrant = tierGrants.GetValueOrDefault(UserRole.Free, 0);
+
         // A non-positive grant means the Tiers config is missing; refusing to run beats
         // resetting every free user's balance to zero.
         if (freeGrant <= 0)
@@ -41,14 +49,18 @@ public class MonthlyRefillService(
             {
                 TableName = userConfig.TableName,
                 ExclusiveStartKey = exclusiveStartKey,
-                ProjectionExpression = "Id",
+                ProjectionExpression = "Id, #role, SubscriptionStatus, BillingInterval",
                 FilterExpression =
-                    "(#role = :free OR #role = :basic) AND (attribute_not_exists(SubscriptionStatus) OR SubscriptionStatus <> :active)",
+                    "((#role = :free OR #role = :basic) AND (attribute_not_exists(SubscriptionStatus) OR SubscriptionStatus <> :active))" +
+                    " OR (SubscriptionStatus = :active AND BillingInterval = :year)",
                 ExpressionAttributeNames = new Dictionary<string, string>
                 {
                     { "#role", "Role" }
                 },
-                ExpressionAttributeValues = EligibilityValues()
+                ExpressionAttributeValues = EligibilityValues(new Dictionary<string, AttributeValue>
+                {
+                    { ":year", new AttributeValue { S = "year" } }
+                })
             });
 
             foreach (var item in response.Items ?? [])
@@ -56,13 +68,44 @@ public class MonthlyRefillService(
                 var userId = item["Id"].S;
                 result.Eligible++;
 
+                // Active + yearly is the annual-subscriber branch; everything else the scan
+                // returns is the free/legacy branch (past_due annuals fail the scan filter —
+                // no refill during dunning, plan 16 decision 7).
+                var isAnnual = item.TryGetValue("SubscriptionStatus", out var status) && status.S == "active"
+                    && item.TryGetValue("BillingInterval", out var interval) && interval.S == "year";
+
+                var role = UserRole.Free;
+                var grant = freeGrant;
+                if (isAnnual)
+                {
+                    try
+                    {
+                        role = UserRoleParser.Parse(item["Role"].S);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Annual subscriber {UserId} has unparseable role '{Role}'; skipping", userId, item["Role"].S);
+                        result.Failed++;
+                        continue;
+                    }
+
+                    grant = tierGrants.GetValueOrDefault(role, 0);
+                    if (grant <= 0)
+                    {
+                        logger.LogError("Annual subscriber {UserId} has role {Role} with no configured tier grant; skipping", userId, role);
+                        result.Failed++;
+                        continue;
+                    }
+                }
+
                 if (dryRun)
                 {
-                    logger.LogInformation("Dry run: would refill user {UserId} to {Grant} credits for {Period}", userId, freeGrant, period);
+                    logger.LogInformation("Dry run: would refill {Kind} user {UserId} to {Grant} credits for {Period}",
+                        isAnnual ? "annual" : "free", userId, grant, period);
                     continue;
                 }
 
-                await RefillUser(userId, period, freeGrant, result);
+                await RefillUser(userId, period, role, grant, isAnnual, result);
             }
 
             exclusiveStartKey = response.LastEvaluatedKey;
@@ -88,7 +131,7 @@ public class MonthlyRefillService(
         return result;
     }
 
-    private async Task RefillUser(string userId, string period, float freeGrant, RefillResult result)
+    private async Task RefillUser(string userId, string period, UserRole role, float grant, bool isAnnual, RefillResult result)
     {
         // The ledger row is written pending-first and only marked applied after the credit
         // update succeeds. A crash or failure anywhere in between leaves a pending row that
@@ -106,9 +149,11 @@ public class MonthlyRefillService(
                 EventKey = eventKey,
                 Type = BillingLedgerEntryType.MonthlyRefill,
                 AmountCents = 0,
-                Credits = freeGrant,
-                Tier = UserRole.Free.ToString(),
-                Description = $"Monthly free-tier refill for {period}",
+                Credits = grant,
+                Tier = role.ToString(),
+                Description = isAnnual
+                    ? $"Monthly annual-subscriber refill for {period}"
+                    : $"Monthly free-tier refill for {period}",
                 Status = BillingLedgerStatus.Pending
             });
 
@@ -127,8 +172,9 @@ public class MonthlyRefillService(
 
         try
         {
-            // Eligibility is re-checked at write time: a user who subscribed between the scan
-            // and this write must not have their paid grant clobbered.
+            // Eligibility is re-checked at write time: a user who subscribed (or, for the
+            // annual branch, changed tier/interval or lapsed) between the scan and this
+            // write must not have their grant clobbered with a stale one.
             await dynamodb.UpdateItemAsync(new UpdateItemRequest
             {
                 TableName = userConfig.TableName,
@@ -137,16 +183,25 @@ public class MonthlyRefillService(
                     { "Id", new AttributeValue { S = userId } }
                 },
                 UpdateExpression = "SET Credits = :grant, MaxCredits = :grant",
-                ConditionExpression =
-                    "attribute_exists(Id) AND (#role = :free OR #role = :basic) AND (attribute_not_exists(SubscriptionStatus) OR SubscriptionStatus <> :active)",
+                ConditionExpression = isAnnual
+                    ? "attribute_exists(Id) AND #role = :roleValue AND SubscriptionStatus = :active AND BillingInterval = :year"
+                    : "attribute_exists(Id) AND (#role = :free OR #role = :basic) AND (attribute_not_exists(SubscriptionStatus) OR SubscriptionStatus <> :active)",
                 ExpressionAttributeNames = new Dictionary<string, string>
                 {
                     { "#role", "Role" }
                 },
-                ExpressionAttributeValues = EligibilityValues(new Dictionary<string, AttributeValue>
-                {
-                    { ":grant", new AttributeValue { N = freeGrant.ToString(CultureInfo.InvariantCulture) } }
-                })
+                ExpressionAttributeValues = isAnnual
+                    ? new Dictionary<string, AttributeValue>
+                    {
+                        { ":grant", new AttributeValue { N = grant.ToString(CultureInfo.InvariantCulture) } },
+                        { ":roleValue", new AttributeValue { S = role.ToString() } },
+                        { ":active", new AttributeValue { S = "active" } },
+                        { ":year", new AttributeValue { S = "year" } }
+                    }
+                    : EligibilityValues(new Dictionary<string, AttributeValue>
+                    {
+                        { ":grant", new AttributeValue { N = grant.ToString(CultureInfo.InvariantCulture) } }
+                    })
             });
         }
         catch (ConditionalCheckFailedException)
