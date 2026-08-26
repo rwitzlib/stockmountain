@@ -107,35 +107,46 @@ export async function completeStripeCheckout(
 ): Promise<void> {
   await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
 
-  // First purchase: our Stripe customers are created without an email (the
-  // user store has none), so Checkout renders a required email input — wait
-  // for it and fill it. Later purchases: the email is static text (no input),
-  // so the wait falls through quickly.
-  const email = page.locator('input[name="email"]');
-  if (options.email) {
-    const emailRendered = await email
-      .waitFor({ state: 'visible', timeout: 5_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (emailRendered && (await email.isEditable({ timeout: 2_000 }).catch(() => false))) {
-      await email.fill(options.email);
-    }
-  }
-
-  // Newer Checkout renders payment methods as an accordion (Card / Cash App /
-  // Klarna / wallets); the card fields only exist after selecting "Card".
+  // Hydration gate + layout detection in one step: Checkout renders either
+  // the card fields directly, or a payment-method accordion (Card / Cash App /
+  // Klarna / wallets) whose card fields only exist after selecting "Card".
+  // A one-shot probe can't tell "accordion" from "still hydrating", so race
+  // the two layout signals and let whichever renders first decide.
   const cardNumber = page.locator('#cardNumber');
+  const cardRadio = page
+    .locator('input[type="radio"][value="card"]')
+    .or(page.getByRole('radio', { name: 'Card' }))
+    .first();
+  const directLayout = cardNumber.waitFor({ state: 'visible', timeout: 30_000 });
+  const accordionLayout = cardRadio.waitFor({ state: 'attached', timeout: 30_000 });
+  // Observe both rejections: the losing waiter times out later and would
+  // otherwise surface as an unhandled rejection.
+  directLayout.catch(() => {});
+  accordionLayout.catch(() => {});
+  await Promise.race([directLayout, accordionLayout]).catch(() => {
+    throw new Error('Stripe Checkout rendered neither card fields nor a Card payment-method option');
+  });
+
   if (!(await cardNumber.isVisible().catch(() => false))) {
-    const cardRadio = page
-      .locator('input[type="radio"][value="card"]')
-      .or(page.getByRole('radio', { name: 'Card' }))
-      .first();
-    await cardRadio.waitFor({ state: 'attached', timeout: 15_000 });
-    // The input itself may be visually hidden behind its label; force-check.
+    // The radio input itself may be visually hidden behind its label; force-check.
     await cardRadio.check({ force: true }).catch(async () => {
       await page.getByText('Card', { exact: true }).first().click();
     });
     await cardNumber.waitFor({ state: 'visible', timeout: 15_000 });
+  }
+
+  // The form is fully hydrated past the gate above, so a one-shot probe is
+  // reliable here. First purchase: our Stripe customers are created without
+  // an email (the user store has none), so Checkout renders a required email
+  // input. Later purchases: the email is static text with no input at all —
+  // which is why this can't be a fixed wait.
+  const email = page.locator('input[name="email"]');
+  if (
+    options.email &&
+    (await email.isVisible().catch(() => false)) &&
+    (await email.isEditable({ timeout: 2_000 }).catch(() => false))
+  ) {
+    await email.fill(options.email);
   }
 
   await cardNumber.fill(TEST_CARD);
