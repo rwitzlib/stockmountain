@@ -23,6 +23,10 @@ export default defineConfig({
   use: {
     baseURL: env.baseUrl,
     locale: 'en-US',
+    // Bound every action/probe — Playwright's default is unlimited, which
+    // turns a missing element (e.g. isEditable on a non-rendered field) into
+    // a whole-test timeout instead of a fast, attributable failure.
+    actionTimeout: 15_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

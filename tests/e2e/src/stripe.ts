@@ -107,20 +107,82 @@ export async function completeStripeCheckout(
 ): Promise<void> {
   await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
 
-  // Email is prefilled (and read-only) when the session carries a customer;
-  // only fill it when Checkout actually asks.
-  const email = page.locator('input[name="email"]');
-  if (options.email && (await email.isEditable().catch(() => false))) {
-    await email.fill(options.email);
+  // Hydration gate + layout detection in one step: Checkout renders either
+  // the card fields directly, or a payment-method accordion (Card / Cash App /
+  // Klarna / wallets) whose card fields only exist after selecting "Card".
+  // A one-shot probe can't tell "accordion" from "still hydrating", so race
+  // the two layout signals and let whichever renders first decide.
+  const cardNumber = page.locator('#cardNumber');
+  const cardRadio = page
+    .locator('input[type="radio"][value="card"]')
+    .or(page.getByRole('radio', { name: 'Card' }))
+    .first();
+  const directLayout = cardNumber.waitFor({ state: 'visible', timeout: 30_000 });
+  const accordionLayout = cardRadio.waitFor({ state: 'attached', timeout: 30_000 });
+  // Observe both rejections: the losing waiter times out later and would
+  // otherwise surface as an unhandled rejection.
+  directLayout.catch(() => {});
+  accordionLayout.catch(() => {});
+  await Promise.race([directLayout, accordionLayout]).catch(() => {
+    throw new Error('Stripe Checkout rendered neither card fields nor a Card payment-method option');
+  });
+
+  if (!(await cardNumber.isVisible().catch(() => false))) {
+    // The radio input itself may be visually hidden behind its label; force-check.
+    await cardRadio.check({ force: true }).catch(async () => {
+      await page.getByText('Card', { exact: true }).first().click();
+    });
+    await cardNumber.waitFor({ state: 'visible', timeout: 15_000 });
   }
 
-  await page.locator('#cardNumber').fill(TEST_CARD);
+  // Contact info renders as a required email input (first purchase — our
+  // Stripe customers are created without an email, the user store has none)
+  // or as static text showing the customer's saved email (later purchases).
+  // Race the two signals so a slow mount can't cause a silent skip.
+  if (options.email) {
+    const emailInput = page.locator('input[name="email"]');
+    const editableEmail = emailInput.waitFor({ state: 'visible', timeout: 15_000 });
+    const prefilledEmail = page
+      .getByText(options.email)
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
+    editableEmail.catch(() => {});
+    prefilledEmail.catch(() => {});
+    await Promise.race([editableEmail, prefilledEmail]).catch(() => {
+      throw new Error(
+        `Stripe Checkout rendered neither an email input nor the customer email (${options.email})`
+      );
+    });
+    if (await emailInput.isVisible().catch(() => false)) {
+      await emailInput.fill(options.email);
+    }
+  }
+
+  await cardNumber.fill(TEST_CARD);
   await page.locator('#cardExpiry').fill('12 / 34');
   await page.locator('#cardCvc').fill('123');
   await page.locator('#billingName').fill('StockMountain E2E');
   const postalCode = page.locator('#billingPostalCode');
   if (await postalCode.isVisible().catch(() => false)) {
     await postalCode.fill('54301');
+  }
+
+  // "Save my information" (Link) defaults on and its empty phone field blocks
+  // submission. Opt out last — the box only renders once the form is active.
+  // If the opt-out verifiably fails, satisfying the phone requirement is the
+  // only way forward, so that fallback is mandatory (not best-effort): a
+  // throw here beats a silent 90s wait for a redirect that never comes.
+  const saveInfo = page
+    .getByRole('checkbox', { name: /Save my information/i })
+    .or(page.locator('#enableStripePass'))
+    .first();
+  if (await saveInfo.isChecked().catch(() => false)) {
+    await saveInfo.uncheck({ force: true }).catch(() => {});
+    if (await saveInfo.isChecked().catch(() => false)) {
+      const phone = page.locator('#phoneNumber');
+      await phone.waitFor({ state: 'visible', timeout: 5_000 });
+      await phone.fill('(201) 555-0123');
+    }
   }
 
   await page.getByTestId('hosted-payment-submit-button').click();
