@@ -23,6 +23,7 @@ jobs:
       contents: read
       actions: read
     with:
+      runs_on: depot-ubuntu-24.04
       environment: ${{ inputs.environment || 'dev' }}
       terraform_directory: infra/tf/core
     secrets: inherit

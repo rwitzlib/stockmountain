@@ -20,13 +20,15 @@ on:
 
 jobs:
   deploy:
-    uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@v1.11.1
+    uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@v1.12.0
     permissions:
       id-token: write
       contents: read
       packages: read
       actions: read
     with:
+      runs_on: depot-ubuntu-24.04
+      depot_project: ${{ vars.DEPOT_PROJECT_ID }}
       environment: ${{ inputs.environment || 'dev' }}
       docker: |
         [
@@ -74,7 +76,7 @@ jobs:
   railway_deploy:
     needs: deploy
     if: github.event_name == 'workflow_dispatch' || github.ref_name == 'master'
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04
     environment: ${{ inputs.environment || 'dev' }}
     permissions:
       id-token: write

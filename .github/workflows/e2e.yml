@@ -15,7 +15,7 @@ on:
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04
     environment: ${{ inputs.environment || 'dev' }}
     timeout-minutes: 45
     permissions:
