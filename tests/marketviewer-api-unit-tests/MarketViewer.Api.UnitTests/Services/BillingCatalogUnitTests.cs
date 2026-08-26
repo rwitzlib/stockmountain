@@ -76,7 +76,15 @@ public class BillingCatalogUnitTests
     [InlineData("PromoAnnual")]
     [InlineData("Annual")]
     [InlineData("Gold")]
-    [InlineData("999")] // Enum.TryParse accepts numeric strings; IsDefined must reject them
+    // Enum.TryParse accepts numeric strings — both defined values ("1") and undefined
+    // ones ("999") — so only round-tripping member names may resolve.
+    [InlineData("1")]
+    [InlineData("2")]
+    [InlineData("3")]
+    [InlineData("999")]
+    [InlineData("1Annual")]
+    [InlineData("2Annual")]
+    [InlineData("3Annual")]
     [InlineData("999Annual")]
     [InlineData("")]
     [InlineData(null)]

@@ -191,6 +191,34 @@ public class MonthlyRefillServiceUnitTests
     }
 
     [Fact]
+    public async Task Run_AnnualSubscriberWithLegacyRoleAlias_RefillsUsingRawRoleInCondition()
+    {
+        // "Advanced" is the legacy stored form of Pro. The grant and ledger tier use the
+        // parsed canonical role, but the write condition must compare against the RAW
+        // stored value — the canonical name would never match and the user would be
+        // silently skipped every month.
+        SetupSinglePageItems(AnnualItem("user-1", "Advanced"));
+
+        BillingLedgerRecord ledgerEntry = null;
+        _ledger.Setup(l => l.TryAppend(It.IsAny<BillingLedgerRecord>()))
+            .Callback<BillingLedgerRecord>(e => ledgerEntry = e)
+            .ReturnsAsync(true);
+
+        UpdateItemRequest update = null;
+        _dynamo.Setup(d => d.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), default))
+            .Callback<UpdateItemRequest, CancellationToken>((r, _) => update = r)
+            .ReturnsAsync(new UpdateItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+        var result = await _service.Run(Period, Grants, dryRun: false);
+
+        result.Refilled.Should().Be(1);
+        ledgerEntry.Credits.Should().Be(1000);
+        ledgerEntry.Tier.Should().Be("Pro");
+        update.ExpressionAttributeValues[":grant"].N.Should().Be("1000");
+        update.ExpressionAttributeValues[":roleValue"].S.Should().Be("Advanced");
+    }
+
+    [Fact]
     public async Task Run_AnnualSubscriberWithoutRoleAttribute_CountsFailedWithoutCrashing()
     {
         // The annual scan clause matches on status+interval alone, so an item can arrive

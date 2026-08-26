@@ -74,14 +74,15 @@ public class MonthlyRefillService(
                 var isAnnual = item.TryGetValue("SubscriptionStatus", out var status) && status.S == "active"
                     && item.TryGetValue("BillingInterval", out var interval) && interval.S == "year";
 
+                // Read once, tolerating an absent attribute — the annual scan clause
+                // doesn't require Role, and indexing the item inside the catch would
+                // throw the very exception being handled.
+                var storedRole = item.TryGetValue("Role", out var roleAttribute) ? roleAttribute.S : null;
+
                 var role = UserRole.Free;
                 var grant = freeGrant;
                 if (isAnnual)
                 {
-                    // Read once, tolerating an absent attribute — the annual scan clause
-                    // doesn't require Role, and indexing the item inside the catch would
-                    // throw the very exception being handled.
-                    var storedRole = item.TryGetValue("Role", out var roleAttribute) ? roleAttribute.S : null;
                     try
                     {
                         role = UserRoleParser.Parse(storedRole);
@@ -109,7 +110,7 @@ public class MonthlyRefillService(
                     continue;
                 }
 
-                await RefillUser(userId, period, role, grant, isAnnual, result);
+                await RefillUser(userId, period, role, storedRole, grant, isAnnual, result);
             }
 
             exclusiveStartKey = response.LastEvaluatedKey;
@@ -135,7 +136,7 @@ public class MonthlyRefillService(
         return result;
     }
 
-    private async Task RefillUser(string userId, string period, UserRole role, float grant, bool isAnnual, RefillResult result)
+    private async Task RefillUser(string userId, string period, UserRole role, string storedRole, float grant, bool isAnnual, RefillResult result)
     {
         // The ledger row is written pending-first and only marked applied after the credit
         // update succeeds. A crash or failure anywhere in between leaves a pending row that
@@ -198,7 +199,10 @@ public class MonthlyRefillService(
                     ? new Dictionary<string, AttributeValue>
                     {
                         { ":grant", new AttributeValue { N = grant.ToString(CultureInfo.InvariantCulture) } },
-                        { ":roleValue", new AttributeValue { S = role.ToString() } },
+                        // The RAW stored role, not the parsed enum's name: a legacy alias
+                        // ("Advanced" → Pro) would never equal the canonical name, so the
+                        // condition would silently skip the user every month.
+                        { ":roleValue", new AttributeValue { S = storedRole } },
                         { ":active", new AttributeValue { S = "active" } },
                         { ":year", new AttributeValue { S = "year" } }
                     }

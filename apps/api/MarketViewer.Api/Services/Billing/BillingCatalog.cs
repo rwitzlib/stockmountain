@@ -93,22 +93,30 @@ public class BillingCatalog(
             return false;
         }
 
-        // IsDefined guards against Enum.TryParse's numeric-string quirk ("999" parses to an
-        // undefined enum value and would slip through controller validation).
-        if (Enum.TryParse(key, out tier) && Enum.IsDefined(tier))
+        if (TryParseTierName(key, out tier))
         {
             interval = BillingInterval.Month;
             return true;
         }
 
         const string suffix = "Annual";
-        if (key.EndsWith(suffix) && Enum.TryParse(key[..^suffix.Length], out tier) && Enum.IsDefined(tier))
+        if (key.EndsWith(suffix) && TryParseTierName(key[..^suffix.Length], out tier))
         {
             interval = BillingInterval.Year;
             return true;
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Matches enum member names only. Enum.TryParse alone also accepts numeric strings —
+    /// "1" for a defined value, "999" for an undefined one — and neither may become a
+    /// billing key, so the name must round-trip and the value must be defined.
+    /// </summary>
+    private static bool TryParseTierName(string name, out UserRole tier)
+    {
+        return Enum.TryParse(name, out tier) && Enum.IsDefined(tier) && name == tier.ToString();
     }
 }
 
