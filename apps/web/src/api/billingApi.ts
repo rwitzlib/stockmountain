@@ -44,7 +44,7 @@ export const billingApi = {
 		return await response.json();
 	},
 
-	/** Returns the Stripe Checkout URL to redirect to. */
+	/** Returns the client secret for mounting the embedded Checkout session. */
 	createCheckoutSession: async (kind: CheckoutKind, id: CheckoutItemId): Promise<string> => {
 		const response = await authFetch(`${BASE_URL}/billing/checkout-session`, {
 			method: 'POST',
@@ -55,8 +55,8 @@ export const billingApi = {
 			await throwWithApiErrors(response, 'Failed to start checkout');
 		}
 
-		const data: { url: string } = await response.json();
-		return data.url;
+		const data: { clientSecret: string } = await response.json();
+		return data.clientSecret;
 	},
 
 	/** Returns the Stripe Customer Portal URL to redirect to. */

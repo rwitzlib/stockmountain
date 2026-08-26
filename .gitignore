@@ -45,4 +45,4 @@ coverage/
 .github/skills/**
 .github/skills-lock.json
 
-**.sln
+**.sln*.tsbuildinfo

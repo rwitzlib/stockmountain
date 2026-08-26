@@ -43,8 +43,11 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
             [
                 new CheckoutSessionLineItemOptions { Price = spec.PriceId, Quantity = 1 }
             ],
-            SuccessUrl = spec.SuccessUrl,
-            CancelUrl = spec.CancelUrl,
+            // Rendered inside our own modal; success is handled in-page via onComplete,
+            // so there is no return redirect at all.
+            UiMode = "embedded",
+            RedirectOnCompletion = "never",
+            AllowPromotionCodes = true,
             Metadata = new Dictionary<string, string> { { "userId", spec.UserId } }
         };
 
@@ -69,7 +72,7 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
         }
 
         var session = await new CheckoutSessionService(_client.Value).CreateAsync(sessionOptions);
-        return session.Url;
+        return session.ClientSecret;
     }
 
     public async Task<string> CreatePortalSession(string customerId, string returnUrl)

@@ -83,7 +83,6 @@ test.describe('subscription lifecycle', () => {
 
     await page.getByRole('button', { name: 'Subscribe to Pro' }).click();
     await completeStripeCheckout(page, { email: user.email });
-    await page.waitForURL(/\/billing\?status=success/);
 
     const summary = await waitForSummary(
       page,
@@ -107,7 +106,6 @@ test.describe('subscription lifecycle', () => {
     // The small pack's buy button is labeled with its price.
     await page.getByRole('button', { name: '$10' }).click();
     await completeStripeCheckout(page, { email: user.email });
-    await page.waitForURL(/\/billing\?status=success/);
 
     const summary = await waitForSummary(
       page,

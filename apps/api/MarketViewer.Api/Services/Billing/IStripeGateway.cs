@@ -13,7 +13,7 @@ public interface IStripeGateway
 
     Task<Customer> GetCustomer(string customerId);
 
-    /// <summary>Creates a Checkout session and returns its hosted-page URL.</summary>
+    /// <summary>Creates an embedded Checkout session and returns its client secret.</summary>
     Task<string> CreateCheckoutSession(CheckoutSessionSpec spec);
 
     /// <summary>Creates a Customer Portal session and returns its hosted-page URL.</summary>
@@ -29,7 +29,4 @@ public class CheckoutSessionSpec
 
     /// <summary>Pack id ("PackSmall"/"PackLarge") for one-time purchases; null for subscriptions.</summary>
     public string PackId { get; set; }
-
-    public string SuccessUrl { get; set; }
-    public string CancelUrl { get; set; }
 }

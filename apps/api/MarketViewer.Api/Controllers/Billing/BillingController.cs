@@ -84,19 +84,16 @@ public class BillingController(
             }
         }
 
-        var returnUrlBase = stripeOptions.Value.ReturnUrlBase.TrimEnd('/');
-        var url = await stripeGateway.CreateCheckoutSession(new CheckoutSessionSpec
+        var clientSecret = await stripeGateway.CreateCheckoutSession(new CheckoutSessionSpec
         {
             UserId = user.Id,
             CustomerId = customerId,
             PriceId = priceId,
             IsSubscription = isSubscription,
-            PackId = isSubscription ? null : request.Id,
-            SuccessUrl = $"{returnUrlBase}/billing?status=success",
-            CancelUrl = $"{returnUrlBase}/billing?status=cancelled"
+            PackId = isSubscription ? null : request.Id
         });
 
-        return Ok(new CheckoutSessionResponse { Url = url });
+        return Ok(new CheckoutSessionResponse { ClientSecret = clientSecret });
     }
 
     [HttpPost]

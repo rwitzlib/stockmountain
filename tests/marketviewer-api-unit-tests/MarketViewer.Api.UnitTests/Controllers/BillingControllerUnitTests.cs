@@ -70,7 +70,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("https://checkout.stripe.com/session_1");
+            .ReturnsAsync("cs_secret_1");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -80,14 +80,12 @@ public class BillingControllerUnitTests
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeOfType<CheckoutSessionResponse>()
-            .Which.Url.Should().Be("https://checkout.stripe.com/session_1");
+            .Which.ClientSecret.Should().Be("cs_secret_1");
         _users.Verify(u => u.SetStripeCustomerId("user-1", "cus_new"), Times.Once);
         spec.CustomerId.Should().Be("cus_new");
         spec.PriceId.Should().Be("price_pro");
         spec.IsSubscription.Should().BeTrue();
         spec.PackId.Should().BeNull();
-        spec.SuccessUrl.Should().Be("https://app.test/billing?status=success");
-        spec.CancelUrl.Should().Be("https://app.test/billing?status=cancelled");
     }
 
     [Fact]
@@ -106,7 +104,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("https://checkout.stripe.com/session_4");
+            .ReturnsAsync("cs_secret_4");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -125,7 +123,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("https://checkout.stripe.com/session_2");
+            .ReturnsAsync("cs_secret_2");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -146,7 +144,7 @@ public class BillingControllerUnitTests
     {
         SetupUser(role: UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
-            .ReturnsAsync("https://checkout.stripe.com/session_3");
+            .ReturnsAsync("cs_secret_3");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
