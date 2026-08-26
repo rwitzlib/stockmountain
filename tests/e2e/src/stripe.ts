@@ -107,20 +107,60 @@ export async function completeStripeCheckout(
 ): Promise<void> {
   await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
 
-  // Email is prefilled (and read-only) when the session carries a customer;
-  // only fill it when Checkout actually asks.
+  // First purchase: our Stripe customers are created without an email (the
+  // user store has none), so Checkout renders a required email input — wait
+  // for it and fill it. Later purchases: the email is static text (no input),
+  // so the wait falls through quickly.
   const email = page.locator('input[name="email"]');
-  if (options.email && (await email.isEditable().catch(() => false))) {
-    await email.fill(options.email);
+  if (options.email) {
+    const emailRendered = await email
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (emailRendered && (await email.isEditable({ timeout: 2_000 }).catch(() => false))) {
+      await email.fill(options.email);
+    }
   }
 
-  await page.locator('#cardNumber').fill(TEST_CARD);
+  // Newer Checkout renders payment methods as an accordion (Card / Cash App /
+  // Klarna / wallets); the card fields only exist after selecting "Card".
+  const cardNumber = page.locator('#cardNumber');
+  if (!(await cardNumber.isVisible().catch(() => false))) {
+    const cardRadio = page
+      .locator('input[type="radio"][value="card"]')
+      .or(page.getByRole('radio', { name: 'Card' }))
+      .first();
+    await cardRadio.waitFor({ state: 'attached', timeout: 15_000 });
+    // The input itself may be visually hidden behind its label; force-check.
+    await cardRadio.check({ force: true }).catch(async () => {
+      await page.getByText('Card', { exact: true }).first().click();
+    });
+    await cardNumber.waitFor({ state: 'visible', timeout: 15_000 });
+  }
+
+  await cardNumber.fill(TEST_CARD);
   await page.locator('#cardExpiry').fill('12 / 34');
   await page.locator('#cardCvc').fill('123');
   await page.locator('#billingName').fill('StockMountain E2E');
   const postalCode = page.locator('#billingPostalCode');
   if (await postalCode.isVisible().catch(() => false)) {
     await postalCode.fill('54301');
+  }
+
+  // "Save my information" (Link) defaults on and its empty phone field blocks
+  // submission. Opt out last — the box only renders once the form is active.
+  const saveInfo = page
+    .getByRole('checkbox', { name: /Save my information/i })
+    .or(page.locator('#enableStripePass'))
+    .first();
+  if (await saveInfo.isChecked().catch(() => false)) {
+    await saveInfo.uncheck({ force: true }).catch(() => {});
+  }
+  // Belt and braces: if the phone field is still shown and required, feed it
+  // a US test number rather than fail validation.
+  const phone = page.locator('#phoneNumber');
+  if (await phone.isVisible().catch(() => false)) {
+    await phone.fill('(201) 555-0123').catch(() => {});
   }
 
   await page.getByTestId('hosted-payment-submit-button').click();
