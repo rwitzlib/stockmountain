@@ -103,14 +103,26 @@ Frontend:
   when unset, mirroring the API's fail-closed billing.
 - New `CheckoutModal` component: `<EmbeddedCheckoutProvider>` with `fetchClientSecret` =
   `billingApi.createCheckoutSession(kind, id)`; used by both tier and pack cards on
-  `/billing`. `onComplete` → close is deferred: show an in-modal "finalizing" state that
-  reuses the existing summary-polling helper (webhook lag), then close and let the page
-  reflect new balances. Closing the modal mid-checkout is the new "cancel" — remove the
+  `/billing`. `onComplete` → the modal closes immediately and the page shows the
+  (state-driven) success banner while the existing summary-polling helper runs — the
+  payment already succeeded, so nothing in the modal is worth keeping open. Purchase
+  buttons stay disabled while the poll runs (see the duplicate-subscription guard below).
+  Closing the modal mid-checkout is the new "cancel" — remove the
   `?status=success`/`?status=cancelled` URL handling (the polling helper itself stays,
   retriggered by `onComplete`).
-- Stripe requires the embed's origin allow-listed? No — Embedded Checkout works on any
-  origin with the publishable key; no dashboard domain registration needed (that's Payment
-  Element/Link). Nothing to configure.
+- **Duplicate-subscription guard.** Between payment completing and the webhook landing,
+  `SubscriptionStatus` is still not `active`, so the controller's already-subscribed 400
+  doesn't fire and a second subscription checkout could create a second real subscription.
+  Server-side: before creating a subscription-mode session for an existing customer, ask
+  Stripe (the authoritative record — no local claim state needed) whether the customer
+  already has a live/in-flight subscription and 400 if so. Frontend: purchase buttons
+  disabled while the post-payment poll runs, as UI protection only.
+- Embedded Checkout itself needs no origin allow-listing — it works on any origin with the
+  publishable key. But **Payment Method Domains registration is separate**: Link, Apple
+  Pay, and Google Pay require every domain/subdomain that hosts the payment form to be
+  registered (Stripe dashboard → Payment method domains), and Link is currently enabled on
+  the account (the e2e Link-opt-out logic exists because of it). Register
+  `dev.stockmountain.io` and `stockmountain.io`, or disable those wallet methods.
 
 E2e:
 
@@ -241,7 +253,11 @@ tier grants; `/billing` + landing toggle; one e2e annual test; fixture/unit test
 3. GitHub secrets: `TF_VAR_stripe_price_id_pro_annual`, `TF_VAR_stripe_price_id_premium_annual`,
    and the web build's `VITE_STRIPE_PUBLISHABLE_KEY` (test key on dev).
 4. Terraform apply (API env vars).
-5. After phase 2 deploys: one manual dev run-through of monthly→annual switch in the
+5. Payment method domains (phase 1): register `dev.stockmountain.io` (test mode) and
+   `stockmountain.io` (live) under Stripe dashboard → Payment method domains — required
+   for Link/Apple Pay/Google Pay inside the embedded form; embedded Checkout itself needs
+   no origin configuration.
+6. After phase 2 deploys: one manual dev run-through of monthly→annual switch in the
    Portal (browser, unautomated) to confirm the bonus + interval flip land.
 
 ## Risks / notes for implementers

@@ -122,7 +122,9 @@ export function BillingPage() {
       toast({ title: 'Billing portal unavailable', description: e.message, variant: 'destructive' }),
   });
 
-  const busy = portalMutation.isPending;
+  // Polling means a payment is being applied — hold new purchases until it lands
+  // (UI protection only; the API independently rejects duplicate subscriptions).
+  const busy = portalMutation.isPending || pollingForGrant;
   const hasSubscription =
     summary?.subscriptionStatus === 'active' || summary?.subscriptionStatus === 'past_due';
 

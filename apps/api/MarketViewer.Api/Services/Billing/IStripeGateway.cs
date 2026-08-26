@@ -13,6 +13,14 @@ public interface IStripeGateway
 
     Task<Customer> GetCustomer(string customerId);
 
+    /// <summary>
+    /// True when the customer has a subscription that exists or is in flight on Stripe's
+    /// side (anything but canceled/expired). Guards the webhook-lag window where our
+    /// stored SubscriptionStatus isn't "active" yet but a paid subscription already
+    /// exists — a second subscription checkout would double-charge.
+    /// </summary>
+    Task<bool> HasLiveSubscription(string customerId);
+
     /// <summary>Creates an embedded Checkout session and returns its client secret.</summary>
     Task<string> CreateCheckoutSession(CheckoutSessionSpec spec);
 

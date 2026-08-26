@@ -170,6 +170,42 @@ public class BillingControllerUnitTests
         _gateway.Verify(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()), Times.Never);
     }
 
+    [Fact]
+    public async Task CheckoutSession_SubscriptionDuringWebhookLag_IsRejected()
+    {
+        // Payment completed but the webhook hasn't set SubscriptionStatus yet: our
+        // record still says no subscription, Stripe already has one.
+        SetupUser(stripeCustomerId: "cus_1", subscriptionStatus: null);
+        _gateway.Setup(g => g.HasLiveSubscription("cus_1")).ReturnsAsync(true);
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Subscription,
+            Id = "Pro"
+        });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _gateway.Verify(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutSession_PackDuringWebhookLag_IsAllowed()
+    {
+        // The live-subscription guard only applies to subscription checkouts.
+        SetupUser(stripeCustomerId: "cus_1", subscriptionStatus: null);
+        _gateway.Setup(g => g.HasLiveSubscription("cus_1")).ReturnsAsync(true);
+        _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
+            .ReturnsAsync("cs_secret_5");
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Pack,
+            Id = "PackSmall"
+        });
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
+
     [Theory]
     [InlineData(CheckoutKind.Subscription, "Free")]
     [InlineData(CheckoutKind.Subscription, "Gold")]

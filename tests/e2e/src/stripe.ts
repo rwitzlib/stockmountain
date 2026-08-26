@@ -199,9 +199,12 @@ export async function completeStripeCheckout(
     .first()
     .click();
 
-  // No redirect in embedded mode: onComplete closes the modal and the page
-  // shows its success banner while it polls for the webhook.
+  // No redirect in embedded mode: onComplete closes the modal (detaching the
+  // iframe) and the page shows its success banner while it polls for the
+  // webhook. Wait for the iframe to go away FIRST — the banner text alone
+  // could match a stale banner from an earlier purchase on the same page.
+  await page.locator(frameSelector).waitFor({ state: 'detached', timeout: 90_000 });
   await page
     .getByText('Payment received', { exact: false })
-    .waitFor({ state: 'visible', timeout: 90_000 });
+    .waitFor({ state: 'visible', timeout: 15_000 });
 }

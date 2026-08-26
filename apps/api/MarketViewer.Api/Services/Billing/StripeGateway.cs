@@ -32,6 +32,17 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
         return await new CustomerService(_client.Value).GetAsync(customerId);
     }
 
+    public async Task<bool> HasLiveSubscription(string customerId)
+    {
+        var subscriptions = await new SubscriptionService(_client.Value).ListAsync(new SubscriptionListOptions
+        {
+            Customer = customerId,
+            Status = "all"
+        });
+
+        return subscriptions.Data.Any(s => s.Status is not ("canceled" or "incomplete_expired"));
+    }
+
     public async Task<string> CreateCheckoutSession(CheckoutSessionSpec spec)
     {
         var sessionOptions = new CheckoutSessionCreateOptions

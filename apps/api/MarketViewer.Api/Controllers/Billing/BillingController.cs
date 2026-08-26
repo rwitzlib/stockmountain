@@ -65,6 +65,17 @@ public class BillingController(
         }
 
         var customerId = user.StripeCustomerId;
+
+        // Webhook-lag guard: after an embedded checkout completes, SubscriptionStatus
+        // stays non-active until the webhook lands, so the check above can't stop a
+        // second subscription purchase. Stripe itself is the authoritative record —
+        // ask it directly rather than keeping local pending-claim state.
+        if (isSubscription && !string.IsNullOrEmpty(customerId)
+            && await stripeGateway.HasLiveSubscription(customerId))
+        {
+            return BadRequest(new[] { "A subscription already exists or is being processed. Use the billing portal to change plans." });
+        }
+
         if (string.IsNullOrEmpty(customerId))
         {
             customerId = await stripeGateway.CreateCustomer(user.Id);
