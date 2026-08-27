@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '../utils/utils';
+import { Switch } from '../components/ui/switch';
 
 /* ------------------------------------------------------------------ */
 /* Shared bits                                                         */
@@ -632,7 +633,7 @@ const PLANS: Plan[] = [
     name: 'Pro',
     price: '$29',
     period: '/mo',
-    annual: { perMonth: '$23.25', perYear: '$279', bonusCredits: '1,000' },
+    annual: { perMonth: '$23', perYear: '$276', bonusCredits: '1,000' },
     tagline: 'For traders building a real playbook.',
     cta: 'Start with Pro',
     highlighted: true,
@@ -649,7 +650,7 @@ const PLANS: Plan[] = [
     name: 'Premium',
     price: '$99',
     period: '/mo',
-    annual: { perMonth: '$79.08', perYear: '$949', bonusCredits: '5,000' },
+    annual: { perMonth: '$79', perYear: '$948', bonusCredits: '5,000' },
     tagline: 'For traders ready to go live.',
     cta: 'Go Premium',
     features: [
@@ -682,22 +683,44 @@ function Pricing() {
           No courses. No signal groups. Just the tools to test your own ideas — priced like
           software.
         </p>
-        <div className="mt-6 inline-flex items-center rounded-lg border border-border bg-card p-0.5 text-sm">
-          {([false, true] as const).map((isAnnual) => (
-            <button
-              key={String(isAnnual)}
-              onClick={() => setAnnual(isAnnual)}
-              aria-pressed={annual === isAnnual}
-              className={cn(
-                'rounded-md px-4 py-1.5 font-medium transition-colors',
-                annual === isAnnual
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
+        <div className="relative mt-6 inline-flex items-center gap-2.5 text-sm">
+          <button
+            onClick={() => setAnnual(false)}
+            className={cn(
+              'font-medium transition-colors',
+              annual ? 'text-muted-foreground hover:text-foreground' : 'text-foreground',
+            )}
+          >
+            Monthly
+          </button>
+          <Switch
+            checked={annual}
+            onCheckedChange={setAnnual}
+            aria-label="Bill annually"
+            className="data-[state=checked]:bg-[var(--chart-gain)]"
+          />
+          <button
+            onClick={() => setAnnual(true)}
+            className={cn(
+              'font-medium transition-colors',
+              annual ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Annual
+          </button>
+          {/* Out of flow so its appearance never shifts the centered toggle. */}
+          {annual && (
+            <span
+              className="absolute left-full top-1/2 ml-2.5 -translate-y-1/2 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold"
+              style={{
+                color: 'var(--chart-gain)',
+                borderColor: 'color-mix(in srgb, var(--chart-gain) 40%, transparent)',
+                backgroundColor: 'color-mix(in srgb, var(--chart-gain) 12%, transparent)',
+              }}
             >
-              {isAnnual ? 'Annual · 20% off' : 'Monthly'}
-            </button>
-          ))}
+              Save 20%
+            </span>
+          )}
         </div>
       </Reveal>
 
@@ -737,7 +760,7 @@ function Pricing() {
                     className="mt-2 inline-flex w-fit rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
                     style={{ color: 'var(--chart-gain)', backgroundColor: 'color-mix(in srgb, var(--chart-gain) 12%, transparent)' }}
                   >
-                    20% off + {plan.annual.bonusCredits} bonus credits
+                    +{plan.annual.bonusCredits} bonus credits
                   </span>
                 </>
               )}

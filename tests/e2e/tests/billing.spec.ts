@@ -170,7 +170,7 @@ test.describe('subscription lifecycle', () => {
     await signIn(page, user.email);
     await page.goto('/billing');
 
-    await page.getByRole('button', { name: 'Annual · 20% off' }).click();
+    await page.getByRole('switch', { name: 'Bill annually' }).click();
     await page.getByRole('button', { name: 'Subscribe to Pro' }).click();
     await completeStripeCheckout(page, { email: user.email });
 

@@ -10,6 +10,7 @@ import {
   isCheckoutConfigured,
 } from '../components/modals/CheckoutModal';
 import { Button } from '../components/ui/button';
+import { Switch } from '../components/ui/switch';
 import { toast } from '../hooks/use-toast';
 import { cn } from '../utils/utils';
 
@@ -39,7 +40,7 @@ const TIER_PLANS: {
     id: 'Pro',
     price: '$29',
     period: '/mo',
-    annual: { id: 'ProAnnual', perMonth: '$23.25', perYear: '$279', bonusCredits: '1,000' },
+    annual: { id: 'ProAnnual', perMonth: '$23', perYear: '$276', bonusCredits: '1,000' },
     credits: 1000,
     tagline: 'For traders building a real playbook.',
     highlighted: true,
@@ -49,7 +50,7 @@ const TIER_PLANS: {
     id: 'Premium',
     price: '$99',
     period: '/mo',
-    annual: { id: 'PremiumAnnual', perMonth: '$79.08', perYear: '$949', bonusCredits: '5,000' },
+    annual: { id: 'PremiumAnnual', perMonth: '$79', perYear: '$948', bonusCredits: '5,000' },
     credits: 5000,
     tagline: 'For traders ready to go live.',
     features: ['5,000 credits / month', 'Unlimited paper trading bots', 'Live trading — early access', 'Priority queue'],
@@ -243,11 +244,9 @@ export function BillingPage() {
                   </div>
                   {annual && (
                     <>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        billed annually ({annual.perYear}/yr)
-                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">billed annually</p>
                       <span className="mt-1.5 inline-flex w-fit rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                        20% off + {annual.bonusCredits} bonus credits
+                        +{annual.bonusCredits} bonus credits
                       </span>
                     </>
                   )}
@@ -347,23 +346,33 @@ function CycleToggle({
   cycle: BillingCycle;
   onChange: (cycle: BillingCycle) => void;
 }) {
+  const isAnnual = cycle === 'annual';
   return (
-    <div className="inline-flex items-center rounded-lg border border-border bg-card p-0.5 text-xs">
-      {(['monthly', 'annual'] as const).map(option => (
-        <button
-          key={option}
-          onClick={() => onChange(option)}
-          aria-pressed={cycle === option}
-          className={cn(
-            'rounded-md px-3 py-1 font-medium transition-colors',
-            cycle === option
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {option === 'monthly' ? 'Monthly' : 'Annual · 20% off'}
-        </button>
-      ))}
+    <div className="flex items-center gap-2 text-xs">
+      <button
+        onClick={() => onChange('monthly')}
+        className={cn(
+          'font-medium transition-colors',
+          isAnnual ? 'text-muted-foreground hover:text-foreground' : 'text-foreground',
+        )}
+      >
+        Monthly
+      </button>
+      <Switch
+        checked={isAnnual}
+        onCheckedChange={checked => onChange(checked ? 'annual' : 'monthly')}
+        aria-label="Bill annually"
+        className="data-[state=checked]:bg-emerald-500"
+      />
+      <button
+        onClick={() => onChange('annual')}
+        className={cn(
+          'font-medium transition-colors',
+          isAnnual ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+        )}
+      >
+        Annual
+      </button>
     </div>
   );
 }
