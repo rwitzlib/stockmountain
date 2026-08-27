@@ -94,10 +94,6 @@ export const routes: RouteObject[] = [
     element: <ScannerPage />,
   },
   {
-    path: '/live',
-    element: <div className="p-6">Coming Soon</div>,
-  },
-  {
     path: '/settings',
     element: <div className="p-6">Settings Page</div>,
   },
