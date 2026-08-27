@@ -19,7 +19,7 @@ public class ScannerRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb, 
 {
     private const string KeyPrefix = "SCANNER#";
 
-    public async Task<ScannerDto> Create(ScannerDto scanner)
+    public async Task<ScannerDto> Create(ScannerDto scanner, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -29,7 +29,7 @@ public class ScannerRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb, 
                 Item = MapToDynamoDbItem(scanner)
             };
 
-            var response = await dynamoDb.PutItemAsync(request);
+            var response = await dynamoDb.PutItemAsync(request, cancellationToken);
 
             logger.LogInformation("Put scanner with ID {Id}, response status: {StatusCode}", scanner.Id, response.HttpStatusCode);
 
@@ -42,7 +42,7 @@ public class ScannerRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb, 
         }
     }
 
-    public async Task<ScannerDto> Get(string id)
+    public async Task<ScannerDto> Get(string id, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -56,7 +56,7 @@ public class ScannerRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb, 
                 }
             };
 
-            var response = await dynamoDb.GetItemAsync(request);
+            var response = await dynamoDb.GetItemAsync(request, cancellationToken);
             return response.Item is not { Count: > 0 } ? null : MapToScannerDto(response.Item);
         }
         catch (Exception ex)
@@ -66,25 +66,37 @@ public class ScannerRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb, 
         }
     }
 
-    public async Task<IEnumerable<ScannerDto>> ListByUser(string userId)
+    public async Task<IEnumerable<ScannerDto>> ListByUser(string userId, CancellationToken cancellationToken = default)
     {
         try
         {
-            var request = new QueryRequest
-            {
-                TableName = config.TableName,
-                IndexName = config.UserIndexName,
-                KeyConditionExpression = "UserId = :userId",
-                FilterExpression = "begins_with(PK, :prefix)",
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    { ":userId", new AttributeValue { S = userId } },
-                    { ":prefix", new AttributeValue { S = KeyPrefix } }
-                }
-            };
+            var scanners = new List<ScannerDto>();
+            Dictionary<string, AttributeValue> exclusiveStartKey = null;
 
-            var response = await dynamoDb.QueryAsync(request);
-            return (response.Items ?? []).Select(MapToScannerDto);
+            // The PK-prefix filter runs after each 1MB page is read, so a page can be
+            // exhausted by the other entity type — keep querying until the key runs dry.
+            do
+            {
+                var request = new QueryRequest
+                {
+                    TableName = config.TableName,
+                    IndexName = config.UserIndexName,
+                    KeyConditionExpression = "UserId = :userId",
+                    FilterExpression = "begins_with(PK, :prefix)",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        { ":userId", new AttributeValue { S = userId } },
+                        { ":prefix", new AttributeValue { S = KeyPrefix } }
+                    },
+                    ExclusiveStartKey = exclusiveStartKey
+                };
+
+                var response = await dynamoDb.QueryAsync(request, cancellationToken);
+                scanners.AddRange((response.Items ?? []).Select(MapToScannerDto));
+                exclusiveStartKey = response.LastEvaluatedKey;
+            } while (exclusiveStartKey is { Count: > 0 });
+
+            return scanners;
         }
         catch (Exception ex)
         {
@@ -93,7 +105,7 @@ public class ScannerRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb, 
         }
     }
 
-    public async Task<ScannerDto> Update(ScannerDto scanner)
+    public async Task<ScannerDto> Update(ScannerDto scanner, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -103,7 +115,7 @@ public class ScannerRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb, 
                 Item = MapToDynamoDbItem(scanner)
             };
 
-            var response = await dynamoDb.PutItemAsync(request);
+            var response = await dynamoDb.PutItemAsync(request, cancellationToken);
 
             logger.LogInformation("Put scanner with ID {Id}, response status: {StatusCode}", scanner.Id, response.HttpStatusCode);
 
@@ -116,7 +128,7 @@ public class ScannerRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb, 
         }
     }
 
-    public async Task<bool> Delete(string id)
+    public async Task<bool> Delete(string id, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -130,7 +142,7 @@ public class ScannerRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb, 
                 }
             };
 
-            var response = await dynamoDb.DeleteItemAsync(request);
+            var response = await dynamoDb.DeleteItemAsync(request, cancellationToken);
 
             if (response.HttpStatusCode != HttpStatusCode.OK)
             {

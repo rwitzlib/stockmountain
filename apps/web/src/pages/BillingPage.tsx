@@ -75,7 +75,7 @@ function formatCredits(value: number): string {
 
 export function BillingPage() {
   const navigate = useNavigate();
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
 
   const [checkoutItem, setCheckoutItem] = useState<CheckoutItem | null>(null);
   // ?cycle=annual carries the landing page's toggle selection into this page.
@@ -98,9 +98,11 @@ export function BillingPage() {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ['billingSummary'],
+    // Keyed by user (shared with ScannerProGate) so a sign-out/sign-in switch
+    // can never serve another user's cached tier/credits.
+    queryKey: ['billingSummary', user?.id],
     queryFn: billingApi.getSummary,
-    enabled: !!isSignedIn,
+    enabled: !!user?.id,
     refetchInterval: pollingForGrant ? SUCCESS_POLL_MS : false,
   });
 

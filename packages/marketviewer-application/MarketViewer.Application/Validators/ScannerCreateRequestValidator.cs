@@ -1,22 +1,5 @@
-using FluentValidation;
 using MarketViewer.Contracts.Requests.Management.Scanner;
-using MarketViewer.Filters.Registry;
 
 namespace MarketViewer.Application.Validators;
 
-public class ScannerCreateRequestValidator : AbstractValidator<ScannerCreateRequest>
-{
-    public ScannerCreateRequestValidator()
-    {
-        RuleFor(x => x.Name)
-            .NotEmpty()
-            .WithMessage("Scanner name is required.")
-            .MaximumLength(100)
-            .WithMessage("Scanner name must be 100 characters or fewer.");
-
-        RuleFor(x => x.EntrySettings)
-            .NotNull()
-            .WithMessage("Entry settings are required.")
-            .SetValidator(new StrategyEntrySettingsValidator(FilterContext.Scan));
-    }
-}
+public class ScannerCreateRequestValidator : ScannerRequestValidatorBase<ScannerCreateRequest>;

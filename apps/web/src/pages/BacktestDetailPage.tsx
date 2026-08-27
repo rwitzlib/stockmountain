@@ -410,6 +410,18 @@ export function BacktestDetailPage() {
 
     const { name, entrySettings } = mapBacktestToStrategy(data.backtestEntry);
 
+    // Records from the legacy operand-tree era have no expression filters to
+    // carry over — an empty scanner would be a silently broken handoff.
+    if (entrySettings.filters.length === 0) {
+      toast({
+        title: 'Scanner unavailable',
+        description:
+          'This backtest predates expression filters, so its conditions cannot be carried into a scanner.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     navigate('/scanner/new', {
       state: {
         initialData: { name, entrySettings },

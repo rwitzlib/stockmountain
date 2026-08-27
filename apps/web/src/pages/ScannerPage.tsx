@@ -37,7 +37,7 @@ function ScannerCard({ scanner }: { scanner: Scanner }) {
   return (
     <Card
       className="group flex cursor-pointer flex-col gap-3 p-5 transition-colors hover:border-muted-foreground/50"
-      onClick={() => navigate(`/scanner/${scanner.id}`)}
+      onClick={() => scanner.id && navigate(`/scanner/${scanner.id}`)}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -75,10 +75,10 @@ function ScannerCard({ scanner }: { scanner: Scanner }) {
             size="sm"
             className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
             title="Delete"
-            disabled={deleteMutation.isPending}
+            disabled={deleteMutation.isPending || !scanner.id}
             onClick={() => {
-              if (window.confirm(`Delete scanner "${scanner.name}"?`)) {
-                deleteMutation.mutate(scanner.id!);
+              if (scanner.id && window.confirm(`Delete scanner "${scanner.name}"?`)) {
+                deleteMutation.mutate(scanner.id);
               }
             }}
           >
@@ -110,12 +110,13 @@ function ScannerCard({ scanner }: { scanner: Scanner }) {
 
 export function ScannerPage() {
   const navigate = useNavigate();
-  const { isSignedIn } = useUser();
+  const { user } = useUser();
 
+  // Keyed by user so a sign-out/sign-in switch can never serve another user's cache.
   const { data: scanners = [], isLoading } = useQuery({
-    queryKey: ['myScanners'],
+    queryKey: ['myScanners', user?.id],
     queryFn: scannerApi.getMyScanners,
-    enabled: !!isSignedIn,
+    enabled: !!user?.id,
   });
 
   return (

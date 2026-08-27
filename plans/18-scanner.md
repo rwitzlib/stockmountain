@@ -114,7 +114,8 @@ No new table / terraform. Scanners live in the existing `strategy` Dynamo table
   strategy/backtest today — parameterize the context (two validator registrations or a
   context argument) rather than forking the file.
 - New `ScannerCreateRequestValidator` / `ScannerUpdateRequestValidator`: `Name`
-  NotEmpty (trimmed, cap ~100 chars), `EntrySettings` via the entry-settings validator.
+  NotEmpty (whitespace-only rejected) and at most 100 characters; handlers persist the
+  trimmed name. `EntrySettings` via the entry-settings validator.
 
 ### 4. API: `ScannerController` + scan endpoint housekeeping
 
@@ -165,9 +166,10 @@ running it):
   + sticky rail. One `formData` + `update(patch)` state object; save via react-query
   mutation (create vs update by presence of `scannerId`).
 - **Card 01 Entry Filters = `EntrySettingsForm` as-is** (`{ value, onChange }`).
-- **Results card**: runs `scannerApi.runScan(formData.entrySettings.filters)` on
+- **Results card**: runs `scannerApi.runScan(filters, completedBarsOnly)` on
   Run — sortable table (Ticker · Price · Volume · Float), match count + `timeElapsed`,
-  a "showing first 1000" note at the cap, ticker rows linking to the chart page.
+  a "results are capped at 1000" note when the cap is hit (the response carries no
+  truncation flag, so the wording stays correct at exactly 1000 matches).
   Auto-refresh toggle: 30s interval, active only while mounted; pause and surface
   "market closed" when the session is inactive (reuse whatever `MarketStatus` already
   consumes). A `CompletedBarsOnly` toggle (default off) exposed as a small "completed

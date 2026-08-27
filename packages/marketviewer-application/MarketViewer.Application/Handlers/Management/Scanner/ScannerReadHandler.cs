@@ -19,7 +19,7 @@ public class ScannerReadHandler(
     {
         try
         {
-            var scanner = await scannerRepository.Get(id);
+            var scanner = await scannerRepository.Get(id, cancellationToken);
 
             if (scanner == null || scanner.UserId != authContext.UserId)
             {

@@ -18,7 +18,7 @@ public class ScannerDeleteHandler(
     {
         try
         {
-            var scanner = await scannerRepository.Get(id);
+            var scanner = await scannerRepository.Get(id, cancellationToken);
 
             if (scanner == null || scanner.UserId != authContext.UserId)
             {
@@ -29,7 +29,7 @@ public class ScannerDeleteHandler(
                 };
             }
 
-            var result = await scannerRepository.Delete(id);
+            var result = await scannerRepository.Delete(id, cancellationToken);
 
             if (!result)
             {

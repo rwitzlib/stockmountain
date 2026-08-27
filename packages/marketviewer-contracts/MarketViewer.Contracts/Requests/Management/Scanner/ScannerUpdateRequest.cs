@@ -1,14 +1,13 @@
-using MarketViewer.Contracts.Models.Strategy;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 
 namespace MarketViewer.Contracts.Requests.Management.Scanner;
 
 [ExcludeFromCodeCoverage]
-public class ScannerUpdateRequest
+public class ScannerUpdateRequest : ScannerCreateRequest
 {
-    [IgnoreDataMember]
+    // The id comes from the route; JsonIgnore keeps request bodies from setting it
+    // (System.Text.Json does not honor [IgnoreDataMember]).
+    [JsonIgnore]
     public string Id { get; set; }
-    public string Name { get; set; }
-    public StrategyEntrySettings EntrySettings { get; set; }
 }

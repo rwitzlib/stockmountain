@@ -21,7 +21,7 @@ public class ScannerListHandler(
     {
         try
         {
-            var scanners = await scannerRepository.ListByUser(authContext.UserId);
+            var scanners = await scannerRepository.ListByUser(authContext.UserId, cancellationToken);
 
             logger.LogInformation("Retrieved {Count} scanners for user {UserId}", scanners.Count(), authContext.UserId);
 
@@ -36,8 +36,8 @@ public class ScannerListHandler(
             logger.LogError(ex, "Failed to list scanners for user {UserId}", authContext.UserId);
             return new OperationResult<IEnumerable<ScannerResponse>>
             {
-                Status = HttpStatusCode.OK,
-                Data = []
+                Status = HttpStatusCode.InternalServerError,
+                ErrorMessages = ["Failed to list scanners."]
             };
         }
     }

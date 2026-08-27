@@ -36,7 +36,7 @@ public class ScannerUpdateHandler(
                 };
             }
 
-            var existingScanner = await scannerRepository.Get(request.Id);
+            var existingScanner = await scannerRepository.Get(request.Id, cancellationToken);
 
             if (existingScanner == null || existingScanner.UserId != authContext.UserId)
             {
@@ -51,11 +51,11 @@ public class ScannerUpdateHandler(
             {
                 Id = request.Id,
                 UserId = authContext.UserId,
-                Name = request.Name,
+                Name = request.Name.Trim(),
                 EntrySettings = request.EntrySettings
             };
 
-            var scanner = await scannerRepository.Update(updatedScanner);
+            var scanner = await scannerRepository.Update(updatedScanner, cancellationToken);
 
             if (scanner == null)
             {

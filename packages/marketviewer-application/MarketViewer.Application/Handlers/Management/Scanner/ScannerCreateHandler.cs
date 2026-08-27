@@ -42,11 +42,11 @@ public class ScannerCreateHandler(
             {
                 Id = Guid.NewGuid().ToString("N"),
                 UserId = authContext.UserId,
-                Name = request.Name,
+                Name = request.Name.Trim(),
                 EntrySettings = request.EntrySettings
             };
 
-            var scannerDto = await scannerRepository.Create(scanner);
+            var scannerDto = await scannerRepository.Create(scanner, cancellationToken);
 
             if (scannerDto == null)
             {

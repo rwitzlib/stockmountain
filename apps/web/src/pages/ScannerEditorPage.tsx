@@ -66,12 +66,15 @@ export function ScannerEditorPage() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { scannerId } = useParams<{ scannerId: string }>();
-  const { isSignedIn } = useUser();
+  const { user } = useUser();
 
   const isEditMode = !!scannerId;
   const [formData, setFormData] = useState<Scanner>(defaultFormData);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const initializedFromNavState = useRef(false);
+  // Overlapping runs (auto-refresh + manual) resolve out of order — only the
+  // latest request may apply its result.
+  const scanSequence = useRef(0);
 
   const [scanResult, setScanResult] = useState<ScanResponse | null>(null);
   const [lastRunAt, setLastRunAt] = useState<Date | null>(null);
@@ -80,10 +83,11 @@ export function ScannerEditorPage() {
   const [completedBarsOnly, setCompletedBarsOnly] = useState(false);
   const [sort, setSort] = useState<SortState>({ key: 'volume', dir: 'desc' });
 
+  // Keyed by user so a sign-out/sign-in switch can never serve another user's cache.
   const { data: existingScanner, isLoading: isLoadingScanner } = useQuery({
-    queryKey: ['scanner', scannerId],
+    queryKey: ['scanner', user?.id, scannerId],
     queryFn: () => scannerApi.getScanner(scannerId!),
-    enabled: isEditMode && !!isSignedIn,
+    enabled: isEditMode && !!user?.id,
   });
 
   // Initialize from the fetched scanner, or from navigation state (strategy/backtest handoff)
@@ -130,7 +134,7 @@ export function ScannerEditorPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Scanner }) => scannerApi.updateScanner(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['scanner', scannerId] });
+      queryClient.invalidateQueries({ queryKey: ['scanner'] });
       queryClient.invalidateQueries({ queryKey: ['myScanners'] });
       setHasUnsavedChanges(false);
       toast({ title: 'Scanner updated', description: `"${formData.name}" has been saved.` });
@@ -182,12 +186,15 @@ export function ScannerEditorPage() {
         return;
       }
 
+      const sequence = ++scanSequence.current;
       setIsScanning(true);
       try {
         const result = await scannerApi.runScan(filters, completedBarsOnly);
+        if (sequence !== scanSequence.current) return;
         setScanResult(result);
         setLastRunAt(new Date());
       } catch (e) {
+        if (sequence !== scanSequence.current) return;
         if (!options?.silent) {
           toast({
             title: 'Scan failed',
@@ -196,7 +203,9 @@ export function ScannerEditorPage() {
           });
         }
       } finally {
-        setIsScanning(false);
+        if (sequence === scanSequence.current) {
+          setIsScanning(false);
+        }
       }
     },
     [filters, completedBarsOnly],
@@ -376,7 +385,8 @@ export function ScannerEditorPage() {
                   <>
                     {scanResult.items.length >= RESULT_CAP && (
                       <p className="mb-2 text-xs text-muted-foreground">
-                        Showing the first {RESULT_CAP} matches — tighten the filters to narrow it down.
+                        Results are capped at {RESULT_CAP} matches — tighten the filters to narrow
+                        it down.
                       </p>
                     )}
                     <div className="overflow-x-auto">

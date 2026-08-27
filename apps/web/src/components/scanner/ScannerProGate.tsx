@@ -13,12 +13,14 @@ import { Button } from '../ui/button';
  */
 export function ScannerProGate({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const { isSignedIn } = useUser();
+  const { user } = useUser();
 
+  // Keyed by user (shared with BillingPage) so a sign-out/sign-in switch can
+  // never gate on another user's cached tier.
   const { data: summary } = useQuery({
-    queryKey: ['billingSummary'],
+    queryKey: ['billingSummary', user?.id],
     queryFn: billingApi.getSummary,
-    enabled: !!isSignedIn,
+    enabled: !!user?.id,
   });
 
   if (summary?.tier === 'Free') {
