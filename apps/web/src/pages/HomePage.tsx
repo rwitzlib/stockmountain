@@ -136,6 +136,10 @@ function EmptyState({ message, cta, to }: { message: string; cta: string; to: st
   );
 }
 
+function ErrorNotice({ message }: { message: string }) {
+  return <div className="px-4 py-10 text-center text-sm text-destructive">{message}</div>;
+}
+
 function backtestStatusLabel(status: string): ReactNode {
   if (status === 'InProgress') {
     return <span className="animate-pulse text-muted-foreground">Running…</span>;
@@ -147,7 +151,11 @@ function backtestStatusLabel(status: string): ReactNode {
 }
 
 export function HomePage() {
-  const { data: strategies, isLoading: strategiesLoading } = useQuery({
+  const {
+    data: strategies,
+    isLoading: strategiesLoading,
+    isError: strategiesError,
+  } = useQuery({
     queryKey: ['myStrategies'],
     queryFn: strategyApi.getMyStrategies,
   });
@@ -180,6 +188,11 @@ export function HomePage() {
 
   const statesLoading = strategiesLoading || stateQueries.some((q) => q.isLoading);
   const dailyLoading = statesLoading || historyQueries.some((q) => q.isLoading);
+  // Per-strategy fetch failures leave that strategy out of the totals, so the
+  // aggregates are only trustworthy when every state/history query succeeded.
+  const stateErrorCount = stateQueries.filter((q) => q.isError).length;
+  const historyErrorCount = historyQueries.filter((q) => q.isError).length;
+  const partialData = stateErrorCount > 0 || historyErrorCount > 0;
 
   const states = stateQueries.map((q) => q.data);
   const histories = historyQueries.map((q) => q.data);
@@ -211,7 +224,11 @@ export function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStrategies, ...states, ...histories]);
 
-  const { data: backtests, isLoading: backtestsLoading } = useQuery({
+  const {
+    data: backtests,
+    isLoading: backtestsLoading,
+    isError: backtestsError,
+  } = useQuery({
     queryKey: ['backtests'],
     queryFn: backtestApi.getBacktests,
   });
@@ -268,13 +285,26 @@ export function HomePage() {
           </div>
         </div>
 
+        {/* Partial-failure warning — totals below exclude strategies whose data failed */}
+        {partialData && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            Some strategy data failed to load — the totals below may be incomplete.
+          </div>
+        )}
+
         {/* KPI row — totals across active strategies */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatTile
             label="Total balance"
             loading={statesLoading}
-            value={hasActive ? formatCurrency(overview.totalBalance) : '—'}
-            hint={`${activeStrategies.length} active ${activeStrategies.length === 1 ? 'strategy' : 'strategies'}`}
+            value={hasActive && !strategiesError ? formatCurrency(overview.totalBalance) : '—'}
+            hint={
+              strategiesError
+                ? 'failed to load'
+                : `${activeStrategies.length} active ${activeStrategies.length === 1 ? 'strategy' : 'strategies'}${
+                    stateErrorCount > 0 ? ` · ${stateErrorCount} unavailable` : ''
+                  }`
+            }
           />
           <StatTile
             label="Today's P&L"
@@ -288,13 +318,13 @@ export function HomePage() {
                 '—'
               )
             }
-            hint="vs previous close"
+            hint={strategiesError ? 'failed to load' : 'vs previous close'}
           />
           <StatTile
             label="Unrealized P&L"
             loading={statesLoading}
             value={
-              hasActive ? (
+              hasActive && !strategiesError ? (
                 <span className={pnlColor(overview.unrealizedPnl)}>
                   {formatSignedCurrency(overview.unrealizedPnl)}
                 </span>
@@ -302,12 +332,13 @@ export function HomePage() {
                 '—'
               )
             }
-            hint="open positions"
+            hint={strategiesError ? 'failed to load' : 'open positions'}
           />
           <StatTile
             label="Open positions"
             loading={statesLoading}
-            value={hasActive ? overview.openPositions : '—'}
+            value={hasActive && !strategiesError ? overview.openPositions : '—'}
+            hint={strategiesError ? 'failed to load' : undefined}
           />
         </div>
 
@@ -320,6 +351,8 @@ export function HomePage() {
             <div className="px-4 py-10 text-center text-sm text-muted-foreground animate-pulse">
               Loading strategies…
             </div>
+          ) : strategiesError ? (
+            <ErrorNotice message="Couldn't load your strategies. Refresh the page to try again." />
           ) : !hasActive ? (
             <EmptyState
               message="No active strategies yet."
@@ -402,6 +435,8 @@ export function HomePage() {
               <div className="px-4 py-10 text-center text-sm text-muted-foreground animate-pulse">
                 Loading backtests…
               </div>
+            ) : backtestsError ? (
+              <ErrorNotice message="Couldn't load backtests. Refresh the page to try again." />
             ) : recentBacktests.length === 0 ? (
               <EmptyState
                 message="No backtests yet."
@@ -452,6 +487,8 @@ export function HomePage() {
               <div className="px-4 py-10 text-center text-sm text-muted-foreground animate-pulse">
                 Loading backtests…
               </div>
+            ) : backtestsError ? (
+              <ErrorNotice message="Couldn't load backtests. Refresh the page to try again." />
             ) : topBacktests.length === 0 ? (
               <div className="px-4 py-10 text-center text-sm text-muted-foreground">
                 Completed backtests will be ranked here by return.
