@@ -12,8 +12,12 @@ RUN npm ci
 # Adding a new VITE_* variable means adding it in all three places below.
 ARG VITE_CLERK_PUBLISHABLE_KEY
 ARG VITE_API_URL
+ARG VITE_STRIPE_PUBLISHABLE_KEY
 ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
 ENV VITE_API_URL=$VITE_API_URL
+# Unset is tolerated (unlike Clerk's key): the billing page disables purchases
+# instead of breaking the whole app, so no build-time check here.
+ENV VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY
 
 # Fail the build rather than shipping a bundle that white-screens on load with
 # "Missing VITE_CLERK_PUBLISHABLE_KEY" — an unset var inlines as `undefined`.

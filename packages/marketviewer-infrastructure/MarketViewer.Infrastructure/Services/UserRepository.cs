@@ -41,6 +41,11 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             item.Add("SubscriptionStatus", new AttributeValue { S = record.SubscriptionStatus });
         }
 
+        if (!string.IsNullOrEmpty(record.BillingInterval))
+        {
+            item.Add("BillingInterval", new AttributeValue { S = record.BillingInterval });
+        }
+
         logger.LogDebug("DynamoDB item details: {@ItemDetails}", new
         {
             TableName = config.TableName,
@@ -124,6 +129,7 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
             PurchasedCredits = response.Item.TryGetValue("PurchasedCredits", out var purchasedCredits) ? float.Parse(purchasedCredits.N, CultureInfo.InvariantCulture) : 0,
             StripeCustomerId = response.Item.TryGetValue("StripeCustomerId", out var stripeCustomerId) ? stripeCustomerId.S : null,
             SubscriptionStatus = response.Item.TryGetValue("SubscriptionStatus", out var subscriptionStatus) ? subscriptionStatus.S : null,
+            BillingInterval = response.Item.TryGetValue("BillingInterval", out var billingInterval) ? billingInterval.S : null,
             Tokens = response.Item.ContainsKey("Tokens")
                 ? response.Item["Tokens"].M.ToDictionary(
                     kvp => Enum.Parse<IntegrationType>(kvp.Key),
@@ -266,33 +272,13 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
         }
     }
 
-    public async Task<bool> ApplySubscriptionGrant(string id, UserRole role, float monthlyGrant)
+    public async Task<bool> ApplySubscriptionGrant(string id, UserRole role, float monthlyGrant, string billingInterval)
     {
-        logger.LogInformation("Applying {Role} subscription grant of {Grant} credits to user {UserId}", role, monthlyGrant, id);
+        logger.LogInformation("Applying {Role} subscription grant of {Grant} credits to user {UserId} ({Interval})", role, monthlyGrant, id, billingInterval);
 
         return await UpdateExisting(id, new UpdateItemRequest
         {
-            UpdateExpression = "SET #role = :role, Credits = :grant, MaxCredits = :grant, SubscriptionStatus = :status",
-            ExpressionAttributeNames = new Dictionary<string, string>
-            {
-                { "#role", "Role" }
-            },
-            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-            {
-                { ":role", new AttributeValue { S = role.ToString() } },
-                { ":grant", new AttributeValue { N = monthlyGrant.ToString(CultureInfo.InvariantCulture) } },
-                { ":status", new AttributeValue { S = "active" } }
-            }
-        });
-    }
-
-    public async Task<bool> ApplyUpgradeGrant(string id, UserRole role, float monthlyGrant, float creditsDelta)
-    {
-        logger.LogInformation("Applying upgrade to {Role} for user {UserId} (+{Delta} credits)", role, id, creditsDelta);
-
-        return await UpdateExisting(id, new UpdateItemRequest
-        {
-            UpdateExpression = "SET #role = :role, MaxCredits = :grant, SubscriptionStatus = :status ADD Credits :delta",
+            UpdateExpression = "SET #role = :role, Credits = :grant, MaxCredits = :grant, SubscriptionStatus = :status, BillingInterval = :interval",
             ExpressionAttributeNames = new Dictionary<string, string>
             {
                 { "#role", "Role" }
@@ -302,7 +288,41 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
                 { ":role", new AttributeValue { S = role.ToString() } },
                 { ":grant", new AttributeValue { N = monthlyGrant.ToString(CultureInfo.InvariantCulture) } },
                 { ":status", new AttributeValue { S = "active" } },
+                { ":interval", new AttributeValue { S = billingInterval } }
+            }
+        });
+    }
+
+    public async Task<bool> ApplyUpgradeGrant(string id, UserRole role, float monthlyGrant, float creditsDelta, string billingInterval)
+    {
+        logger.LogInformation("Applying upgrade to {Role} for user {UserId} (+{Delta} credits, {Interval})", role, id, creditsDelta, billingInterval);
+
+        return await UpdateExisting(id, new UpdateItemRequest
+        {
+            UpdateExpression = "SET #role = :role, MaxCredits = :grant, SubscriptionStatus = :status, BillingInterval = :interval ADD Credits :delta",
+            ExpressionAttributeNames = new Dictionary<string, string>
+            {
+                { "#role", "Role" }
+            },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                { ":role", new AttributeValue { S = role.ToString() } },
+                { ":grant", new AttributeValue { N = monthlyGrant.ToString(CultureInfo.InvariantCulture) } },
+                { ":status", new AttributeValue { S = "active" } },
+                { ":interval", new AttributeValue { S = billingInterval } },
                 { ":delta", new AttributeValue { N = creditsDelta.ToString(CultureInfo.InvariantCulture) } }
+            }
+        });
+    }
+
+    public async Task<bool> SetBillingInterval(string id, string billingInterval)
+    {
+        return await UpdateExisting(id, new UpdateItemRequest
+        {
+            UpdateExpression = "SET BillingInterval = :interval",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                { ":interval", new AttributeValue { S = billingInterval } }
             }
         });
     }
@@ -356,7 +376,7 @@ public class UserRepository(UserConfig config, IAmazonDynamoDB dynamodb, ILogger
                     {
                         { "Id", new AttributeValue { S = id } }
                     },
-                    UpdateExpression = "SET #role = :role, Credits = :credits, MaxCredits = :maxCredits, SubscriptionStatus = :status",
+                    UpdateExpression = "SET #role = :role, Credits = :credits, MaxCredits = :maxCredits, SubscriptionStatus = :status REMOVE BillingInterval",
                     ConditionExpression = "attribute_exists(Id) AND Credits = :expectedCredits",
                     ExpressionAttributeNames = new Dictionary<string, string>
                     {

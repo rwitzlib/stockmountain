@@ -218,6 +218,18 @@ variable "stripe_price_id_premium" {
   description = "Stripe Price id for the Premium subscription."
 }
 
+variable "stripe_price_id_pro_annual" {
+  type        = string
+  default     = ""
+  description = "Stripe Price id for the yearly Pro subscription."
+}
+
+variable "stripe_price_id_premium_annual" {
+  type        = string
+  default     = ""
+  description = "Stripe Price id for the yearly Premium subscription."
+}
+
 variable "stripe_price_id_pack_small" {
   type        = string
   default     = ""

@@ -15,7 +15,13 @@ export interface BillingSummary {
 }
 
 export type CheckoutKind = 'subscription' | 'pack';
-export type CheckoutItemId = 'Pro' | 'Premium' | 'PackSmall' | 'PackLarge';
+export type CheckoutItemId =
+	| 'Pro'
+	| 'Premium'
+	| 'ProAnnual'
+	| 'PremiumAnnual'
+	| 'PackSmall'
+	| 'PackLarge';
 
 async function throwWithApiErrors(response: Response, fallback: string): Promise<never> {
 	// Error bodies are plain string arrays, e.g. ["Unknown credit pack 'X'"]
@@ -44,7 +50,7 @@ export const billingApi = {
 		return await response.json();
 	},
 
-	/** Returns the Stripe Checkout URL to redirect to. */
+	/** Returns the client secret for mounting the embedded Checkout session. */
 	createCheckoutSession: async (kind: CheckoutKind, id: CheckoutItemId): Promise<string> => {
 		const response = await authFetch(`${BASE_URL}/billing/checkout-session`, {
 			method: 'POST',
@@ -55,8 +61,8 @@ export const billingApi = {
 			await throwWithApiErrors(response, 'Failed to start checkout');
 		}
 
-		const data: { url: string } = await response.json();
-		return data.url;
+		const data: { clientSecret: string } = await response.json();
+		return data.clientSecret;
 	},
 
 	/** Returns the Stripe Customer Portal URL to redirect to. */

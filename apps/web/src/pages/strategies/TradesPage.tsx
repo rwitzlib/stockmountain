@@ -1,14 +1,11 @@
 import { authFetch } from '../../api/authToken';
 import { API_BASE_URL } from '../../api/apiConfig';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Trade } from '../../types/trade';
 import { useQuery } from '@tanstack/react-query';
 import { TradeStatistics } from '../../components/trades/TradeStatistics';
 import { TradesTable } from '../../components/trades/TradesTable';
 import { ToggleGroup, ToggleGroupItem } from '../../components/ui/toggle-group';
-import { Button } from '../../components/ui/button';
-import { ArrowLeft } from 'lucide-react';
 
 const TradesPage = () => {
   const [sortConfig, setSortConfig] = useState<{
@@ -78,16 +75,6 @@ const TradesPage = () => {
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/optimus">
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back
-              </Button>
-            </Link>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">All Trades</h1>
           </div>
           <ToggleGroup 

@@ -3,23 +3,26 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUser } from '@clerk/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Check, CreditCard, ExternalLink, Loader2, X } from 'lucide-react';
+import { billingApi, BillingSummary, BillingTier, CheckoutItemId } from '../api/billingApi';
 import {
-  billingApi,
-  BillingSummary,
-  BillingTier,
-  CheckoutItemId,
-  CheckoutKind,
-} from '../api/billingApi';
+  CheckoutItem,
+  CheckoutModal,
+  isCheckoutConfigured,
+} from '../components/modals/CheckoutModal';
 import { Button } from '../components/ui/button';
 import { toast } from '../hooks/use-toast';
 import { cn } from '../utils/utils';
 
+export type BillingCycle = 'monthly' | 'annual';
+
 // Display copy for the tier/pack cards. Prices and grants mirror the Stripe
-// products and the Tiers/Packs config in the API (appsettings.json).
+// products and the Tiers/Packs config in the API (appsettings.json). Annual
+// per-month figures are the yearly price ÷ 12 (~20% off the monthly price).
 const TIER_PLANS: {
   id: BillingTier;
   price: string;
   period?: string;
+  annual?: { id: CheckoutItemId; perMonth: string; perYear: string; bonusCredits: string };
   credits: number;
   tagline: string;
   features: string[];
@@ -36,6 +39,7 @@ const TIER_PLANS: {
     id: 'Pro',
     price: '$29',
     period: '/mo',
+    annual: { id: 'ProAnnual', perMonth: '$23.25', perYear: '$279', bonusCredits: '1,000' },
     credits: 1000,
     tagline: 'For traders building a real playbook.',
     highlighted: true,
@@ -45,6 +49,7 @@ const TIER_PLANS: {
     id: 'Premium',
     price: '$99',
     period: '/mo',
+    annual: { id: 'PremiumAnnual', perMonth: '$79.08', perYear: '$949', bonusCredits: '5,000' },
     credits: 5000,
     tagline: 'For traders ready to go live.',
     features: ['5,000 credits / month', 'Unlimited paper trading bots', 'Live trading — early access', 'Priority queue'],
@@ -58,8 +63,8 @@ const PACKS: { id: CheckoutItemId; name: string; credits: number; price: string;
 
 const TIER_ORDER: Record<BillingTier, number> = { Free: 1, Pro: 2, Premium: 3 };
 
-// Webhook lag: after Checkout returns we poll the summary until the credit
-// grant lands (or give up quietly after a minute).
+// Webhook lag: after the embedded checkout completes we poll the summary until
+// the credit grant lands (or give up quietly after a minute).
 const SUCCESS_POLL_MS = 3000;
 const SUCCESS_POLL_TIMEOUT_MS = 60000;
 
@@ -71,10 +76,15 @@ function formatCredits(value: number): string {
 export function BillingPage() {
   const navigate = useNavigate();
   const { isLoaded, isSignedIn } = useUser();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const returnStatus = searchParams.get('status'); // 'success' | 'cancelled' | null
 
-  const [pollingForGrant, setPollingForGrant] = useState(returnStatus === 'success');
+  const [checkoutItem, setCheckoutItem] = useState<CheckoutItem | null>(null);
+  // ?cycle=annual carries the landing page's toggle selection into this page.
+  const [searchParams] = useSearchParams();
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>(() =>
+    searchParams.get('cycle') === 'annual' ? 'annual' : 'monthly',
+  );
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [pollingForGrant, setPollingForGrant] = useState(false);
   const baselineRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -116,14 +126,6 @@ export function BillingPage() {
     return () => clearTimeout(timeout);
   }, [pollingForGrant]);
 
-  const checkoutMutation = useMutation({
-    mutationFn: ({ kind, id }: { kind: CheckoutKind; id: CheckoutItemId }) =>
-      billingApi.createCheckoutSession(kind, id),
-    onSuccess: url => window.location.assign(url),
-    onError: (e: Error) =>
-      toast({ title: 'Checkout failed', description: e.message, variant: 'destructive' }),
-  });
-
   const portalMutation = useMutation({
     mutationFn: billingApi.createPortalSession,
     onSuccess: url => window.location.assign(url),
@@ -131,13 +133,23 @@ export function BillingPage() {
       toast({ title: 'Billing portal unavailable', description: e.message, variant: 'destructive' }),
   });
 
-  const busy = checkoutMutation.isPending || portalMutation.isPending;
+  // Polling means a payment is being applied — hold new purchases until it lands
+  // (UI protection only; the API independently rejects duplicate subscriptions).
+  const busy = portalMutation.isPending || pollingForGrant;
   const hasSubscription =
     summary?.subscriptionStatus === 'active' || summary?.subscriptionStatus === 'past_due';
 
-  const dismissReturnBanner = () => {
-    searchParams.delete('status');
-    setSearchParams(searchParams, { replace: true });
+  // Payment finished inside the modal — close it and poll until the webhook
+  // applies the purchase to the account.
+  const handleCheckoutComplete = () => {
+    setCheckoutItem(null);
+    setShowSuccessBanner(true);
+    baselineRef.current = null;
+    setPollingForGrant(true);
+  };
+
+  const dismissSuccessBanner = () => {
+    setShowSuccessBanner(false);
     setPollingForGrant(false);
   };
 
@@ -151,8 +163,8 @@ export function BillingPage() {
           </p>
         </div>
 
-        {returnStatus === 'success' && (
-          <ReturnBanner tone="success" onDismiss={dismissReturnBanner}>
+        {showSuccessBanner && (
+          <ReturnBanner tone="success" onDismiss={dismissSuccessBanner}>
             {pollingForGrant ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -161,11 +173,6 @@ export function BillingPage() {
             ) : (
               'Payment received. Your account is up to date.'
             )}
-          </ReturnBanner>
-        )}
-        {returnStatus === 'cancelled' && (
-          <ReturnBanner tone="neutral" onDismiss={dismissReturnBanner}>
-            Checkout was cancelled — you haven't been charged.
           </ReturnBanner>
         )}
         {summary?.subscriptionStatus === 'past_due' && (
@@ -181,6 +188,12 @@ export function BillingPage() {
             refreshing the page.
           </div>
         )}
+        {!isCheckoutConfigured && (
+          <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            Purchases are temporarily unavailable — checkout isn't configured in this
+            environment.
+          </div>
+        )}
 
         <SummaryCard
           summary={summary}
@@ -191,10 +204,14 @@ export function BillingPage() {
         />
 
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold tracking-tight text-foreground">Plans</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">Plans</h2>
+            <CycleToggle cycle={billingCycle} onChange={setBillingCycle} />
+          </div>
           <div className="grid gap-4 lg:grid-cols-3">
             {TIER_PLANS.map(plan => {
               const isCurrent = summary?.tier === plan.id;
+              const annual = billingCycle === 'annual' ? plan.annual : undefined;
               return (
                 <div
                   key={plan.id}
@@ -216,12 +233,22 @@ export function BillingPage() {
                   </div>
                   <div className="mt-2 flex items-baseline gap-1">
                     <span className="font-mono text-3xl font-semibold tabular-nums text-foreground">
-                      {plan.price}
+                      {annual ? annual.perMonth : plan.price}
                     </span>
-                    {plan.period && (
-                      <span className="text-sm text-muted-foreground">{plan.period}</span>
+                    {(annual || plan.period) && (
+                      <span className="text-sm text-muted-foreground">/mo</span>
                     )}
                   </div>
+                  {annual && (
+                    <>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        billed annually ({annual.perYear}/yr)
+                      </p>
+                      <span className="mt-1.5 inline-flex w-fit rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        20% off + {annual.bonusCredits} bonus credits
+                      </span>
+                    </>
+                  )}
                   <p className="mt-1 text-xs text-muted-foreground">{plan.tagline}</p>
                   <ul className="mt-4 flex-1 space-y-2">
                     {plan.features.map(f => (
@@ -239,12 +266,12 @@ export function BillingPage() {
                     summary={summary}
                     hasSubscription={hasSubscription}
                     busy={busy}
-                    checkoutPending={
-                      checkoutMutation.isPending &&
-                      checkoutMutation.variables?.id === plan.id
-                    }
                     onSubscribe={() =>
-                      checkoutMutation.mutate({ kind: 'subscription', id: plan.id as CheckoutItemId })
+                      setCheckoutItem({
+                        kind: 'subscription',
+                        id: annual ? annual.id : (plan.id as CheckoutItemId),
+                        label: annual ? `${plan.id} plan (annual)` : `${plan.id} plan`,
+                      })
                     }
                     onOpenPortal={() => portalMutation.mutate()}
                   />
@@ -277,14 +304,16 @@ export function BillingPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={busy || isLoading}
-                  onClick={() => checkoutMutation.mutate({ kind: 'pack', id: pack.id })}
+                  disabled={busy || isLoading || !isCheckoutConfigured}
+                  onClick={() =>
+                    setCheckoutItem({
+                      kind: 'pack',
+                      id: pack.id,
+                      label: `${pack.credits.toLocaleString()} credits`,
+                    })
+                  }
                 >
-                  {checkoutMutation.isPending && checkoutMutation.variables?.id === pack.id ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    pack.price
-                  )}
+                  {pack.price}
                 </Button>
               </div>
             ))}
@@ -292,11 +321,47 @@ export function BillingPage() {
         </section>
 
         <p className="text-xs text-muted-foreground">
-          Monthly credits reset with each billing cycle and don't roll over; purchased credits
-          never expire. Invoices, receipts, card changes, and cancellation are handled in the
-          billing portal.
+          Monthly credits reset every month on annual plans too, and don't roll over; purchased
+          credits (including annual bonus credits) never expire. Cancelling keeps your access
+          until the end of the period you've paid for — no automatic refunds. Invoices,
+          receipts, card changes, plan switches, and cancellation are handled in the billing
+          portal.
         </p>
       </div>
+
+      <CheckoutModal
+        item={checkoutItem}
+        onClose={() => setCheckoutItem(null)}
+        onComplete={handleCheckoutComplete}
+      />
+    </div>
+  );
+}
+
+function CycleToggle({
+  cycle,
+  onChange,
+}: {
+  cycle: BillingCycle;
+  onChange: (cycle: BillingCycle) => void;
+}) {
+  return (
+    <div className="inline-flex items-center rounded-lg border border-border bg-card p-0.5 text-xs">
+      {(['monthly', 'annual'] as const).map(option => (
+        <button
+          key={option}
+          onClick={() => onChange(option)}
+          aria-pressed={cycle === option}
+          className={cn(
+            'rounded-md px-3 py-1 font-medium transition-colors',
+            cycle === option
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {option === 'monthly' ? 'Monthly' : 'Annual · 20% off'}
+        </button>
+      ))}
     </div>
   );
 }
@@ -379,7 +444,9 @@ function SummaryCard({
           <p className="mt-0.5 text-xs text-muted-foreground">
             {summary.tier === 'Free'
               ? 'Free plan — monthly credits refill automatically.'
-              : 'Credits refill when your monthly payment goes through.'}
+              : // Interval-neutral: monthly plans refill on each paid invoice, annual
+                // plans via the monthly refill job — either way, monthly cadence.
+                'Credits refill every month while your subscription is active.'}
           </p>
         </div>
         {summary.hasBillingAccount ? (
@@ -475,7 +542,6 @@ function PlanAction({
   summary,
   hasSubscription,
   busy,
-  checkoutPending,
   onSubscribe,
   onOpenPortal,
 }: {
@@ -483,7 +549,6 @@ function PlanAction({
   summary: BillingSummary | undefined;
   hasSubscription: boolean;
   busy: boolean;
-  checkoutPending: boolean;
   onSubscribe: () => void;
   onOpenPortal: () => void;
 }) {
@@ -529,8 +594,8 @@ function PlanAction({
   }
 
   return (
-    <Button className="mt-5" disabled={busy} onClick={onSubscribe}>
-      {checkoutPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Subscribe to ${plan}`}
+    <Button className="mt-5" disabled={busy || !isCheckoutConfigured} onClick={onSubscribe}>
+      Subscribe to {plan}
     </Button>
   );
 }

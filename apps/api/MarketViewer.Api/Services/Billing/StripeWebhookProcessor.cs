@@ -1,6 +1,7 @@
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Records;
 using MarketViewer.Core.Services;
+using Newtonsoft.Json.Linq;
 using Stripe;
 using Stripe.Checkout;
 
@@ -110,7 +111,7 @@ public class StripeWebhookProcessor(
             return true;
         }
 
-        if (!TryResolveTierFromInvoice(invoice, out var tier))
+        if (!TryResolveTierFromInvoice(invoice, out var tier, out var interval))
         {
             logger.LogError("Stripe event {EventId}: invoice {InvoiceId} has no line matching a configured tier price",
                 stripeEvent.Id, invoice.Id);
@@ -118,11 +119,13 @@ public class StripeWebhookProcessor(
         }
 
         // An upgrade's prorated invoice (billing_reason subscription_update) is money only —
-        // the credit delta was already granted by customer.subscription.updated.
+        // the credit delta was already granted by customer.subscription.updated. The grant
+        // path also SETs BillingInterval from the paying price: that's what flips a
+        // period-end annual→monthly downgrade back to "month" at renewal.
         var isUpgradeProration = invoice.BillingReason == "subscription_update";
         var grant = catalog.GetMonthlyGrant(tier);
 
-        return await ApplyLedgeredMutation(
+        var paymentApplied = await ApplyLedgeredMutation(
             new BillingLedgerRecord
             {
                 UserId = userId,
@@ -137,7 +140,24 @@ public class StripeWebhookProcessor(
             },
             () => isUpgradeProration
                 ? Task.FromResult(true)
-                : userRepository.ApplySubscriptionGrant(userId, tier, grant));
+                : userRepository.ApplySubscriptionGrant(userId, tier, grant, interval));
+
+        if (!paymentApplied)
+        {
+            return false;
+        }
+
+        // Annual commitment bonus (plan 17 decision 4): one month's grant into the
+        // never-expiring purchased balance on annual signup and every annual renewal.
+        // The proration invoice after a monthly→annual switch grants nothing here —
+        // that switch's bonus rides customer.subscription.updated instead.
+        if (interval != BillingInterval.Year
+            || invoice.BillingReason is not ("subscription_create" or "subscription_cycle"))
+        {
+            return true;
+        }
+
+        return await GrantAnnualBonus(stripeEvent, userId, tier, invoice.Id, $"Annual bonus ({invoice.BillingReason})");
     }
 
     private async Task<bool> HandleSubscriptionUpdated(Event stripeEvent)
@@ -149,7 +169,7 @@ public class StripeWebhookProcessor(
             return true;
         }
 
-        if (!TryResolveTierFromSubscription(subscription, out var newTier))
+        if (!TryResolveTierFromSubscription(subscription, out var newTier, out var newInterval))
         {
             logger.LogError("Stripe event {EventId}: subscription {SubscriptionId} has no item matching a configured tier price",
                 stripeEvent.Id, subscription.Id);
@@ -163,31 +183,113 @@ public class StripeWebhookProcessor(
             return true;
         }
 
-        if (newTier <= user.Role)
+        // A monthly→annual switch is detected from previous_attributes (Stripe's
+        // authoritative "what changed" record), not from our stored BillingInterval —
+        // this event can race the signup invoice, and a stored-state comparison would
+        // read a fresh annual signup as a switch and double-grant the bonus.
+        var switchedToAnnual = newInterval == BillingInterval.Year && WasOnMonthlyPrice(stripeEvent);
+
+        if (newTier > user.Role)
         {
-            // Downgrades are scheduled Stripe-side and take effect when the period-end
-            // renewal invoice lands; nothing to do now.
-            logger.LogDebug("Subscription update for user {UserId} is not an upgrade ({Current} -> {New}); ignoring",
-                userId, user.Role, newTier);
-            return true;
+            var newGrant = catalog.GetMonthlyGrant(newTier);
+            var creditsDelta = Math.Max(newGrant - catalog.GetMonthlyGrant(user.Role), 0);
+
+            var upgraded = await ApplyLedgeredMutation(
+                new BillingLedgerRecord
+                {
+                    UserId = userId,
+                    EventKey = EventKey(stripeEvent),
+                    Type = BillingLedgerEntryType.UpgradeGrant,
+                    AmountCents = 0,
+                    Credits = creditsDelta,
+                    StripeEventId = stripeEvent.Id,
+                    Tier = newTier.ToString(),
+                    Description = $"Immediate upgrade {user.Role} -> {newTier}"
+                },
+                () => userRepository.ApplyUpgradeGrant(userId, newTier, newGrant, creditsDelta, newInterval));
+
+            if (!upgraded)
+            {
+                return false;
+            }
+
+            // Upgrades within annual get no bonus (the year commitment was already
+            // rewarded); an upgrade that simultaneously switched monthly→annual does.
+            return !switchedToAnnual
+                || await GrantAnnualBonus(stripeEvent, userId, newTier, invoiceId: null, "Annual bonus (monthly -> annual switch with upgrade)");
         }
 
-        var newGrant = catalog.GetMonthlyGrant(newTier);
-        var creditsDelta = Math.Max(newGrant - catalog.GetMonthlyGrant(user.Role), 0);
+        if (switchedToAnnual)
+        {
+            // Same-tier (or scheduled-downgrade) interval switch: role and monthly credits
+            // are untouched; record the interval and grant the commitment bonus. The SET is
+            // idempotent, so it runs outside the ledger guard.
+            if (!await userRepository.SetBillingInterval(userId, BillingInterval.Year))
+            {
+                return false;
+            }
+
+            return await GrantAnnualBonus(stripeEvent, userId, newTier, invoiceId: null, "Annual bonus (monthly -> annual switch)");
+        }
+
+        // Downgrades are scheduled Stripe-side and take effect when the period-end
+        // renewal invoice lands; nothing to do now.
+        logger.LogDebug("Subscription update for user {UserId} is not an upgrade or annual switch ({Current} -> {New}); ignoring",
+            userId, user.Role, newTier);
+        return true;
+    }
+
+    /// <summary>
+    /// Grants the annual-commitment bonus: one month's grant ADDed to PurchasedCredits,
+    /// guarded by an "annual_bonus" ledger row. The "#bonus" EventKey suffix keeps the row
+    /// idempotent independently of any other row the same Stripe event wrote.
+    /// </summary>
+    private async Task<bool> GrantAnnualBonus(Event stripeEvent, string userId, UserRole tier, string invoiceId, string description)
+    {
+        var bonus = catalog.GetMonthlyGrant(tier);
 
         return await ApplyLedgeredMutation(
             new BillingLedgerRecord
             {
                 UserId = userId,
-                EventKey = EventKey(stripeEvent),
-                Type = BillingLedgerEntryType.UpgradeGrant,
+                EventKey = $"{EventKey(stripeEvent)}#bonus",
+                Type = BillingLedgerEntryType.AnnualBonus,
                 AmountCents = 0,
-                Credits = creditsDelta,
+                Credits = bonus,
                 StripeEventId = stripeEvent.Id,
-                Tier = newTier.ToString(),
-                Description = $"Immediate upgrade {user.Role} -> {newTier}"
+                StripeInvoiceId = invoiceId,
+                Tier = tier.ToString(),
+                Description = description
             },
-            () => userRepository.ApplyUpgradeGrant(userId, newTier, newGrant, creditsDelta));
+            () => userRepository.AddPurchasedCredits(userId, bonus));
+    }
+
+    /// <summary>
+    /// True when the subscription.updated event's previous_attributes show the subscription
+    /// was on a configured monthly tier price before this update. Shape verified against a
+    /// real test-mode capture (API 2025-06-30.basil): the pre-switch price sits at
+    /// items.data[*].price.id (and legacy plan mirrors at items.data[*].plan.id and a
+    /// top-level "plan" for single-item subscriptions).
+    /// </summary>
+    private bool WasOnMonthlyPrice(Event stripeEvent)
+    {
+        if (stripeEvent.Data?.PreviousAttributes is not JObject previous)
+        {
+            return false;
+        }
+
+        var candidates = new List<string> { previous["plan"]?["id"]?.Value<string>() };
+        if (previous["items"]?["data"] is JArray items)
+        {
+            foreach (var item in items)
+            {
+                candidates.Add(item?["price"]?["id"]?.Value<string>());
+                candidates.Add(item?["plan"]?["id"]?.Value<string>());
+            }
+        }
+
+        return candidates.Any(priceId =>
+            catalog.TryResolveTierFromPrice(priceId, out _, out var interval) && interval == BillingInterval.Month);
     }
 
     private async Task<bool> HandleSubscriptionDeleted(Event stripeEvent)
@@ -290,13 +392,14 @@ public class StripeWebhookProcessor(
         return null;
     }
 
-    private bool TryResolveTierFromInvoice(Invoice invoice, out UserRole tier)
+    private bool TryResolveTierFromInvoice(Invoice invoice, out UserRole tier, out string interval)
     {
         tier = default;
+        interval = null;
 
         foreach (var line in invoice.Lines?.Data ?? [])
         {
-            if (catalog.TryResolveTierFromPrice(line.Pricing?.PriceDetails?.PriceId, out tier))
+            if (catalog.TryResolveTierFromPrice(line.Pricing?.PriceDetails?.PriceId, out tier, out interval))
             {
                 return true;
             }
@@ -305,13 +408,14 @@ public class StripeWebhookProcessor(
         return false;
     }
 
-    private bool TryResolveTierFromSubscription(Subscription subscription, out UserRole tier)
+    private bool TryResolveTierFromSubscription(Subscription subscription, out UserRole tier, out string interval)
     {
         tier = default;
+        interval = null;
 
         foreach (var item in subscription.Items?.Data ?? [])
         {
-            if (catalog.TryResolveTierFromPrice(item.Price?.Id, out tier))
+            if (catalog.TryResolveTierFromPrice(item.Price?.Id, out tier, out interval))
             {
                 return true;
             }

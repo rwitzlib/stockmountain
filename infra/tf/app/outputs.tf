@@ -36,6 +36,8 @@ output "api_aws_environment_variables" {
     Stripe__WebhookSigningSecret   = var.stripe_webhook_signing_secret
     Stripe__Prices__Pro            = var.stripe_price_id_pro
     Stripe__Prices__Premium        = var.stripe_price_id_premium
+    Stripe__Prices__ProAnnual      = var.stripe_price_id_pro_annual
+    Stripe__Prices__PremiumAnnual  = var.stripe_price_id_premium_annual
     Stripe__Prices__PackSmall      = var.stripe_price_id_pack_small
     Stripe__Prices__PackLarge      = var.stripe_price_id_pack_large
   }

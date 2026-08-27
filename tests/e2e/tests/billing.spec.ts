@@ -83,7 +83,6 @@ test.describe('subscription lifecycle', () => {
 
     await page.getByRole('button', { name: 'Subscribe to Pro' }).click();
     await completeStripeCheckout(page, { email: user.email });
-    await page.waitForURL(/\/billing\?status=success/);
 
     const summary = await waitForSummary(
       page,
@@ -107,7 +106,6 @@ test.describe('subscription lifecycle', () => {
     // The small pack's buy button is labeled with its price.
     await page.getByRole('button', { name: '$10' }).click();
     await completeStripeCheckout(page, { email: user.email });
-    await page.waitForURL(/\/billing\?status=success/);
 
     const summary = await waitForSummary(
       page,
@@ -153,5 +151,41 @@ test.describe('subscription lifecycle', () => {
     expect(summary.purchasedCredits).toBe(PACK_SMALL_CREDITS);
 
     await expect(page.getByText('5,000 / 5,000 left')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('subscribing to annual Pro grants the allowance plus a bonus month of purchased credits', async ({
+    page,
+  }) => {
+    const user = fixedUser('BILLING');
+    // The chain left the user on Premium monthly; annual checkout needs a clean
+    // slate, and resetting here keeps the step self-healing on retries too.
+    await cleanupStripeCustomers(user.id);
+    await resetUserRow(user.id, {
+      role: 'Free',
+      credits: FREE_GRANT,
+      maxCredits: FREE_GRANT,
+      purchasedCredits: 0,
+    });
+
+    await signIn(page, user.email);
+    await page.goto('/billing');
+
+    await page.getByRole('button', { name: 'Annual · 20% off' }).click();
+    await page.getByRole('button', { name: 'Subscribe to Pro' }).click();
+    await completeStripeCheckout(page, { email: user.email });
+
+    // The annual bonus is a second ledger mutation on the same invoice.paid
+    // event, so poll until both the grant and the bonus have landed.
+    const summary = await waitForSummary(
+      page,
+      (s) => s.tier === 'Pro' && s.purchasedCredits === PRO_GRANT,
+      'invoice.paid webhook should set the Pro role, monthly grant, and annual bonus'
+    );
+    expect(summary.credits).toBe(PRO_GRANT);
+    expect(summary.maxCredits).toBe(PRO_GRANT);
+    // The +1-month commitment bonus lands in the never-expiring purchased
+    // balance (reset to 0 above, so "increased by exactly one month's grant").
+    expect(summary.purchasedCredits).toBe(PRO_GRANT);
+    expect(summary.subscriptionStatus).toBe('active');
   });
 });

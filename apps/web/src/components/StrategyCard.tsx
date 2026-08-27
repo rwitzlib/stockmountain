@@ -31,7 +31,7 @@ export function StrategyCard({ strategy, onUpdate, onDelete, readOnly = false, f
   };
 
   const handleCardClick = () => {
-    navigate(`/optimus/strategy/${strategy.id}`, {
+    navigate(`/strategies/${strategy.id}`, {
       state: from ? { from } : undefined
     });
   };

@@ -20,5 +20,11 @@ public class UserRecord
     public string StripeCustomerId { get; set; }
     /// <summary>Display-only Stripe subscription status (active/past_due/canceled); Role stays the enforcement field.</summary>
     public string SubscriptionStatus { get; set; }
+    /// <summary>
+    /// Billing interval of the active subscription ("month"/"year"). Absent on legacy and
+    /// non-subscribed records — only "year" carries meaning (annual users refill via the
+    /// monthly Lambda instead of invoice.paid).
+    /// </summary>
+    public string BillingInterval { get; set; }
     public Dictionary<IntegrationType, string> Tokens { get; set; }
 }

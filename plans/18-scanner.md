@@ -1,4 +1,4 @@
-# Plan 17 — Scanner: saved scanners on the shared filter/create stack
+# Plan 18 — Scanner: saved scanners on the shared filter/create stack
 
 ## Context
 

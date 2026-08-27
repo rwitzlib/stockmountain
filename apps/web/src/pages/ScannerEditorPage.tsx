@@ -504,7 +504,7 @@ export function ScannerEditorPage() {
                     size="sm"
                     disabled={filters.length === 0}
                     onClick={() =>
-                      navigate('/optimus/strategy/new', {
+                      navigate('/strategies/new', {
                         state: {
                           initialData: {
                             name: formData.name,

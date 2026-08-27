@@ -41,7 +41,9 @@ public class BillingController(
 
         if (isSubscription)
         {
-            if (!Enum.TryParse<UserRole>(request.Id, out var tier) || tier == UserRole.Free)
+            // Accepts "Pro"/"Premium" and their "{Tier}Annual" yearly variants; "Free",
+            // pack ids, and garbage are rejected here before any Stripe call.
+            if (!BillingCatalog.TryResolveTierFromKey(request.Id, out var tier, out _) || tier == UserRole.Free)
             {
                 return BadRequest(new[] { $"Unknown subscription tier '{request.Id}'" });
             }
@@ -84,19 +86,29 @@ public class BillingController(
             }
         }
 
-        var returnUrlBase = stripeOptions.Value.ReturnUrlBase.TrimEnd('/');
-        var url = await stripeGateway.CreateCheckoutSession(new CheckoutSessionSpec
+        // Webhook-lag guard, checked on the RESOLVED customer (covering the race path
+        // above where we adopt another request's customer): after a checkout completes,
+        // SubscriptionStatus stays non-active until the webhook lands, so the check at
+        // the top can't stop a second subscription purchase. Stripe itself is the
+        // authoritative record — ask it directly rather than keeping local pending-claim
+        // state. Residual risk accepted: two truly concurrent sessions created before
+        // EITHER payment exists can't be caught here (nothing exists on Stripe yet) —
+        // that needs the same user paying twice in parallel tabs within seconds.
+        if (isSubscription && await stripeGateway.HasLiveSubscription(customerId))
+        {
+            return BadRequest(new[] { "A subscription already exists or is being processed. Use the billing portal to change plans." });
+        }
+
+        var clientSecret = await stripeGateway.CreateCheckoutSession(new CheckoutSessionSpec
         {
             UserId = user.Id,
             CustomerId = customerId,
             PriceId = priceId,
             IsSubscription = isSubscription,
-            PackId = isSubscription ? null : request.Id,
-            SuccessUrl = $"{returnUrlBase}/billing?status=success",
-            CancelUrl = $"{returnUrlBase}/billing?status=cancelled"
+            PackId = isSubscription ? null : request.Id
         });
 
-        return Ok(new CheckoutSessionResponse { Url = url });
+        return Ok(new CheckoutSessionResponse { ClientSecret = clientSecret });
     }
 
     [HttpPost]
