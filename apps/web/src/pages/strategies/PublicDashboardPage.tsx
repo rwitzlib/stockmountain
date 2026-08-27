@@ -1,7 +1,4 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Button } from '../../components/ui/button';
-import { ChevronLeft, Globe } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { Strategy } from '../../types/strategy';
 import { useQuery } from '@tanstack/react-query';
 import { StrategyCard } from '../../components/StrategyCard';
@@ -27,21 +24,9 @@ const PublicDashboard = () => {
       <div className="p-4 md:p-8 pt-20 md:pt-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex items-center justify-between border-b border-border pb-4">
-            <div className="flex items-center gap-4">
-              <Link to="/optimus">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  <span className="text-xs">Back</span>
-                </Button>
-              </Link>
-              <div className="flex items-center gap-2">
-                <Globe className="h-6 w-6 text-muted-foreground" />
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">Public Trading Strategies</h1>
-              </div>
+            <div className="flex items-center gap-2">
+              <Globe className="h-6 w-6 text-muted-foreground" />
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">Community Strategies</h1>
             </div>
             
             <div className="text-sm text-muted-foreground">
@@ -67,7 +52,7 @@ const PublicDashboard = () => {
                   onUpdate={handleUpdateStrategy}
                   onDelete={handleDeleteStrategy}
                   readOnly={true}
-                  from="/optimus/public-dashboard"
+                  from="/strategies/community"
                 />
               ))
             )}

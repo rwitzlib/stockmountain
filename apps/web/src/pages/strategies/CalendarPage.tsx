@@ -2,9 +2,7 @@ import { authFetch } from '../../api/authToken';
 import { API_BASE_URL } from '../../api/apiConfig';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Trade } from '../../types/trade';
 import { formatPrice } from '../../utils/chartUtils';
@@ -168,16 +166,6 @@ const CalendarPage = () => {
     <div className="min-h-screen bg-background p-4 md:p-8 pt-20 md:pt-8">
       <div className="max-w-7xl mx-auto space-y-12">
         <div className="flex items-center gap-4">
-          <Link to="/optimus">
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back
-            </Button>
-          </Link>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Trading Calendar</h1>
         </div>
 

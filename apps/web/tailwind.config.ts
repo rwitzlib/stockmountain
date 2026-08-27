@@ -57,6 +57,10 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// P&L semantics — the only non-monochrome color in the app chrome.
+				// Backed by the same vars the charts use, so gains/losses match everywhere.
+				gain: 'var(--chart-gain)',
+				loss: 'var(--chart-loss)',
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',

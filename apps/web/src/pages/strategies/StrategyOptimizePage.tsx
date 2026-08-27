@@ -274,7 +274,7 @@ const StrategyOptimizePage = () => {
   const selectedDayProfit = selectedDate ? getDayProfit(selectedDate) : 0;
 
   const handleTradeClick = (trade: Trade) => {
-    navigate(`/optimus/trade/${trade.id}`, { state: { trade } });
+    navigate(`/strategies/trade/${trade.id}`, { state: { trade } });
   };
 
   const handleOptimizationResult = (newTrades: Trade[]) => {
@@ -593,7 +593,7 @@ const StrategyOptimizePage = () => {
               variant="outline"
               size="sm"
               className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              onClick={() => navigate(`/optimus/strategy/${strategyId}`)}
+              onClick={() => navigate(`/strategies/${strategyId}`)}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               <span className="text-xs">Back to Strategy</span>
