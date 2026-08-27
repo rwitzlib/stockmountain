@@ -60,7 +60,7 @@ function ScannerCard({ scanner }: { scanner: Scanner }) {
           </p>
         </div>
         <div
-          className="flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+          className="flex items-center gap-1 opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100"
           onClick={(event) => event.stopPropagation()}
         >
           <Button
