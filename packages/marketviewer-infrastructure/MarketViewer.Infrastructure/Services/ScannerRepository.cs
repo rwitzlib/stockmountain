@@ -100,8 +100,10 @@ public class ScannerRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb, 
         }
         catch (Exception ex)
         {
+            // Null signals failure to the handler (mapped to a 500) — an empty list is
+            // reserved for "user genuinely has no scanners".
             logger.LogError(ex, "Error listing scanners for user {UserId}", userId);
-            return [];
+            return null;
         }
     }
 

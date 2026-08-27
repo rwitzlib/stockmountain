@@ -133,6 +133,17 @@ public class ScannerHandlersUnitTests
         Assert.Equal(2, result.Data.Count());
     }
 
+    [Fact]
+    public async Task List_RepositoryFailure_ReturnsInternalServerError()
+    {
+        _repository.Setup(r => r.ListByUser(UserId, It.IsAny<CancellationToken>())).ReturnsAsync((IEnumerable<ScannerDto>)null!);
+        var handler = new ScannerListHandler(_authContext, _repository.Object, NullLogger<ScannerListHandler>.Instance);
+
+        var result = await handler.Handle(CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.InternalServerError, result.Status);
+    }
+
     #endregion
 
     #region Update

@@ -1,7 +1,7 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@clerk/react';
-import { Copy, Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertCircle, Copy, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import { scannerApi } from '../api/scannerApi';
 import type { Scanner } from '../types/scanner';
 import { FilterChips } from '../components/filters/FilterChips';
@@ -41,7 +41,20 @@ function ScannerCard({ scanner }: { scanner: Scanner }) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="truncate text-base font-semibold tracking-tight">{scanner.name}</h3>
+          <h3 className="truncate text-base font-semibold tracking-tight">
+            {/* Keyboard-operable primary navigation — the card onClick is a mouse convenience. */}
+            {scanner.id ? (
+              <Link
+                to={`/scanner/${scanner.id}`}
+                className="hover:underline focus-visible:underline"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {scanner.name}
+              </Link>
+            ) : (
+              scanner.name
+            )}
+          </h3>
           <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
             {filters.length} filter{filters.length !== 1 && 's'}
           </p>
@@ -113,7 +126,12 @@ export function ScannerPage() {
   const { user } = useUser();
 
   // Keyed by user so a sign-out/sign-in switch can never serve another user's cache.
-  const { data: scanners = [], isLoading } = useQuery({
+  const {
+    data: scanners = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['myScanners', user?.id],
     queryFn: scannerApi.getMyScanners,
     enabled: !!user?.id,
@@ -143,6 +161,18 @@ export function ScannerPage() {
             <Card className="p-8 text-center">
               <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Loading</div>
               <div className="text-base">Fetching scanners…</div>
+            </Card>
+          ) : isError ? (
+            // A failed fetch must never masquerade as "no scanners yet".
+            <Card className="p-8 text-center">
+              <AlertCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+              <h2 className="text-lg font-semibold tracking-tight">Couldn't load your scanners</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                Something went wrong fetching your saved scanners — they're still there.
+              </p>
+              <Button variant="outline" className="mt-5" onClick={() => refetch()}>
+                Try again
+              </Button>
             </Card>
           ) : scanners.length === 0 ? (
             <Card className="p-10 text-center">

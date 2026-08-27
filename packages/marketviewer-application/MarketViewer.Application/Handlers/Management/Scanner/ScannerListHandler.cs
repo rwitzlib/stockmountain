@@ -23,6 +23,15 @@ public class ScannerListHandler(
         {
             var scanners = await scannerRepository.ListByUser(authContext.UserId, cancellationToken);
 
+            if (scanners == null)
+            {
+                return new OperationResult<IEnumerable<ScannerResponse>>
+                {
+                    Status = HttpStatusCode.InternalServerError,
+                    ErrorMessages = ["Failed to list scanners."]
+                };
+            }
+
             logger.LogInformation("Retrieved {Count} scanners for user {UserId}", scanners.Count(), authContext.UserId);
 
             return new OperationResult<IEnumerable<ScannerResponse>>
