@@ -499,11 +499,24 @@ function SummaryCard({
           <p className="mt-1.5 text-[11px] text-muted-foreground">Resets each billing cycle.</p>
         </div>
         <div>
-          <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground mb-0.5">
-            Purchased credits
+          <div className="flex items-baseline justify-between gap-3 mb-0.5">
+            <div className="text-[10.5px] font-medium uppercase tracking-widest text-muted-foreground">
+              Purchased credits
+            </div>
+            <div className="text-xs font-semibold tabular-nums text-foreground">
+              {formatCredits(summary.purchasedCredits)} left
+            </div>
           </div>
-          <div className="text-lg font-semibold tabular-nums leading-tight text-foreground">
-            {formatCredits(summary.purchasedCredits)}
+          {/* Wallet balance with no natural max — the bar is a reserve indicator
+              (any balance = full), not a proportion. */}
+          <div
+            aria-hidden="true"
+            className="mt-1.5 h-1.5 w-full rounded-full bg-muted overflow-hidden"
+          >
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all"
+              style={{ width: summary.purchasedCredits > 0 ? '100%' : '0%' }}
+            />
           </div>
           <p className="mt-1.5 text-[11px] text-muted-foreground">
             Never expire — spent after monthly credits run out.

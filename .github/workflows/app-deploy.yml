@@ -136,4 +136,4 @@ jobs:
             exit 0
           fi
 
-          railway variables "${set_args[@]}" --service ${{ matrix.service.name }} --skip-deploys
+          railway variables "${set_args[@]}" --service ${{ matrix.service.name }}

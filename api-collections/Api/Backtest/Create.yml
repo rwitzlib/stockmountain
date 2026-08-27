@@ -10,7 +10,7 @@ http:
     type: json
     data: |-
       {
-        "start": "2026-08-01",
+        "start": "2026-07-01",
         "end": "2026-08-13",
         "positionSettings": {
           "startingBalance": 300000,
