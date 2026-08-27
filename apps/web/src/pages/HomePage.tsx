@@ -137,7 +137,11 @@ function EmptyState({ message, cta, to }: { message: string; cta: string; to: st
 }
 
 function ErrorNotice({ message }: { message: string }) {
-  return <div className="px-4 py-10 text-center text-sm text-destructive">{message}</div>;
+  return (
+    <div role="alert" className="px-4 py-10 text-center text-sm text-destructive">
+      {message}
+    </div>
+  );
 }
 
 function backtestStatusLabel(status: string): ReactNode {
@@ -287,7 +291,10 @@ export function HomePage() {
 
         {/* Partial-failure warning — totals below exclude strategies whose data failed */}
         {partialData && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          <div
+            role="status"
+            className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+          >
             Some strategy data failed to load — the totals below may be incomplete.
           </div>
         )}
