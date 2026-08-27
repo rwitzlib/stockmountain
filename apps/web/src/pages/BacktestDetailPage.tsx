@@ -397,7 +397,7 @@ export function BacktestDetailPage() {
 
     const strategyData = mapBacktestToStrategy(data.backtestEntry);
 
-    navigate('/optimus/dashboard', {
+    navigate('/strategies', {
       state: {
         createStrategy: true,
         initialStrategyData: strategyData,

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
-import { ChevronLeft, Plus, Lock } from 'lucide-react';
+import { Plus, Lock } from 'lucide-react';
 import { Strategy } from '../../types/strategy';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { StrategyCard } from '../../components/StrategyCard';
@@ -24,7 +24,7 @@ const Dashboard = () => {
         description: "Please log in to view your personal dashboard",
         variant: "destructive",
       });
-      navigate('/optimus');
+      navigate('/strategies/community');
       return;
     }
   }, [isLoaded, isSignedIn, navigate]);
@@ -35,7 +35,7 @@ const Dashboard = () => {
       const strategyData = location.state.initialStrategyData;
       
       // Navigate to the new strategy editor page with initial data
-      navigate('/optimus/strategy/new', { 
+      navigate('/strategies/new', { 
         state: { initialData: strategyData },
         replace: true 
       });
@@ -59,7 +59,7 @@ const Dashboard = () => {
         description: "Trading strategy updated successfully",
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to update trading strategy",
@@ -77,7 +77,7 @@ const Dashboard = () => {
         description: "Trading strategy deleted successfully",
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to delete trading strategy",
@@ -101,16 +101,6 @@ const Dashboard = () => {
         <div className="p-4 md:p-8 pt-20 md:pt-8">
           <div className="max-w-7xl mx-auto space-y-8">
             <div className="flex items-center gap-4 border-b border-border pb-4">
-              <Link to="/optimus">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  <span className="text-xs">Back</span>
-                </Button>
-              </Link>
               <div className="flex items-center gap-2">
                 <Lock className="h-6 w-6 text-red-600 dark:text-red-400" />
                 <h1 className="text-xl font-semibold tracking-tight text-red-600 dark:text-red-400">Authentication required</h1>
@@ -131,25 +121,13 @@ const Dashboard = () => {
       <div className="p-4 md:p-8 pt-20 md:pt-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex items-center justify-between border-b border-border pb-4">
-            <div className="flex items-center gap-4">
-              <Link to="/optimus">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  <span className="text-xs">Back</span>
-                </Button>
-              </Link>
-              <div className="flex items-center gap-2">
-                <Lock className="h-5 w-5 text-muted-foreground" />
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">My Trading Strategies</h1>
-              </div>
+            <div className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-muted-foreground" />
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">My Strategies</h1>
             </div>
             
             <Button 
-              onClick={() => navigate('/optimus/strategy/new')}
+              onClick={() => navigate('/strategies/new')}
               className="gap-2"
             >
               <Plus className="w-4 h-4" />
@@ -174,7 +152,7 @@ const Dashboard = () => {
                   strategy={strategy}
                   onUpdate={handleUpdateBot}
                   onDelete={handleDeleteBot}
-                  from="/optimus/dashboard"
+                  from="/strategies"
                 />
               ))
             )}

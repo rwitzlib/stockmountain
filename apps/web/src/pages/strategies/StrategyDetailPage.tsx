@@ -151,7 +151,7 @@ const StrategyDetailPage = () => {
         description: "Strategy deleted successfully",
       });
       // Navigate back to dashboard after deletion
-      window.location.href = '/optimus/dashboard';
+      window.location.href = '/strategies';
     },
     onError: () => {
       toast({
@@ -172,7 +172,7 @@ const StrategyDetailPage = () => {
     if (!strategy) return;
 
     // Navigate to the new strategy editor with clone data
-    navigate('/optimus/strategy/new', {
+    navigate('/strategies/new', {
       state: {
         initialData: {
           ...strategy,
@@ -191,11 +191,11 @@ const StrategyDetailPage = () => {
     }
 
     const referrer = document.referrer;
-    if (referrer.includes('/optimus/public-dashboard')) {
-      return '/optimus/public-dashboard';
+    if (referrer.includes('/strategies/community')) {
+      return '/strategies/community';
     }
 
-    return '/optimus/dashboard';
+    return '/strategies';
   };
 
   if (isLoadingStrategy) {
@@ -375,7 +375,7 @@ const StrategyDetailPage = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(`/optimus/strategy/${strategyId}/optimize`)}
+              onClick={() => navigate(`/strategies/${strategyId}/optimize`)}
             >
               <Beaker className="mr-1.5 h-4 w-4" />
               Optimize
@@ -384,7 +384,7 @@ const StrategyDetailPage = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(`/optimus/strategy/${strategyId}/edit`)}
+              onClick={() => navigate(`/strategies/${strategyId}/edit`)}
             >
               <Settings className="mr-1.5 h-4 w-4" />
               Edit
@@ -462,7 +462,7 @@ const StrategyDetailPage = () => {
                   {openTrades.map((trade) => (
                     <tr
                       key={trade.id}
-                      onClick={() => navigate(`/optimus/trade/${trade.id}`, { state: { trade } })}
+                      onClick={() => navigate(`/strategies/trade/${trade.id}`, { state: { trade } })}
                       className="cursor-pointer border-b border-border/60 hover:bg-muted/30"
                     >
                       <td className="whitespace-nowrap px-2.5 py-1.5 font-mono font-semibold">{trade.ticker}</td>

@@ -412,7 +412,7 @@ function Hero() {
               Start backtesting free <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              to="/optimus/public-dashboard"
+              to="/strategies/community"
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent"
             >
               Explore community strategies
@@ -835,7 +835,7 @@ function Footer() {
             <a href="#pricing" className="transition-colors hover:text-foreground">
               Pricing
             </a>
-            <Link to="/optimus/public-dashboard" className="transition-colors hover:text-foreground">
+            <Link to="/strategies/community" className="transition-colors hover:text-foreground">
               Community strategies
             </Link>
             <Link to="/sign-in" className="transition-colors hover:text-foreground">

@@ -339,7 +339,7 @@ const TradeDetailPage = () => {
         <div className="text-center rounded-xl border border-red-300 dark:border-red-900 bg-red-100/50 dark:bg-red-950/20 p-6">
           <p className="text-red-700 dark:text-red-400 text-sm font-medium mb-4">Error loading trade</p>
           <p className="text-muted-foreground text-xs mb-4">Failed to retrieve trade data</p>
-          <Button onClick={() => navigate('/optimus/trades')} variant="outline" className="text-xs hover:bg-accent hover:text-foreground">
+          <Button onClick={() => navigate('/strategies/trades')} variant="outline" className="text-xs hover:bg-accent hover:text-foreground">
             Return to Trades
           </Button>
         </div>

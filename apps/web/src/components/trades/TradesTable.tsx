@@ -35,7 +35,7 @@ export const TradesTable = ({ trades, sortConfig, onSort, compact = false }: Tra
   };
 
   const handleRowClick = (trade: Trade) => {
-    navigate(`/optimus/trade/${trade.id}`, { state: { trade } });
+    navigate(`/strategies/trade/${trade.id}`, { state: { trade } });
   };
 
   // Compact view shows fewer columns
