@@ -148,6 +148,10 @@ export function ScannerEditorPage() {
     },
   });
 
+  // Freeze editable controls while a save is in flight — edits made mid-save would be
+  // discarded by the create navigation or the update refetch restoring the snapshot.
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+
   const handleSave = () => {
     if (!formData.name.trim()) {
       toast({
@@ -291,6 +295,7 @@ export function ScannerEditorPage() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => update({ name: e.target.value })}
+                disabled={isSaving}
                 placeholder="Untitled scanner"
                 autoFocus={!isEditMode}
                 className="w-full max-w-2xl border-b border-transparent bg-transparent text-2xl font-semibold tracking-tight outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-border md:text-3xl"
@@ -305,9 +310,9 @@ export function ScannerEditorPage() {
                 size="sm"
                 variant="outline"
                 onClick={handleSave}
-                disabled={createMutation.isPending || updateMutation.isPending}
+                disabled={isSaving}
               >
-                {createMutation.isPending || updateMutation.isPending ? (
+                {isSaving ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                 ) : (
                   <Save className="mr-1.5 h-4 w-4" />
@@ -335,11 +340,13 @@ export function ScannerEditorPage() {
                   title="Scan conditions"
                   hint="Tickers matching every filter show up in the results — same filter language as strategies and backtests."
                 />
-                <EntrySettingsForm
-                  value={formData.entrySettings}
-                  onChange={(entrySettings: EntrySettings) => update({ entrySettings })}
-                  context="scan"
-                />
+                <fieldset disabled={isSaving} className={isSaving ? 'opacity-60' : undefined}>
+                  <EntrySettingsForm
+                    value={formData.entrySettings}
+                    onChange={(entrySettings: EntrySettings) => update({ entrySettings })}
+                    context="scan"
+                  />
+                </fieldset>
               </Card>
 
               <Card className="p-5">
