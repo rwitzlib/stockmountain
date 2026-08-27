@@ -76,9 +76,12 @@ public class StrategyRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb,
                 TableName = config.TableName,
                 IndexName = config.UserIndexName,
                 KeyConditionExpression = "UserId = :userId",
+                // Scanners share this table (and GSI) under the SCANNER# prefix — keep them out.
+                FilterExpression = "begins_with(PK, :prefix)",
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                 {
-                    { ":userId", new AttributeValue { S = userId } }
+                    { ":userId", new AttributeValue { S = userId } },
+                    { ":prefix", new AttributeValue { S = "BOT#" } }
                 }
             };
 
@@ -101,9 +104,12 @@ public class StrategyRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb,
                 TableName = config.TableName,
                 IndexName = config.VisibilityIndexName,
                 KeyConditionExpression = "Visibility = :visibility",
+                // Scanners share this table under the SCANNER# prefix — keep them out.
+                FilterExpression = "begins_with(PK, :prefix)",
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                 {
-                    { ":visibility", new AttributeValue { S = visibility.ToString() } }
+                    { ":visibility", new AttributeValue { S = visibility.ToString() } },
+                    { ":prefix", new AttributeValue { S = "BOT#" } }
                 },
                 ReturnConsumedCapacity = ReturnConsumedCapacity.TOTAL
             };

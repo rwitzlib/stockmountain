@@ -1,21 +1,3 @@
-export type FilterFunctionName =
-  | 'sma'
-  | 'ema'
-  | 'macd'
-  | 'crosses_over'
-  | 'crosses_under'
-  | 'adv'
-  | 'between';
-
-export type DraftArg =
-  | string
-  | null
-  | {
-      kind: 'draft';
-      name: FilterFunctionName;
-      args: DraftArg[];
-    };
-
 export interface FilterItem {
   id: string;
   enabled: boolean;

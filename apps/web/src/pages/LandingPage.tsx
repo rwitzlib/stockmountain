@@ -637,7 +637,7 @@ const PLANS: Plan[] = [
       '1,000 backtest credits / month',
       '10 paper trading bots — simulator + broker paper',
       'Strategy optimizer',
-      'Stock scanner (early access)',
+      'Stock scanner — saved scans on live market data',
       'Masked sharing — publish results, hide your rules',
       'Filter library & templates',
     ],

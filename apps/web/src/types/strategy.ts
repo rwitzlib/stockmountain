@@ -94,7 +94,9 @@ export interface Strategy {
 }
 
 // ============================================================================
-// Legacy Types (for backward compatibility with old components)
+// Legacy Types — the pre-DSL operand-tree filter model. Kept only for reading
+// old persisted backtest records (FilterDisplay's fallback rendering); nothing
+// authors this shape any more.
 // ============================================================================
 
 export interface Filter {
@@ -124,51 +126,6 @@ export type OperandType = 'Study' | 'PriceAction' | 'Fixed';
 export interface StopConfig {
   type: 'percent' | 'value';
   value: number;
-}
-
-// Legacy position info (for backward compatibility)
-export interface LegacyPositionInfo {
-  startingBalance: number;
-  maxConcurrentPositions: number;
-  positionSize: number;
-}
-
-// Legacy exit info (for backward compatibility)
-export interface LegacyExitInfo {
-  stopLoss?: StopConfig;
-  profitTarget?: StopConfig;
-  timeframe?: Timeframe;
-  other?: ScanArgument;
-}
-
-// Legacy strategy interface (for components that haven't migrated yet)
-export interface LegacyStrategy {
-  id: string;
-  name: string;
-  type: 'Paper' | 'Live';
-  integration: 'Default' | 'Schwab';
-  state: StrategyState;
-  visibility: StrategyVisibility;
-  positionInfo?: LegacyPositionInfo;
-  exitInfo?: LegacyExitInfo;
-  argument?: ScanArgument;
-}
-
-// Exit target configuration (legacy alias)
-export interface ExitTarget {
-  type: 'percent' | 'value';
-  value: number;
-}
-
-// Timed exit settings (legacy alias)
-export interface TimedExitSettings {
-  timeframe: Timeframe;
-}
-
-// Cooldown settings (legacy alias)
-export interface CooldownSettings {
-  multiplier: number;
-  timespan: string;
 }
 
   // Optimize trades request payload sent to `/strategy/optimize/{strategyId}`

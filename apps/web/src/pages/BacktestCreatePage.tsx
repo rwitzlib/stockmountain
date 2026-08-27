@@ -12,6 +12,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { RailRow } from '../components/backtest/BacktestReport';
 import { EntrySettingsForm } from '../components/forms/strategy/EntrySettingsForm';
+import { SectionHeading } from '../components/forms/SectionHeading';
 import { FilterChips } from '../components/filters/FilterChips';
 import { ExitSettingsForm, defaultExitSettings } from '../components/forms/strategy/ExitSettingsForm';
 import { PositionSettingsForm } from '../components/forms/strategy/PositionSettingsForm';
@@ -70,19 +71,6 @@ const formatTimeframe = (timeframe: Timeframe | undefined) => {
   if (!timeframe) return 'Off';
   return `${timeframe.multiplier} ${timeframe.timespan}${timeframe.multiplier > 1 ? 's' : ''}`;
 };
-
-function SectionHeading({ index, label, title, hint }: { index: string; label: string; title: string; hint?: string }) {
-  return (
-    <div className="mb-4">
-      <div className="mb-1 flex items-baseline gap-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-        <span className="font-mono">{index}</span>
-        <span>{label}</span>
-      </div>
-      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      {hint && <p className="mt-0.5 text-[13px] text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
 
 export function BacktestCreatePage() {
   const location = useLocation();
@@ -251,6 +239,7 @@ export function BacktestCreatePage() {
               <EntrySettingsForm
                 value={{ filters }}
                 onChange={(entrySettings) => update({ filters: entrySettings.filters })}
+                context="backtest"
               />
             </Card>
 
