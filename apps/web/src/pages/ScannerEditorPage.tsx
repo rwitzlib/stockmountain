@@ -393,30 +393,35 @@ export function ScannerEditorPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-border text-left text-[11px] uppercase tracking-widest text-muted-foreground">
-                            <th
-                              className="cursor-pointer py-2 pr-4 select-none"
-                              onClick={() => handleSort('ticker')}
-                            >
-                              Ticker{sortIndicator('ticker')}
-                            </th>
-                            <th
-                              className="cursor-pointer py-2 pr-4 text-right select-none"
-                              onClick={() => handleSort('price')}
-                            >
-                              Price{sortIndicator('price')}
-                            </th>
-                            <th
-                              className="cursor-pointer py-2 pr-4 text-right select-none"
-                              onClick={() => handleSort('volume')}
-                            >
-                              Volume{sortIndicator('volume')}
-                            </th>
-                            <th
-                              className="cursor-pointer py-2 text-right select-none"
-                              onClick={() => handleSort('float')}
-                            >
-                              Float{sortIndicator('float')}
-                            </th>
+                            {(
+                              [
+                                { key: 'ticker', label: 'Ticker', align: 'left' },
+                                { key: 'price', label: 'Price', align: 'right' },
+                                { key: 'volume', label: 'Volume', align: 'right' },
+                                { key: 'float', label: 'Float', align: 'right' },
+                              ] as { key: SortKey; label: string; align: 'left' | 'right' }[]
+                            ).map(({ key, label, align }) => (
+                              <th
+                                key={key}
+                                className={`py-2 ${key !== 'float' ? 'pr-4' : ''} ${align === 'right' ? 'text-right' : ''}`}
+                                aria-sort={
+                                  sort.key === key
+                                    ? sort.dir === 'asc'
+                                      ? 'ascending'
+                                      : 'descending'
+                                    : undefined
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handleSort(key)}
+                                  className="select-none uppercase tracking-widest hover:text-foreground"
+                                >
+                                  {label}
+                                  {sortIndicator(key)}
+                                </button>
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>

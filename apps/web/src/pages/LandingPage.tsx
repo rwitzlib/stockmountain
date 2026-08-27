@@ -574,8 +574,8 @@ function Features() {
             The whole research desk.
           </h2>
           <p className="mt-3 max-w-xl text-sm text-muted-foreground sm:text-base">
-            Everything between "I have a hunch" and "I have a system" — plus a stock scanner in
-            early access.
+            Everything between "I have a hunch" and "I have a system" — plus a stock scanner
+            running your saved filters on live market data.
           </p>
         </Reveal>
 
