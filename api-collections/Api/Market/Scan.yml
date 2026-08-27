@@ -3,6 +3,7 @@ info:
   type: http
   seq: 2
 
+# Requires the Pro tier (RequiresTier on ScanController).
 http:
   method: POST
   url: https://{{base_url}}{{port}}/api/scan

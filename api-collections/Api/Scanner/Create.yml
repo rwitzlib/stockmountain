@@ -1,0 +1,27 @@
+info:
+  name: Create
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: https://{{base_url}}{{port}}/api/scanner
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Oversold bounce",
+        "entrySettings": {
+          "filters": [
+            "rsi(14) < 30 [1m]",
+            "adv() > 2000000 [1d]"
+          ]
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

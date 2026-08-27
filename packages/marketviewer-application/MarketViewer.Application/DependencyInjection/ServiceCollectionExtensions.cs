@@ -6,11 +6,13 @@ using MarketViewer.Application.Services;
 using MarketViewer.Application.Handlers.Tools;
 using MarketViewer.Application.Validators;
 using MarketViewer.Contracts.Requests.Market.Backtest;
+using MarketViewer.Contracts.Requests.Management.Scanner;
 using MarketViewer.Contracts.Requests.Management.Strategy;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using MarketViewer.Application.Handlers.Data.Tickers;
+using MarketViewer.Application.Handlers.Management.Scanner;
 using MarketViewer.Application.Handlers.Management.Strategy;
 using MarketViewer.Application.Handlers.Management.Trade;
 using MarketViewer.Application.Handlers.Management.User;
@@ -30,6 +32,8 @@ public static class ServiceCollectionExtensions
         return services.AddScoped<IValidator<BacktestCreateRequest>, BacktestRequestValidator>()
             .AddScoped<IValidator<StrategyCreateRequest>, StrategyCreateRequestValidator>()
             .AddScoped<IValidator<StrategyUpdateRequest>, StrategyUpdateRequestValidator>()
+            .AddScoped<IValidator<ScannerCreateRequest>, ScannerCreateRequestValidator>()
+            .AddScoped<IValidator<ScannerUpdateRequest>, ScannerUpdateRequestValidator>()
             .AddSingleton<IIndicatorCalculationService, IndicatorCalculationService>()
             .AddSingleton<IGpuSmaCalculationService, GpuSmaCalculationService>()
             .AddScoped<ClerkUserProvisioningService>()
@@ -46,6 +50,11 @@ public static class ServiceCollectionExtensions
             .AddScoped<StocksHandler>()
             .AddScoped<ScanHandler>()
             .AddScoped<ToolsFilterHandler>()
+            .AddScoped<ScannerCreateHandler>()
+            .AddScoped<ScannerReadHandler>()
+            .AddScoped<ScannerListHandler>()
+            .AddScoped<ScannerUpdateHandler>()
+            .AddScoped<ScannerDeleteHandler>()
             .AddScoped<StrategyCreateHandler>()
             .AddScoped<StrategyReadHandler>()
             .AddScoped<StrategyListHandler>()

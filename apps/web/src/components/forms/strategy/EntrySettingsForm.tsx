@@ -8,9 +8,11 @@ import type { EntrySettings } from '../../../types/strategy';
 interface EntrySettingsFormProps {
   value: EntrySettings;
   onChange: (value: EntrySettings) => void;
+  /** Which evaluator the filters are destined for — scopes autocomplete + validation. */
+  context?: 'scan' | 'backtest' | 'chart';
 }
 
-export function EntrySettingsForm({ value, onChange }: EntrySettingsFormProps) {
+export function EntrySettingsForm({ value, onChange, context = 'scan' }: EntrySettingsFormProps) {
   const [isComposerExpanded, setIsComposerExpanded] = useState(true);
 
   const handleAddFilter = (expression: string) => {
@@ -158,7 +160,7 @@ export function EntrySettingsForm({ value, onChange }: EntrySettingsFormProps) {
           <div className="p-4 rounded-lg border border-border bg-card">
             <FilterComposer
               onAddFilter={handleAddFilter}
-              context="scan"
+              context={context}
               addButtonLabel="Add Entry Condition"
             />
           </div>

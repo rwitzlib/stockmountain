@@ -1,0 +1,27 @@
+info:
+  name: Update
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: https://{{base_url}}{{port}}/api/scanner/{{scanner_id}}
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Oversold bounce (tightened)",
+        "entrySettings": {
+          "filters": [
+            "rsi(14) < 25 [1m]",
+            "adv() > 5000000 [1d]"
+          ]
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

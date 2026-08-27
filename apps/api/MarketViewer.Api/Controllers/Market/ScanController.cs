@@ -17,13 +17,13 @@ namespace MarketViewer.Api.Controllers.Market;
 [ApiController]
 [Authorize]
 [Route("/scan")]
-public class TickerController(ScanHandler scanHandler, ILogger<TickerController> logger) : ControllerBase
+public class ScanController(ScanHandler scanHandler, ILogger<ScanController> logger) : ControllerBase
 {
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequiresTier(UserRole.Free)]
+    [RequiresTier(UserRole.Pro)]
     public async Task<IActionResult> Scan([FromBody] ScanRequest request)
     {
         var response = await scanHandler.Handle(request, HttpContext.RequestAborted);

@@ -1,5 +1,6 @@
 using FluentValidation;
 using MarketViewer.Contracts.Requests.Market.Backtest;
+using MarketViewer.Filters.Registry;
 
 namespace MarketViewer.Application.Validators
 {
@@ -14,7 +15,7 @@ namespace MarketViewer.Application.Validators
             RuleFor(x => x.EntrySettings)
                 .NotNull()
                 .WithMessage("Entry settings are required.")
-                .SetValidator(new StrategyEntrySettingsValidator());
+                .SetValidator(new StrategyEntrySettingsValidator(FilterContext.Backtest));
 
             RuleFor(x => x.ExitSettings)
                 .NotNull()

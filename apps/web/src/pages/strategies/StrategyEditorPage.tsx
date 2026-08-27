@@ -5,6 +5,7 @@ import { Strategy, Exit, IntegrationType, Timeframe, TradeType } from '../../typ
 import { PositionSettingsForm } from '../../components/forms/strategy/PositionSettingsForm';
 import { ExitSettingsForm, defaultExitSettings } from '../../components/forms/strategy/ExitSettingsForm';
 import { EntrySettingsForm } from '../../components/forms/strategy/EntrySettingsForm';
+import { SectionHeading } from '../../components/forms/SectionHeading';
 import { FilterChips } from '../../components/filters/FilterChips';
 import { RailRow } from '../../components/backtest/BacktestReport';
 import { Switch } from '../../components/ui/switch';
@@ -13,7 +14,7 @@ import { Card } from '../../components/ui/card';
 import { strategyApi } from '../../api/strategyApi';
 import { toast } from '../../hooks/use-toast';
 import { useUser } from '@clerk/react';
-import { ArrowLeft, AlertCircle, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Loader2, Save, Search } from 'lucide-react';
 
 const defaultFormData: Strategy = {
   name: '',
@@ -115,19 +116,6 @@ const formatTimeframe = (timeframe: Timeframe | undefined) => {
   if (!timeframe) return 'Not set';
   return `${timeframe.multiplier} ${timeframe.timespan}${timeframe.multiplier > 1 ? 's' : ''}`;
 };
-
-function SectionHeading({ index, label, title, hint }: { index: string; label: string; title: string; hint?: string }) {
-  return (
-    <div className="mb-4">
-      <div className="mb-1 flex items-baseline gap-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-        <span className="font-mono">{index}</span>
-        <span>{label}</span>
-      </div>
-      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      {hint && <p className="mt-0.5 text-[13px] text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
 
 const StrategyEditorPage = () => {
   const navigate = useNavigate();
@@ -475,6 +463,27 @@ const StrategyEditorPage = () => {
                 <p className="text-[13px] text-muted-foreground">
                   None yet — an active strategy needs at least one.
                 </p>
+              )}
+              {filters.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={() =>
+                    navigate('/scanner/new', {
+                      state: {
+                        initialData: {
+                          name: formData.name,
+                          entrySettings: formData.entrySettings,
+                        },
+                      },
+                    })
+                  }
+                >
+                  <Search className="mr-1.5 h-3.5 w-3.5" />
+                  Save as scanner
+                </Button>
               )}
             </Card>
 

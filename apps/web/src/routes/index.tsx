@@ -7,6 +7,7 @@ import { BacktestDetailPage } from '../pages/BacktestDetailPage';
 import { StockChartPage } from '../pages/StockChartPage';
 import { ToolsPage } from '../pages/tools/ToolsPage';
 import { ScannerPage } from '../pages/ScannerPage';
+import { ScannerEditorPage } from '../pages/ScannerEditorPage';
 import { SharedBacktestPage } from '../pages/SharedBacktestPage';
 import { FilterDocsPage } from '../pages/docs/FilterDocsPage';
 import { BillingPage } from '../pages/BillingPage';
@@ -92,6 +93,14 @@ export const routes: RouteObject[] = [
   {
     path: '/scanner',
     element: <ScannerPage />,
+  },
+  {
+    path: '/scanner/new',
+    element: <ScannerEditorPage />,
+  },
+  {
+    path: '/scanner/:scannerId',
+    element: <ScannerEditorPage />,
   },
   {
     path: '/settings',

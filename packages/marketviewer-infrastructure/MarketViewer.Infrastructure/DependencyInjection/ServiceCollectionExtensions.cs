@@ -41,6 +41,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IMarketDataRepository, MarketDataRepository>()
             .AddSingleton<ITradeRepository, TradeRepository>()
             .AddSingleton<IStrategyRepository, StrategyRepository>()
+            .AddSingleton<IScannerRepository, ScannerRepository>()
             .AddSingleton<IUserRepository, UserRepository>()
             .AddSingleton<IBillingLedgerRepository, BillingLedgerRepository>()
             .AddSingleton<IBacktestRepository, BacktestRepository>()

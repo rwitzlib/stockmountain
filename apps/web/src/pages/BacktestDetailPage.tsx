@@ -405,6 +405,30 @@ export function BacktestDetailPage() {
     });
   };
 
+  const handleCreateScanner = () => {
+    if (!data?.backtestEntry) return;
+
+    const { name, entrySettings } = mapBacktestToStrategy(data.backtestEntry);
+
+    // Records from the legacy operand-tree era have no expression filters to
+    // carry over — an empty scanner would be a silently broken handoff.
+    if (entrySettings.filters.length === 0) {
+      toast({
+        title: 'Scanner unavailable',
+        description:
+          'This backtest predates expression filters, so its conditions cannot be carried into a scanner.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    navigate('/scanner/new', {
+      state: {
+        initialData: { name, entrySettings },
+      },
+    });
+  };
+
   const requestData = data?.backtestEntry ? getRequestData(data.backtestEntry) : null;
   const startingBalance = requestData?.positionInfo.startingBalance || 10000;
 
@@ -549,12 +573,9 @@ export function BacktestDetailPage() {
                   <Bot className="mr-2 h-4 w-4" />
                   Strategy
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled>
+                <DropdownMenuItem onClick={handleCreateScanner}>
                   <Radar className="mr-2 h-4 w-4" />
                   Scanner
-                  <span className="ml-auto pl-3 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Soon
-                  </span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

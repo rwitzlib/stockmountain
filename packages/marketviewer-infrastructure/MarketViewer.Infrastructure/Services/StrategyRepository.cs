@@ -71,19 +71,34 @@ public class StrategyRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb,
     {
         try
         {
-            var request = new QueryRequest
-            {
-                TableName = config.TableName,
-                IndexName = config.UserIndexName,
-                KeyConditionExpression = "UserId = :userId",
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    { ":userId", new AttributeValue { S = userId } }
-                }
-            };
+            var strategies = new List<StrategyDto>();
+            Dictionary<string, AttributeValue> exclusiveStartKey = null;
 
-            var response = await dynamoDb.QueryAsync(request);
-            return (response.Items ?? []).Select(MapToStrategyDto);
+            // The prefix filter runs after each 1MB page is read, so a page can be
+            // exhausted by scanner rows — keep querying until the key runs dry.
+            do
+            {
+                var request = new QueryRequest
+                {
+                    TableName = config.TableName,
+                    IndexName = config.UserIndexName,
+                    KeyConditionExpression = "UserId = :userId",
+                    // Scanners share this table (and GSI) under the SCANNER# prefix — keep them out.
+                    FilterExpression = "begins_with(PK, :prefix)",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        { ":userId", new AttributeValue { S = userId } },
+                        { ":prefix", new AttributeValue { S = "BOT#" } }
+                    },
+                    ExclusiveStartKey = exclusiveStartKey
+                };
+
+                var response = await dynamoDb.QueryAsync(request);
+                strategies.AddRange((response.Items ?? []).Select(MapToStrategyDto));
+                exclusiveStartKey = response.LastEvaluatedKey;
+            } while (exclusiveStartKey is { Count: > 0 });
+
+            return strategies;
         }
         catch (Exception ex)
         {
@@ -96,20 +111,33 @@ public class StrategyRepository(StrategyConfig config, IAmazonDynamoDB dynamoDb,
     {
         try
         {
-            var request = new QueryRequest
-            {
-                TableName = config.TableName,
-                IndexName = config.VisibilityIndexName,
-                KeyConditionExpression = "Visibility = :visibility",
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    { ":visibility", new AttributeValue { S = visibility.ToString() } }
-                },
-                ReturnConsumedCapacity = ReturnConsumedCapacity.TOTAL
-            };
+            var strategies = new List<StrategyDto>();
+            Dictionary<string, AttributeValue> exclusiveStartKey = null;
 
-            var response = await dynamoDb.QueryAsync(request);
-            return (response.Items ?? []).Select(MapToStrategyDto);
+            do
+            {
+                var request = new QueryRequest
+                {
+                    TableName = config.TableName,
+                    IndexName = config.VisibilityIndexName,
+                    KeyConditionExpression = "Visibility = :visibility",
+                    // Scanners share this table under the SCANNER# prefix — keep them out.
+                    FilterExpression = "begins_with(PK, :prefix)",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        { ":visibility", new AttributeValue { S = visibility.ToString() } },
+                        { ":prefix", new AttributeValue { S = "BOT#" } }
+                    },
+                    ReturnConsumedCapacity = ReturnConsumedCapacity.TOTAL,
+                    ExclusiveStartKey = exclusiveStartKey
+                };
+
+                var response = await dynamoDb.QueryAsync(request);
+                strategies.AddRange((response.Items ?? []).Select(MapToStrategyDto));
+                exclusiveStartKey = response.LastEvaluatedKey;
+            } while (exclusiveStartKey is { Count: > 0 });
+
+            return strategies;
         }
         catch (Exception ex)
         {

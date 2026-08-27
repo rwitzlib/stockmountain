@@ -1,3 +1,4 @@
+using MarketViewer.Application.Services;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Requests.Market.Filters;
@@ -64,14 +65,14 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
             var parsed = _engine.ParseExpression(expression);
             if (context is { } required)
             {
-                var offender = FindContextViolation(parsed, required);
-                if (offender is not null)
+                var violation = FilterExpressionValidator.GetContextViolation(parsed, required);
+                if (violation is not null)
                 {
                     return new FilterValidationResult
                     {
                         Expression = expression,
                         Valid = false,
-                        Error = $"'{offender.Name}' is not available in {ContextNames[required]} filters (valid in: {string.Join(", ", ContextList(offender.Contexts))}).",
+                        Error = violation,
                     };
                 }
             }
@@ -239,61 +240,13 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
 
     #region Contexts
 
-    private static readonly Dictionary<FilterContext, string> ContextNames = new()
-    {
-        [FilterContext.Scan] = "scan",
-        [FilterContext.Backtest] = "backtest",
-        [FilterContext.Chart] = "chart",
-    };
+    private static Dictionary<FilterContext, string> ContextNames => FilterExpressionValidator.ContextNames;
 
-    public static bool TryParseContext(string value, out FilterContext context)
-    {
-        foreach (var (flag, name) in ContextNames)
-        {
-            if (string.Equals(name, value, StringComparison.OrdinalIgnoreCase))
-            {
-                context = flag;
-                return true;
-            }
-        }
-        context = FilterContext.None;
-        return false;
-    }
+    public static bool TryParseContext(string value, out FilterContext context) =>
+        FilterExpressionValidator.TryParseContext(value, out context);
 
     private static List<string> ContextList(FilterContext contexts) =>
-        ContextNames.Where(kv => contexts.HasFlag(kv.Key)).Select(kv => kv.Value).ToList();
-
-    /// <summary>
-    /// Walks the parsed expression and returns the first function/keyword descriptor that is not
-    /// declared for <paramref name="context"/>, or null when everything is allowed.
-    /// </summary>
-    private static FunctionDescriptor? FindContextViolation(IExpression expression, FilterContext context)
-    {
-        switch (expression)
-        {
-            case TimeframeRangeExpression range:
-                return FindContextViolation(range.GetInnerExpression(), context);
-            case BinaryExpression binary:
-                return FindContextViolation(binary.Left, context) ?? FindContextViolation(binary.Right, context);
-            case UnaryExpression unary:
-                return FindContextViolation(unary.Operand, context);
-            case FieldAccessExpression field:
-                return FindContextViolation(field.GetTargetExpression(), context);
-            case FunctionCallExpression function:
-                if (FunctionRegistry.TryGetFunction(function.FunctionName, out var fd) && !fd.SupportsContext(context))
-                    return fd;
-                foreach (var arg in function.GetArguments())
-                {
-                    var inner = FindContextViolation(arg, context);
-                    if (inner is not null) return inner;
-                }
-                return null;
-            case DataAccessExpression data:
-                return KeywordRegistry.TryGet(data.GetFieldName(), out var kd) && !kd.SupportsContext(context) ? kd : null;
-            default:
-                return null;
-        }
-    }
+        FilterExpressionValidator.ContextList(contexts);
 
     #endregion
 

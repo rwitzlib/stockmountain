@@ -574,8 +574,8 @@ function Features() {
             The whole research desk.
           </h2>
           <p className="mt-3 max-w-xl text-sm text-muted-foreground sm:text-base">
-            Everything between "I have a hunch" and "I have a system" — plus a stock scanner in
-            early access.
+            Everything between "I have a hunch" and "I have a system" — plus a stock scanner
+            running your saved filters on live market data.
           </p>
         </Reveal>
 
@@ -640,7 +640,7 @@ const PLANS: Plan[] = [
       '1,000 backtest credits / month',
       '10 paper trading bots — simulator + broker paper',
       'Strategy optimizer',
-      'Stock scanner (early access)',
+      'Stock scanner — saved scans on live market data',
       'Masked sharing — publish results, hide your rules',
       'Filter library & templates',
     ],
