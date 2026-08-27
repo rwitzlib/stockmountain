@@ -133,9 +133,14 @@ export function ScannerEditorPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Scanner }) => scannerApi.updateScanner(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['scanner'] });
-      queryClient.invalidateQueries({ queryKey: ['myScanners'] });
+    // Awaiting the invalidations keeps isPending (and the input freeze) true until the
+    // active scanner query has refetched — otherwise an edit made in that window would
+    // be overwritten when the initialization effect copies the refetched snapshot in.
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['scanner'] }),
+        queryClient.invalidateQueries({ queryKey: ['myScanners'] }),
+      ]);
       setHasUnsavedChanges(false);
       toast({ title: 'Scanner updated', description: `"${formData.name}" has been saved.` });
     },
