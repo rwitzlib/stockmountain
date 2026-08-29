@@ -14,6 +14,7 @@ import {
 import { ThemeToggle } from './ThemeToggle';
 import { Brand, BrandMark } from './Brand';
 import { navItems, NavChild } from './navConfig';
+import { useIsAdmin } from '../../hooks/useIsAdmin';
 
 const COLLAPSED_STORAGE_KEY = 'sm-sidebar-collapsed';
 
@@ -83,6 +84,7 @@ interface NavListProps {
 /** The main nav tree, shared between desktop sidebar and mobile menu. */
 function NavList({ isCollapsed = false, onNavigate }: NavListProps) {
   const location = useLocation();
+  const { isAdmin } = useIsAdmin();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   // Auto-expand the group containing the current route.
@@ -96,7 +98,8 @@ function NavList({ isCollapsed = false, onNavigate }: NavListProps) {
 
   return (
     <>
-      {navItems.map(({ path, icon: Icon, label, end, children }) => {
+      {navItems.map(({ path, icon: Icon, label, end, children: allChildren }) => {
+        const children = allChildren?.filter((child) => !child.adminOnly || isAdmin);
         const isGroupOpen = !!openGroups[path];
         const showChildren = !!children && !isCollapsed && isGroupOpen;
 
