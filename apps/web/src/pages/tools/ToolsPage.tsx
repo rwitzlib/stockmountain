@@ -1,25 +1,14 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { BarChart3, Calculator, Database, Camera, Scan, LucideIcon } from 'lucide-react';
+import { Database, Camera, Scan, LucideIcon } from 'lucide-react';
+import { useIsAdmin } from '../../hooks/useIsAdmin';
 
 const tools: {
-  to?: string;
+  to: string;
   icon: LucideIcon;
   title: string;
   description: string;
-  comingSoon?: boolean;
+  adminOnly?: boolean;
 }[] = [
-  {
-    to: '/tools/aggregate',
-    icon: Database,
-    title: 'Data Aggregator',
-    description: 'Upload, visualize, and analyze market data',
-  },
-  {
-    to: '/tools/snapshot',
-    icon: Camera,
-    title: 'Snapshot Tool',
-    description: 'Input JSON data and view in formatted tables',
-  },
   {
     to: '/tools/chart-filters',
     icon: Scan,
@@ -27,26 +16,31 @@ const tools: {
     description: 'Configure filters and highlight matches on chart',
   },
   {
-    icon: Calculator,
-    title: 'Position Sizer',
-    description: 'Calculate optimal position sizes',
-    comingSoon: true,
+    to: '/tools/aggregate',
+    icon: Database,
+    title: 'Data Aggregator',
+    description: 'Upload, visualize, and analyze market data',
+    adminOnly: true,
   },
   {
-    icon: BarChart3,
-    title: 'Performance Analyzer',
-    description: 'Analyze trading performance',
-    comingSoon: true,
+    to: '/tools/snapshot',
+    icon: Camera,
+    title: 'Snapshot Tool',
+    description: 'Input JSON data and view in formatted tables',
+    adminOnly: true,
   },
 ];
 
 export function ToolsPage() {
   const location = useLocation();
+  const { isAdmin } = useIsAdmin();
   const isMainToolsPage = location.pathname === '/tools';
 
   if (!isMainToolsPage) {
     return <Outlet />;
   }
+
+  const visibleTools = tools.filter((tool) => !tool.adminOnly || isAdmin);
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 pt-20 md:pt-8">
@@ -62,45 +56,21 @@ export function ToolsPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {tools.map(({ to, icon: Icon, title, description, comingSoon }) => {
-            const inner = (
-              <>
-                <div className="mb-3 flex items-center gap-4">
-                  <div className="rounded-lg border border-border bg-muted/60 p-2 text-muted-foreground transition-colors group-hover:text-foreground">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
-                  {comingSoon && (
-                    <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                      Coming soon
-                    </span>
-                  )}
+          {visibleTools.map(({ to, icon: Icon, title, description }) => (
+            <Link
+              key={title}
+              to={to}
+              className="group block rounded-xl border border-border/80 bg-card p-6 transition-colors hover:border-muted-foreground/40 hover:bg-accent/40"
+            >
+              <div className="mb-3 flex items-center gap-4">
+                <div className="rounded-lg border border-border bg-muted/60 p-2 text-muted-foreground transition-colors group-hover:text-foreground">
+                  <Icon className="h-5 w-5" />
                 </div>
-                <p className="text-sm text-muted-foreground">{description}</p>
-              </>
-            );
-
-            if (to) {
-              return (
-                <Link
-                  key={title}
-                  to={to}
-                  className="group block rounded-xl border border-border/80 bg-card p-6 transition-colors hover:border-muted-foreground/40 hover:bg-accent/40"
-                >
-                  {inner}
-                </Link>
-              );
-            }
-
-            return (
-              <div
-                key={title}
-                className="block rounded-xl border border-border/60 bg-card/60 p-6 opacity-70"
-              >
-                {inner}
+                <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
               </div>
-            );
-          })}
+              <p className="text-sm text-muted-foreground">{description}</p>
+            </Link>
+          ))}
         </div>
       </div>
     </div>

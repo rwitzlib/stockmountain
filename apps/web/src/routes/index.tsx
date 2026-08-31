@@ -11,6 +11,7 @@ import { ScannerEditorPage } from '../pages/ScannerEditorPage';
 import { SharedBacktestPage } from '../pages/SharedBacktestPage';
 import { FilterDocsPage } from '../pages/docs/FilterDocsPage';
 import { BillingPage } from '../pages/BillingPage';
+import { AdminGate } from '../components/auth/AdminGate';
 
 // Lazy load tool pages for better performance
 const AggregatePage = lazy(() => import('../pages/tools/aggregate/AggregatePage').then(module => ({ default: module.AggregatePage })));
@@ -67,17 +68,21 @@ export const routes: RouteObject[] = [
       {
         path: 'aggregate',
         element: (
-          <Suspense fallback={<LoadingFallback />}>
-            <AggregatePage />
-          </Suspense>
+          <AdminGate>
+            <Suspense fallback={<LoadingFallback />}>
+              <AggregatePage />
+            </Suspense>
+          </AdminGate>
         ),
       },
       {
         path: 'snapshot',
         element: (
-          <Suspense fallback={<LoadingFallback />}>
-            <SnapshotPage />
-          </Suspense>
+          <AdminGate>
+            <Suspense fallback={<LoadingFallback />}>
+              <SnapshotPage />
+            </Suspense>
+          </AdminGate>
         ),
       },
       {
