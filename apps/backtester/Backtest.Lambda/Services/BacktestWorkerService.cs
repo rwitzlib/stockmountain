@@ -1,5 +1,6 @@
 using Amazon.Lambda;
 using Amazon.Lambda.Model;
+using Backtest.Lambda.Models;
 using MarketViewer.Contracts.Requests.Market.Backtest;
 using MarketViewer.Contracts.Responses.Market.Backtest;
 using MarketViewer.Infrastructure.Config;
@@ -11,12 +12,21 @@ namespace Backtest.Lambda.Services;
 
 /// <summary>
 /// Fans a backtest request out to the worker lambda, one invocation per trading day.
+/// Each worker stores its full day result in S3 and returns a <see cref="WorkerResultLocation"/>
+/// pointer, which is resolved here; day results are never carried in the invocation
+/// response because they can exceed Lambda's 6MB synchronous response limit.
 /// </summary>
 public class BacktestWorkerService(
     BacktestConfig config,
     IAmazonLambda lambda,
+    WorkerResultStore resultStore,
     ILogger<BacktestWorkerService> logger)
 {
+    private static readonly JsonSerializerOptions LocationOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     public async Task<List<WorkerResponse>> GetBacktestResultsFromLambda(OrchestratorRequest request)
     {
         var days = request.End == request.Start ? [request.Start] : Enumerable.Range(0, (request.End - request.Start).Days + 1)
@@ -74,7 +84,7 @@ public class BacktestWorkerService(
                 var response = await lambda.InvokeAsync(invokeRequest);
 
                 // FunctionError is set when the worker itself crashed (timeout, OOM) —
-                // the payload is then an error document, not a WorkerResponse.
+                // the payload is then an error document, not a WorkerResultLocation.
                 if (!string.IsNullOrEmpty(response.FunctionError))
                 {
                     lastError = $"worker crashed ({response.FunctionError}): {ReadPayload(response)}";
@@ -85,14 +95,33 @@ public class BacktestWorkerService(
                 }
                 else
                 {
-                    var backtestEntry = JsonSerializer.Deserialize<WorkerResponse>(ReadPayload(response));
+                    var location = JsonSerializer.Deserialize<WorkerResultLocation>(ReadPayload(response), LocationOptions);
 
-                    if (backtestEntry is not null)
+                    if (location is null)
                     {
-                        return backtestEntry;
+                        lastError = "unreadable response from worker";
                     }
+                    else if (!string.IsNullOrEmpty(location.Error))
+                    {
+                        lastError = location.Error;
+                    }
+                    else if (string.IsNullOrEmpty(location.S3Key))
+                    {
+                        lastError = "worker response did not include a result location";
+                    }
+                    else
+                    {
+                        // A fetch/parse failure here throws into the catch below and counts
+                        // against the same retry budget as a failed invocation.
+                        var backtestEntry = await resultStore.Get(location.S3Key);
 
-                    lastError = "unreadable response from worker";
+                        if (backtestEntry is not null)
+                        {
+                            return backtestEntry;
+                        }
+
+                        lastError = "stored worker result was empty";
+                    }
                 }
             }
             catch (Exception e)
