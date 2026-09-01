@@ -63,49 +63,55 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         var sp = new Stopwatch();
         sp.Start();
 
-        WorkerResponse response;
         try
         {
-            response = await RunDay(request, wideEvent, sp);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Backtest worker failed for {BacktestDate}", request.Date.ToString("yyyy-MM-dd"));
-            wideEvent.SetError(ex).Set("credits_used", CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds));
-            response = new WorkerResponse
+            WorkerResponse response;
+            try
             {
-                Date = request.Date.Date,
-                CreditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds),
-                Results = [],
-                Errors = [$"Day failed: {ex.Message}"]
-            };
-        }
-
-        try
-        {
-            // The full response goes back through S3 unconditionally: a signal-heavy day
-            // serializes past Lambda's 6MB synchronous response limit, and an oversized
-            // return doesn't fail cleanly - it kills the runtime with a broken pipe while
-            // posting the response, costing the container and tripping pointless retries.
-            var (s3Key, storedBytes) = await _resultStore.Put(request.BacktestId, request.Date, response);
-            wideEvent.Set("result_bytes", storedBytes);
-
-            return new WorkerResultLocation
+                response = await RunDay(request, wideEvent, sp);
+            }
+            catch (Exception ex)
             {
-                Date = request.Date.Date,
-                S3Key = s3Key
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to store worker results for {BacktestDate}", request.Date.ToString("yyyy-MM-dd"));
-            wideEvent.SetError(ex);
+                _logger.LogError(ex, "Backtest worker failed for {BacktestDate}", request.Date.ToString("yyyy-MM-dd"));
+                wideEvent.SetError(ex).Set("credits_used", CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds));
 
-            return new WorkerResultLocation
+                // A thrown day is often transient (e.g. market-data setup failing on a
+                // memory-pressured warm container), and a retry lands on a fresh container.
+                // Return the failure as an error the orchestrator retries, rather than a
+                // stored failed-day response it would accept on the first attempt.
+                return new WorkerResultLocation
+                {
+                    Date = request.Date.Date,
+                    Error = $"Day failed: {ex.Message}"
+                };
+            }
+
+            try
             {
-                Date = request.Date.Date,
-                Error = $"Failed to store worker results: {ex.Message}"
-            };
+                // The full response goes back through S3 unconditionally: a signal-heavy day
+                // serializes past Lambda's 6MB synchronous response limit, and an oversized
+                // return doesn't fail cleanly - it kills the runtime with a broken pipe while
+                // posting the response, costing the container and tripping pointless retries.
+                var (s3Key, storedBytes) = await _resultStore.Put(request.BacktestId, request.Date, response);
+                wideEvent.Set("result_bytes", storedBytes);
+
+                return new WorkerResultLocation
+                {
+                    Date = request.Date.Date,
+                    S3Key = s3Key
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to store worker results for {BacktestDate}", request.Date.ToString("yyyy-MM-dd"));
+                wideEvent.SetError(ex);
+
+                return new WorkerResultLocation
+                {
+                    Date = request.Date.Date,
+                    Error = $"Failed to store worker results: {ex.Message}"
+                };
+            }
         }
         finally
         {
