@@ -163,7 +163,7 @@ resource "aws_lambda_function" "backtest_orchestrator" {
   function_name = "${var.team}-${var.environment}-${local.backtest_orchestrator_service}"
   role          = aws_iam_role.backtest_lambda.arn
 
-  memory_size = 3072
+  memory_size = 10240
   timeout     = 900
 
   architectures = ["x86_64"]
