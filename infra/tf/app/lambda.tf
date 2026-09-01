@@ -105,9 +105,9 @@ resource "aws_lambda_function" "billing_refill" {
 
   environment {
     variables = {
-      ASPNETCORE_ENVIRONMENT          = var.environment
-      UserConfig__TableName           = aws_dynamodb_table.user.name
-      BillingLedgerConfig__TableName  = aws_dynamodb_table.billing_ledger.name
+      ASPNETCORE_ENVIRONMENT         = var.environment
+      UserConfig__TableName          = aws_dynamodb_table.user.name
+      BillingLedgerConfig__TableName = aws_dynamodb_table.billing_ledger.name
     }
   }
 
@@ -163,7 +163,7 @@ resource "aws_lambda_function" "backtest_orchestrator" {
   function_name = "${var.team}-${var.environment}-${local.backtest_orchestrator_service}"
   role          = aws_iam_role.backtest_lambda.arn
 
-  memory_size = 1024
+  memory_size = 2048
   timeout     = 900
 
   architectures = ["x86_64"]

@@ -26,10 +26,10 @@ http:
         },
         "entrySettings": {
           "filters": [
-            "crosses_over(ema(50), ema(200)) [1d]",
-            "macd(12,26,9,ema) > 0 [1d]",
-            "float > 30000000",
-            "time < 10:00"
+            "close > ema(9) [1m]",
+            "close > ema(20) [1m]",
+            "close > ema(200) [1m]",
+            "float > 30000000"
           ]
         },
         "exitSettings": {
@@ -42,10 +42,10 @@ http:
             "value": 15
           },
           "timedExit": {
-            "avoidOvernight": false,
+            "avoidOvernight": true,
             "timeframe": {
-              "multiplier": 14,
-              "timespan": "day"
+              "multiplier": 15,
+              "timespan": "minute"
             }
           }
         }
@@ -62,3 +62,4 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
