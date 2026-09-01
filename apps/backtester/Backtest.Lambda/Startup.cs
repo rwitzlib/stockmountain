@@ -63,6 +63,7 @@ public static class Startup
             .AddSingleton<IndicatorExpressionEngine>()
             .AddSingleton<IBacktestRepository, BacktestRepository>()
             .AddSingleton<BacktestWorkerService>()
+            .AddSingleton<WorkerResultStore>()
             .AddSingleton<DataCache>()
             .AddLogging();
 

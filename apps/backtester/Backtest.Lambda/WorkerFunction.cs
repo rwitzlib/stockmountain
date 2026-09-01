@@ -29,6 +29,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
     private readonly IMarketCache _marketCache = serviceProvider.GetService<IMarketCache>();
     private readonly IMemoryCache _memoryCache = serviceProvider.GetService<IMemoryCache>();
     private readonly IMassiveClient _massiveClient = serviceProvider.GetRequiredService<IMassiveClient>();
+    private readonly WorkerResultStore _resultStore = serviceProvider.GetRequiredService<WorkerResultStore>();
 
     public readonly ScannerService _scannerService = serviceProvider.GetService<ScannerService>();
     public readonly IndicatorExpressionEngine _engine = serviceProvider.GetService<IndicatorExpressionEngine>();
@@ -42,7 +43,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
     public WorkerFunction() : this(Startup.ConfigureServices()) { }
 
-    public async Task<WorkerResponse> FunctionHandler(WorkerRequest request, ILambdaContext context)
+    public async Task<WorkerResultLocation> FunctionHandler(WorkerRequest request, ILambdaContext context)
     {
         using var logScope = _logger.BeginScope(new Dictionary<string, object?>
         {
@@ -64,87 +65,53 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
         try
         {
-            var strategyEntries = await _scannerService.GetStrategyEntries(request);
-
-            var (cacheHits, cacheMisses) = _scannerService.LastScanCacheStats;
-            wideEvent.Set("entry_count", strategyEntries.Count)
-                .Set("scan_ms", sp.ElapsedMilliseconds)
-                .Set("filter_cache_hits", cacheHits)
-                .Set("filter_cache_misses", cacheMisses);
-
-            if (strategyEntries.Count == 0)
+            WorkerResponse response;
+            try
             {
-                var creditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds);
-                wideEvent.Set("result_count", 0).Set("credits_used", creditsUsed);
-                return new WorkerResponse
+                response = await RunDay(request, wideEvent, sp);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Backtest worker failed for {BacktestDate}", request.Date.ToString("yyyy-MM-dd"));
+                wideEvent.SetError(ex).Set("credits_used", CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds));
+
+                // A thrown day is often transient (e.g. market-data setup failing on a
+                // memory-pressured warm container), and a retry lands on a fresh container.
+                // Return the failure as an error the orchestrator retries, rather than a
+                // stored failed-day response it would accept on the first attempt.
+                return new WorkerResultLocation
                 {
                     Date = request.Date.Date,
-                    CreditsUsed = creditsUsed,
-                    Results = []
+                    Error = $"Day failed: {ex.Message}"
                 };
             }
 
-            var scanMs = sp.ElapsedMilliseconds;
-            var (backtestResults, entryErrors, gateSkipped) = await GetBacktestResults(strategyEntries, request);
-
-            sp.Stop();
-
-            wideEvent.Set("compute_ms", sp.ElapsedMilliseconds - scanMs)
-                .Set("result_count", backtestResults.Count)
-                .Set("dropped_signal_count", entryErrors.Count)
-                .Set("gate_skipped_count", gateSkipped)
-                .Set("credits_used", CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds));
-
-            if (backtestResults.Count == 0)
+            try
             {
-                return new WorkerResponse
+                // The full response goes back through S3 unconditionally: a signal-heavy day
+                // serializes past Lambda's 6MB synchronous response limit, and an oversized
+                // return doesn't fail cleanly - it kills the runtime with a broken pipe while
+                // posting the response, costing the container and tripping pointless retries.
+                var (s3Key, storedBytes) = await _resultStore.Put(request.BacktestId, request.Date, response);
+                wideEvent.Set("result_bytes", storedBytes);
+
+                return new WorkerResultLocation
                 {
                     Date = request.Date.Date,
-                    CreditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds),
-                    Results = [],
-                    Errors = SummarizeErrors(entryErrors)
+                    S3Key = s3Key
                 };
             }
-
-            var holdProfits = backtestResults.Where(result => result.Hold.Profit > 0).Select(result => result.Hold.Profit).ToList();
-            var holdLosses = backtestResults.Where(result => result.Hold.Profit < 0).Select(result => result.Hold.Profit).ToList();
-
-            var highProfits = backtestResults.Where(result => result.High.Profit > 0).Select(result => result.High.Profit).ToList();
-            var highLosses = backtestResults.Where(result => result.High.Profit < 0).Select(result => result.High.Profit).ToList();
-
-            return new WorkerResponse
+            catch (Exception ex)
             {
-                Date = request.Date,
-                CreditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds),
-                Hold = new BacktestEntryStats
+                _logger.LogError(ex, "Failed to store worker results for {BacktestDate}", request.Date.ToString("yyyy-MM-dd"));
+                wideEvent.SetError(ex);
+
+                return new WorkerResultLocation
                 {
-                    WinRatio = holdProfits.Count + holdLosses.Count > 0 ? (float)holdProfits.Count / (holdProfits.Count + holdLosses.Count) : 0,
-                    AvgLoss = holdLosses.Any() ? holdLosses.Average() : 0,
-                    AvgWin = holdProfits.Any() ? holdProfits.Average() : 0,
-                    BalanceChange = backtestResults.Sum(result => result.Hold.Profit)
-                },
-                High = new BacktestEntryStats
-                {
-                    WinRatio = highProfits.Count + highLosses.Count > 0 ? (float)highProfits.Count / (highProfits.Count + highLosses.Count) : 0,
-                    AvgLoss = highLosses.Any() ? highLosses.Average() : 0,
-                    AvgWin = highProfits.Any() ? highProfits.Average() : 0,
-                    BalanceChange = backtestResults.Sum(result => result.High.Profit)
-                },
-                Results = backtestResults,
-                Errors = SummarizeErrors(entryErrors)
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Backtest worker failed for {BacktestDate}", request.Date.ToString("yyyy-MM-dd"));
-            wideEvent.SetError(ex).Set("credits_used", CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds));
-            return new WorkerResponse
-            {
-                Date = request.Date.Date,
-                CreditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds),
-                Results = [],
-                Errors = [$"Day failed: {ex.Message}"]
-            };
+                    Date = request.Date.Date,
+                    Error = $"Failed to store worker results: {ex.Message}"
+                };
+            }
         }
         finally
         {
@@ -160,6 +127,79 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
             wideEvent.Emit();
         }
+    }
+
+    private async Task<WorkerResponse> RunDay(WorkerRequest request, WideEvent wideEvent, Stopwatch sp)
+    {
+        var strategyEntries = await _scannerService.GetStrategyEntries(request);
+
+        var (cacheHits, cacheMisses) = _scannerService.LastScanCacheStats;
+        wideEvent.Set("entry_count", strategyEntries.Count)
+            .Set("scan_ms", sp.ElapsedMilliseconds)
+            .Set("filter_cache_hits", cacheHits)
+            .Set("filter_cache_misses", cacheMisses);
+
+        if (strategyEntries.Count == 0)
+        {
+            var creditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds);
+            wideEvent.Set("result_count", 0).Set("credits_used", creditsUsed);
+            return new WorkerResponse
+            {
+                Date = request.Date.Date,
+                CreditsUsed = creditsUsed,
+                Results = []
+            };
+        }
+
+        var scanMs = sp.ElapsedMilliseconds;
+        var (backtestResults, entryErrors, gateSkipped) = await GetBacktestResults(strategyEntries, request);
+
+        sp.Stop();
+
+        wideEvent.Set("compute_ms", sp.ElapsedMilliseconds - scanMs)
+            .Set("result_count", backtestResults.Count)
+            .Set("dropped_signal_count", entryErrors.Count)
+            .Set("gate_skipped_count", gateSkipped)
+            .Set("credits_used", CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds));
+
+        if (backtestResults.Count == 0)
+        {
+            return new WorkerResponse
+            {
+                Date = request.Date.Date,
+                CreditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds),
+                Results = [],
+                Errors = SummarizeErrors(entryErrors)
+            };
+        }
+
+        var holdProfits = backtestResults.Where(result => result.Hold.Profit > 0).Select(result => result.Hold.Profit).ToList();
+        var holdLosses = backtestResults.Where(result => result.Hold.Profit < 0).Select(result => result.Hold.Profit).ToList();
+
+        var highProfits = backtestResults.Where(result => result.High.Profit > 0).Select(result => result.High.Profit).ToList();
+        var highLosses = backtestResults.Where(result => result.High.Profit < 0).Select(result => result.High.Profit).ToList();
+
+        return new WorkerResponse
+        {
+            Date = request.Date,
+            CreditsUsed = CreditMeter.Compute(MEMORY_FACTOR, sp.Elapsed.TotalSeconds),
+            Hold = new BacktestEntryStats
+            {
+                WinRatio = holdProfits.Count + holdLosses.Count > 0 ? (float)holdProfits.Count / (holdProfits.Count + holdLosses.Count) : 0,
+                AvgLoss = holdLosses.Any() ? holdLosses.Average() : 0,
+                AvgWin = holdProfits.Any() ? holdProfits.Average() : 0,
+                BalanceChange = backtestResults.Sum(result => result.Hold.Profit)
+            },
+            High = new BacktestEntryStats
+            {
+                WinRatio = highProfits.Count + highLosses.Count > 0 ? (float)highProfits.Count / (highProfits.Count + highLosses.Count) : 0,
+                AvgLoss = highLosses.Any() ? highLosses.Average() : 0,
+                AvgWin = highProfits.Any() ? highProfits.Average() : 0,
+                BalanceChange = backtestResults.Sum(result => result.High.Profit)
+            },
+            Results = backtestResults,
+            Errors = SummarizeErrors(entryErrors)
+        };
     }
 
     #region Private Methods
