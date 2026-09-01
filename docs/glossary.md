@@ -1,5 +1,35 @@
 # Glossary
 
+## Wide Event
+
+One context-rich JSON log line emitted exactly once per lambda invocation from a `finally`
+block; the primary diagnostic instrument. Field reference: `docs/observability.md`.
+
+## Worker Result Handoff
+
+The worker's full per-day `WorkerResponse` stored at S3 `workerResults/{backtestId}/{date}`
+and returned to the orchestrator as a `WorkerResultLocation` pointer (ADR 0005).
+
+## Filter Cache
+
+Per-(filter, date) scan results cached at S3 `strategyEntries/{CacheVersion}/…`; the
+version segment must be bumped whenever filter semantics change.
+
+## Placeholder Day
+
+The `WorkerResponse` the orchestrator fabricates for a day that failed all three worker
+attempts, so the failure is visible on the backtest record instead of the day silently
+vanishing.
+
+## Execution Minute
+
+A bar timestamped T is only observable once it completes at T+1; trades are stamped and
+eligibility is checked on that execution clock, mirroring live behavior (ADR 0003/0004).
+
+## Credit
+
+Billing unit for backtest compute: 100 GB-seconds of worker time (`CreditMeter`).
+
 ## Market Data Aggregator
 
 Lambda that retrieves ticker details and historical aggregate bars from Massive and writes bulk market data objects to S3.

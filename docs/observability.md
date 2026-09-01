@@ -1,4 +1,72 @@
-# Grafana logging
+# Observability
+
+Two halves: **reading the telemetry** (below — start here when diagnosing) and **setting
+up the pipelines** (second half). Symptom-driven entry points live in
+[runbook.md](runbook.md).
+
+## Reading the telemetry
+
+### Wide events (canonical log lines)
+
+Each backtest lambda invocation emits exactly one JSON line from a `finally` block
+(`MarketViewer.Infrastructure/Logging/WideEvent.cs`) — it survives handler failures and,
+because it fires *before* the response is posted, even runtime death. It is the primary
+instrument: one line answers "what did this invocation do and what did it cost".
+
+Base fields (all services): `event=canonical`, `timestamp`, `service`, `function_name`,
+`region`, `environment`, `commit`, `cold_start`, `memory_mb`, `aws_request_id`,
+`duration_ms`, `level`, `outcome` (`success`|`error`), `error_type`, `error_message`,
+`est_gb_seconds`, `est_cost_usd` (estimates — the platform `REPORT` record is
+billing-exact).
+
+`service=backtest-worker` adds: `backtest_id`, `user_id`, `backtest_date`, `filter_count`,
+`entry_count`, `scan_ms`, `filter_cache_hits`/`filter_cache_misses`, `result_count`,
+`compute_ms`, `dropped_signal_count`, `gate_skipped_count`, `credits_used`, `result_bytes`
+(stored S3 payload size — watch this for payload growth).
+
+`service=backtest-orchestrator` adds: `backtest_id`, `user_id`, `backtest_start`/`_end`,
+`day_span`, `filter_count`, `estimated_credit_cost`, `available_credits`,
+`worker_day_count`, `relevant_day_count`, `fan_out_ms`, `worker_error_count`,
+`backtest_status`, `failure_reason` (values listed in
+[registry.md](registry.md#error-propagation--retry-budgets)), `credits_used`,
+`hold_profit`, `high_profit`.
+
+**Adding a field?** `Set("snake_case", primitive)` in the handler and add it to the list
+above in the same PR.
+
+### Correlation keys
+
+Every backtest log line carries structured `BacktestId` (+ `BacktestDate` on workers) via
+log scope, and `AwsRequestId`. To walk one incident: record id → orchestrator wide event →
+per-day worker wide events (`backtest_id` field) → a crashed invocation's surrounding
+platform records (`aws_request_id` ↔ CloudWatch `requestId`).
+
+### Platform records
+
+Lambda JSON logging emits `platform.start` / `platform.report` / `platform.runtimeDone`
+records. `report` is the billing-exact source (`billedDurationMs`, `maxMemoryUsedMB` —
+the Grafana cost dashboards in `infra/tf/app/grafana.tf` are built on it). A
+`runtimeDone` with ERROR followed by a fresh `platform.start` = process crash + cold
+start; the crash's stderr lines sit between them.
+
+### Queries that answer common questions
+
+```logql
+# Everything about one backtest, both lambdas:
+{__aws_cloudwatch_log_group=~"/aws/lambda/stockmountain-dev-backtest-.*"} |= "<backtest-id>"
+
+# Wide events only, e.g. hunting oversized days:
+{__aws_cloudwatch_log_group="/aws/lambda/stockmountain-dev-backtest-worker"}
+  | json | event="canonical" | result_count > 5000
+
+# Crashed invocations (billing-exact):
+{__aws_cloudwatch_log_group="/aws/lambda/stockmountain-dev-backtest-worker"}
+  | json | type="platform.report" | record_status="error"
+```
+
+---
+
+# Pipeline setup (Grafana logging)
 
 StockMountain uses two log-ingestion paths:
 

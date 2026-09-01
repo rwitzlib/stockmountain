@@ -1,3 +1,42 @@
+# Plans
+
+Plans are **intentions**: self-contained hand-off units written for a fresh session with
+no other context. They describe a future; once implemented, the present belongs to
+[docs/system.md](../docs/system.md) and the registries, and the rationale to an ADR.
+Do not implement from a plan without checking its status below first — and when you finish
+one, flip its row in the same PR.
+
+## Lifecycle ledger
+
+Statuses are **self-verifying**: each row names a probe artifact whose existence in the
+tree signals implementation, so any session can re-check a row with one grep instead of
+trusting a date. Last swept 2026-09-01.
+
+| Plan | Status | Probe (exists ⇒ implemented) |
+|---|---|---|
+| 01 exit-reason | done | `BacktestExitReason` on `BacktestEntryResult` |
+| 02 mfe-mae | done | `MaxRunup` on `BacktestEntryResult` |
+| 04 skipped-signals | open | `SkippedSignals` (no hits) |
+| 05 entry-snapshot | open | `EntrySnapshot` (no hits) |
+| 06 day-winloss-intraday | open | `DayWins` (no hits) |
+| 07 share-backtest | done | `BacktestShareHandler` |
+| 08 automated-trading | in progress (phased) | `packages/alpaca-client` exists; later phases open |
+| 09 canonical-logging | done | `MarketViewer.Infrastructure/Logging/WideEvent.cs` |
+| 10 live-data-fidelity | unverified | probe when picked up |
+| 11 strategy-dsl-gaps | backlog (partial by design) | per-item |
+| 12 shared-create-forms | done | `apps/web/src/components/forms/strategy/EntrySettingsForm.tsx` |
+| 13 filter-builder-ux | done | `apps/web/src/components/filters/FilterChips.tsx` |
+| 14 golden-filter-tests | done | `tests/marketviewer-filters-unit-tests/…/Golden/` |
+| 15 filter-function-process | done | `RegistryParityTests`, `docs/filters/` |
+| 16 billing-and-e2e | done | `apps/billing`, `tests/e2e` |
+| 17 embedded-checkout-annual | done | `BillingInterval` on `UserRecord` |
+| 18 scanner | done | `apps/web/src/pages/ScannerEditorPage.tsx` |
+
+Authoring a new plan: number it, keep it hand-off-complete (a fresh session with only that
+file must be able to implement it), state its probe artifact up front, record settled
+design arguments in a "Decisions already made" section (implementers don't re-litigate),
+and add the row above.
+
 # Backtest payload enrichment plans
 
 Independent plans to enrich the backtest result payload, ranked by value. Each file is

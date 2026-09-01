@@ -6,6 +6,12 @@
 
 <!-- Commands run and results (build per project — the sln build is known-broken). -->
 
+## Docs sync
+
+<!-- Per the AGENTS.md docs-sync table: which registry/runbook/system-map/ledger rows this
+     PR updates, or "none needed". New limits, env vars, storage keys, wide-event fields,
+     failure modes, and finished plans all have a home. -->
+
 ---
 
 <details>
