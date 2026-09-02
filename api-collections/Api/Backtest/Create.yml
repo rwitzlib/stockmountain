@@ -26,6 +26,8 @@ http:
         },
         "entrySettings": {
           "filters": [
+            "adv() > 1.5 [1d]",
+            "macd(12,26,9,ema) > 0 [1m]",
             "crosses_over(ema(9), ema(21)) [1m]",
             "close > ema(50) [1m]",
             "close > ema(200) [1m]"
@@ -43,7 +45,7 @@ http:
           "timedExit": {
             "avoidOvernight": true,
             "timeframe": {
-              "multiplier": 15,
+              "multiplier": 5,
               "timespan": "minute"
             }
           }
