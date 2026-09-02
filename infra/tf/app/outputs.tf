@@ -77,7 +77,6 @@ output "web_aws_environment_variables" {
     VITE_API_URL                 = var.api_url
     PORT                         = var.web_port
     CLERK_WEBHOOK_SIGNING_SECRET = var.clerk_webhook_signing_secret
-    VITE_STRIPE_PUBLISHABLE_KEY  = var.vite_stripe_publishable_key
   }
 
   sensitive = true

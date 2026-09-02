@@ -74,7 +74,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("cs_secret_1");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_1");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -84,7 +84,7 @@ public class BillingControllerUnitTests
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeOfType<CheckoutSessionResponse>()
-            .Which.ClientSecret.Should().Be("cs_secret_1");
+            .Which.Url.Should().Be("https://checkout.stripe.com/c/pay/cs_1");
         _users.Verify(u => u.SetStripeCustomerId("user-1", "cus_new"), Times.Once);
         spec.CustomerId.Should().Be("cus_new");
         spec.PriceId.Should().Be("price_pro");
@@ -108,7 +108,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("cs_secret_4");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_4");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -127,7 +127,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("cs_secret_2");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_2");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -148,7 +148,7 @@ public class BillingControllerUnitTests
     {
         SetupUser(role: UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
-            .ReturnsAsync("cs_secret_3");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_3");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -226,7 +226,7 @@ public class BillingControllerUnitTests
         SetupUser(stripeCustomerId: "cus_1", subscriptionStatus: null);
         _gateway.Setup(g => g.HasLiveSubscription("cus_1")).ReturnsAsync(true);
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
-            .ReturnsAsync("cs_secret_5");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_5");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -246,7 +246,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("cs_secret_annual");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_annual");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -386,284 +386,6 @@ public class BillingControllerUnitTests
         objectResult.StatusCode.Should().Be(StatusCodes.Status502BadGateway);
         objectResult.Value.Should().BeEquivalentTo(
             new[] { "Stripe rejected the portal request: No such customer: 'cus_1'" });
-    }
-
-    private LiveSubscription SetupSubscription(
-        string priceId = "price_pro",
-        string status = "active",
-        bool cancelAtPeriodEnd = false,
-        string scheduleId = null,
-        string scheduledPriceId = null)
-    {
-        var subscription = new LiveSubscription
-        {
-            Id = "sub_1",
-            CustomerId = "cus_1",
-            ItemId = "si_1",
-            PriceId = priceId,
-            Status = status,
-            CurrentPeriodEnd = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc),
-            CancelAtPeriodEnd = cancelAtPeriodEnd,
-            Metadata = new Dictionary<string, string> { { "userId", "user-1" } },
-            ScheduleId = scheduleId,
-            ScheduledPriceId = scheduledPriceId,
-            ScheduledStartsAt = scheduledPriceId is null ? null : new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
-        };
-        _gateway.Setup(g => g.GetLiveSubscription("cus_1")).ReturnsAsync(subscription);
-        return subscription;
-    }
-
-    [Fact]
-    public async Task GetSubscription_WithoutBillingAccount_ReportsNoneWithoutCallingStripe()
-    {
-        SetupUser();
-
-        var result = await _classUnderTest.GetSubscription();
-
-        var response = result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<SubscriptionDetailsResponse>().Subject;
-        response.HasSubscription.Should().BeFalse();
-        _gateway.Verify(g => g.GetLiveSubscription(It.IsAny<string>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task GetSubscription_MapsLiveSubscriptionAndScheduledChange()
-    {
-        SetupUser(UserRole.Premium, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        SetupSubscription(priceId: "price_premium", scheduleId: "sub_sched_1", scheduledPriceId: "price_pro_annual");
-
-        var result = await _classUnderTest.GetSubscription();
-
-        var response = result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<SubscriptionDetailsResponse>().Subject;
-        response.HasSubscription.Should().BeTrue();
-        response.Tier.Should().Be(UserRole.Premium);
-        response.Interval.Should().Be(BillingInterval.Month);
-        response.Status.Should().Be("active");
-        response.CurrentPeriodEnd.Should().Be(new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc));
-        response.PendingChange.Should().NotBeNull();
-        response.PendingChange.Tier.Should().Be(UserRole.Pro);
-        response.PendingChange.Interval.Should().Be(BillingInterval.Year);
-        response.PendingChange.EffectiveAt.Should().Be(new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc));
-    }
-
-    [Fact]
-    public async Task GetSubscription_NoLiveSubscription_ReportsNone()
-    {
-        SetupUser(stripeCustomerId: "cus_1");
-        _gateway.Setup(g => g.GetLiveSubscription("cus_1")).ReturnsAsync((LiveSubscription)null);
-
-        var result = await _classUnderTest.GetSubscription();
-
-        result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<SubscriptionDetailsResponse>()
-            .Which.HasSubscription.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task PlanChangePreview_Upgrade_ReturnsProratedAmountDueNow()
-    {
-        SetupUser(UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        var subscription = SetupSubscription(priceId: "price_pro");
-        _gateway.Setup(g => g.PreviewImmediateChange(subscription, "price_premium"))
-            .ReturnsAsync(new ProrationPreview { AmountDueCents = 4550, Currency = "usd" });
-
-        var result = await _classUnderTest.PreviewPlanChange(new PlanChangeRequest { Id = "Premium" });
-
-        var preview = result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<PlanChangePreviewResponse>().Subject;
-        preview.Timing.Should().Be(PlanChangeTiming.Immediate);
-        preview.NewTier.Should().Be(UserRole.Premium);
-        preview.NewInterval.Should().Be(BillingInterval.Month);
-        preview.AmountDueCents.Should().Be(4550);
-        preview.Currency.Should().Be("usd");
-    }
-
-    [Theory]
-    [InlineData("price_premium", "Pro", UserRole.Pro, BillingInterval.Month)]
-    [InlineData("price_pro_annual", "Pro", UserRole.Pro, BillingInterval.Month)]
-    [InlineData("price_premium", "ProAnnual", UserRole.Pro, BillingInterval.Year)]
-    public async Task PlanChangePreview_Downgrade_IsFreeAndTakesEffectAtPeriodEnd(string currentPriceId, string targetId, UserRole expectedTier, string expectedInterval)
-    {
-        SetupUser(UserRole.Premium, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        SetupSubscription(priceId: currentPriceId);
-
-        var result = await _classUnderTest.PreviewPlanChange(new PlanChangeRequest { Id = targetId });
-
-        var preview = result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<PlanChangePreviewResponse>().Subject;
-        preview.Timing.Should().Be(PlanChangeTiming.PeriodEnd);
-        preview.NewTier.Should().Be(expectedTier);
-        preview.NewInterval.Should().Be(expectedInterval);
-        preview.AmountDueCents.Should().Be(0);
-        preview.EffectiveAt.Should().Be(new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc));
-        _gateway.Verify(g => g.PreviewImmediateChange(It.IsAny<LiveSubscription>(), It.IsAny<string>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task PlanChange_Upgrade_AppliesImmediatelyAndDropsAnyScheduledDowngrade()
-    {
-        SetupUser(UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        var subscription = SetupSubscription(priceId: "price_pro", scheduleId: "sub_sched_1", scheduledPriceId: "price_pro");
-        _gateway.Setup(g => g.ChangePlanNow(subscription, "price_premium"))
-            .ReturnsAsync(new ImmediateChangeResult { Applied = true });
-
-        var result = await _classUnderTest.ChangePlan(new PlanChangeRequest { Id = "Premium" });
-
-        var response = result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<PlanChangeResponse>().Subject;
-        response.Status.Should().Be(PlanChangeStatus.Applied);
-        response.PaymentUrl.Should().BeNull();
-        _gateway.Verify(g => g.ReleaseScheduledChange(subscription), Times.Once);
-        _gateway.Verify(g => g.ChangePlanNow(subscription, "price_premium"), Times.Once);
-        _gateway.Verify(g => g.SchedulePlanChangeAtPeriodEnd(It.IsAny<LiveSubscription>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task PlanChange_SameTierMonthlyToAnnual_AppliesImmediately()
-    {
-        SetupUser(UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        var subscription = SetupSubscription(priceId: "price_pro");
-        _gateway.Setup(g => g.ChangePlanNow(subscription, "price_pro_annual"))
-            .ReturnsAsync(new ImmediateChangeResult { Applied = true });
-
-        var result = await _classUnderTest.ChangePlan(new PlanChangeRequest { Id = "ProAnnual" });
-
-        result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<PlanChangeResponse>()
-            .Which.Status.Should().Be(PlanChangeStatus.Applied);
-        _gateway.Verify(g => g.ChangePlanNow(subscription, "price_pro_annual"), Times.Once);
-    }
-
-    [Fact]
-    public async Task PlanChange_UpgradeNeedingPaymentAction_ReturnsInvoiceUrlWithoutApplying()
-    {
-        SetupUser(UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        var subscription = SetupSubscription(priceId: "price_pro");
-        _gateway.Setup(g => g.ChangePlanNow(subscription, "price_premium"))
-            .ReturnsAsync(new ImmediateChangeResult { Applied = false, PaymentUrl = "https://invoice.stripe.com/i/in_1" });
-
-        var result = await _classUnderTest.ChangePlan(new PlanChangeRequest { Id = "Premium" });
-
-        var response = result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<PlanChangeResponse>().Subject;
-        response.Status.Should().Be(PlanChangeStatus.RequiresAction);
-        response.PaymentUrl.Should().Be("https://invoice.stripe.com/i/in_1");
-    }
-
-    [Theory]
-    [InlineData("price_premium", "Pro", "price_pro", BillingInterval.Month)]
-    [InlineData("price_pro_annual", "Pro", "price_pro", BillingInterval.Month)]
-    [InlineData("price_premium_annual", "ProAnnual", "price_pro_annual", BillingInterval.Year)]
-    public async Task PlanChange_Downgrade_IsScheduledForPeriodEnd(string currentPriceId, string targetId, string expectedPriceId, string expectedInterval)
-    {
-        SetupUser(UserRole.Premium, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        var subscription = SetupSubscription(priceId: currentPriceId);
-        var effectiveAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
-        _gateway.Setup(g => g.SchedulePlanChangeAtPeriodEnd(subscription, expectedPriceId, expectedInterval)).ReturnsAsync(effectiveAt);
-
-        var result = await _classUnderTest.ChangePlan(new PlanChangeRequest { Id = targetId });
-
-        var response = result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<PlanChangeResponse>().Subject;
-        response.Status.Should().Be(PlanChangeStatus.Scheduled);
-        response.EffectiveAt.Should().Be(effectiveAt);
-        _gateway.Verify(g => g.ChangePlanNow(It.IsAny<LiveSubscription>(), It.IsAny<string>()), Times.Never);
-    }
-
-    [Theory]
-    [InlineData("Free")]
-    [InlineData("PackSmall")]
-    [InlineData("Enterprise")]
-    [InlineData("")]
-    public async Task PlanChange_UnknownPlan_IsRejectedBeforeAnyLookup(string id)
-    {
-        var result = await _classUnderTest.ChangePlan(new PlanChangeRequest { Id = id });
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-        _users.Verify(u => u.Get(It.IsAny<string>()), Times.Never);
-        _gateway.Verify(g => g.GetLiveSubscription(It.IsAny<string>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task PlanChange_SamePlan_IsRejected()
-    {
-        SetupUser(UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        SetupSubscription(priceId: "price_pro");
-
-        var result = await _classUnderTest.ChangePlan(new PlanChangeRequest { Id = "Pro" });
-
-        result.Should().BeOfType<BadRequestObjectResult>()
-            .Which.Value.Should().BeEquivalentTo(new[] { "You're already on this plan." });
-    }
-
-    [Fact]
-    public async Task PlanChange_WithoutLiveSubscription_IsRejected()
-    {
-        SetupUser(stripeCustomerId: "cus_1");
-        _gateway.Setup(g => g.GetLiveSubscription("cus_1")).ReturnsAsync((LiveSubscription)null);
-
-        var result = await _classUnderTest.ChangePlan(new PlanChangeRequest { Id = "Premium" });
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-        _gateway.Verify(g => g.ChangePlanNow(It.IsAny<LiveSubscription>(), It.IsAny<string>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task PlanChange_PastDueSubscription_IsRejected()
-    {
-        SetupUser(UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "past_due");
-        SetupSubscription(priceId: "price_pro", status: "past_due");
-
-        var result = await _classUnderTest.ChangePlan(new PlanChangeRequest { Id = "Premium" });
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-        _gateway.Verify(g => g.ChangePlanNow(It.IsAny<LiveSubscription>(), It.IsAny<string>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task PlanChange_CancellingSubscription_IsRejected()
-    {
-        SetupUser(UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        SetupSubscription(priceId: "price_pro", cancelAtPeriodEnd: true);
-
-        var result = await _classUnderTest.ChangePlan(new PlanChangeRequest { Id = "Premium" });
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-        _gateway.Verify(g => g.ChangePlanNow(It.IsAny<LiveSubscription>(), It.IsAny<string>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task PlanChange_StripeRejection_Returns502WithStripeMessage()
-    {
-        SetupUser(UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        var subscription = SetupSubscription(priceId: "price_pro");
-        _gateway.Setup(g => g.ChangePlanNow(subscription, "price_premium"))
-            .ThrowsAsync(new StripeException(
-                HttpStatusCode.BadRequest,
-                new StripeError { Code = "resource_missing", Message = "No such price: 'price_premium'" },
-                "No such price: 'price_premium'"));
-
-        var result = await _classUnderTest.ChangePlan(new PlanChangeRequest { Id = "Premium" });
-
-        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
-        objectResult.StatusCode.Should().Be(StatusCodes.Status502BadGateway);
-        objectResult.Value.Should().BeEquivalentTo(new[] { "Stripe rejected the plan change: No such price: 'price_premium'" });
-    }
-
-    [Fact]
-    public async Task CancelScheduledPlanChange_ReleasesTheSchedule()
-    {
-        SetupUser(UserRole.Premium, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        var subscription = SetupSubscription(priceId: "price_premium", scheduleId: "sub_sched_1", scheduledPriceId: "price_pro");
-
-        var result = await _classUnderTest.CancelScheduledPlanChange();
-
-        result.Should().BeOfType<NoContentResult>();
-        _gateway.Verify(g => g.ReleaseScheduledChange(subscription), Times.Once);
-    }
-
-    [Fact]
-    public async Task CancelScheduledPlanChange_NothingScheduled_IsRejected()
-    {
-        SetupUser(UserRole.Premium, stripeCustomerId: "cus_1", subscriptionStatus: "active");
-        SetupSubscription(priceId: "price_premium");
-
-        var result = await _classUnderTest.CancelScheduledPlanChange();
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-        _gateway.Verify(g => g.ReleaseScheduledChange(It.IsAny<LiveSubscription>()), Times.Never);
     }
 
     [Fact]

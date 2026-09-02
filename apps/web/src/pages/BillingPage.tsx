@@ -1,28 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUser } from '@clerk/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Check, CreditCard, ExternalLink, Loader2, X } from 'lucide-react';
 import {
   billingApi,
-  BillingInterval,
   BillingSummary,
   BillingTier,
   CheckoutItemId,
-  PlanChangeResult,
-  PlanId,
-  SubscriptionDetails,
+  CheckoutKind,
 } from '../api/billingApi';
-import {
-  CheckoutItem,
-  CheckoutModal,
-  isCheckoutConfigured,
-} from '../components/modals/CheckoutModal';
-import { PlanChangeModal, PlanChangeTarget } from '../components/modals/PlanChangeModal';
 import { Button } from '../components/ui/button';
 import { Switch } from '../components/ui/switch';
 import { toast } from '../hooks/use-toast';
-import { formatDate } from '../utils/billingFormat';
 import { cn } from '../utils/utils';
 
 export type BillingCycle = 'monthly' | 'annual';
@@ -75,8 +65,8 @@ const PACKS: { id: CheckoutItemId; name: string; credits: number; price: string;
 
 const TIER_ORDER: Record<BillingTier, number> = { Free: 1, Pro: 2, Premium: 3 };
 
-// Webhook lag: after the embedded checkout completes we poll the summary until
-// the credit grant lands (or give up quietly after a minute).
+// Webhook lag: after Checkout returns we poll the summary until the credit
+// grant lands (or give up quietly after a minute).
 const SUCCESS_POLL_MS = 3000;
 const SUCCESS_POLL_TIMEOUT_MS = 60000;
 
@@ -89,18 +79,14 @@ export function BillingPage() {
   const navigate = useNavigate();
   const { isLoaded, isSignedIn, user } = useUser();
 
-  const queryClient = useQueryClient();
-
-  const [checkoutItem, setCheckoutItem] = useState<CheckoutItem | null>(null);
-  const [planChangeTarget, setPlanChangeTarget] = useState<PlanChangeTarget | null>(null);
-  // ?cycle=annual carries the landing page's toggle selection into this page.
-  const [searchParams] = useSearchParams();
+  // ?cycle=annual carries the landing page's toggle selection into this page;
+  // ?status=success|cancelled is Stripe Checkout's return.
+  const [searchParams, setSearchParams] = useSearchParams();
   const [billingCycle, setBillingCycle] = useState<BillingCycle>(() =>
     searchParams.get('cycle') === 'annual' ? 'annual' : 'monthly',
   );
-  // What the success banner is waiting on: a checkout payment or an in-app plan change.
-  const [successKind, setSuccessKind] = useState<'purchase' | 'planChange' | null>(null);
-  const [pollingForGrant, setPollingForGrant] = useState(false);
+  const returnStatus = searchParams.get('status'); // 'success' | 'cancelled' | null
+  const [pollingForGrant, setPollingForGrant] = useState(returnStatus === 'success');
   const baselineRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -122,18 +108,6 @@ export function BillingPage() {
     refetchInterval: pollingForGrant ? SUCCESS_POLL_MS : false,
   });
 
-  const hasSubscription =
-    summary?.subscriptionStatus === 'active' || summary?.subscriptionStatus === 'past_due';
-
-  // Live Stripe view (interval, period end, scheduled change) — only subscribers
-  // need it, and it's what the plan-change buttons key off.
-  const subscriptionQuery = useQuery({
-    queryKey: ['billingSubscription', user?.id],
-    queryFn: billingApi.getSubscription,
-    enabled: !!user?.id && hasSubscription,
-  });
-  const subscription = hasSubscription ? subscriptionQuery.data : undefined;
-
   // Stop polling once the summary changes from the first snapshot we saw —
   // that's the webhook landing. If it never changes (webhook beat us back,
   // or is slow), the timeout below ends the poll quietly.
@@ -146,13 +120,9 @@ export function BillingPage() {
     }
     if (snapshot !== baselineRef.current) {
       setPollingForGrant(false);
-      queryClient.invalidateQueries({ queryKey: ['billingSubscription', user?.id] });
-      toast({
-        title: successKind === 'planChange' ? 'Plan updated' : 'Purchase applied',
-        description: 'Your account has been updated.',
-      });
+      toast({ title: 'Purchase applied', description: 'Your account has been updated.' });
     }
-  }, [summary, pollingForGrant, successKind, queryClient, user?.id]);
+  }, [summary, pollingForGrant]);
 
   useEffect(() => {
     if (!pollingForGrant) return;
@@ -167,57 +137,25 @@ export function BillingPage() {
       toast({ title: 'Billing portal unavailable', description: e.message, variant: 'destructive' }),
   });
 
-  const cancelScheduledChange = useMutation({
-    mutationFn: billingApi.cancelScheduledPlanChange,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['billingSubscription', user?.id] });
-      toast({ title: 'Scheduled change cancelled', description: 'You stay on your current plan.' });
-    },
+  // Purchases happen on Stripe's hosted Checkout page; Stripe sends the browser
+  // back to /billing?status=… when it's done.
+  const checkoutMutation = useMutation({
+    mutationFn: ({ kind, id }: { kind: CheckoutKind; id: CheckoutItemId }) =>
+      billingApi.createCheckoutSession(kind, id),
+    onSuccess: url => window.location.assign(url),
     onError: (e: Error) =>
-      toast({ title: "Couldn't cancel the change", description: e.message, variant: 'destructive' }),
+      toast({ title: 'Checkout failed', description: e.message, variant: 'destructive' }),
   });
 
   // Polling means a payment is being applied — hold new purchases until it lands
   // (UI protection only; the API independently rejects duplicate subscriptions).
-  const busy = portalMutation.isPending || cancelScheduledChange.isPending || pollingForGrant;
+  const busy = checkoutMutation.isPending || portalMutation.isPending || pollingForGrant;
+  const hasSubscription =
+    summary?.subscriptionStatus === 'active' || summary?.subscriptionStatus === 'past_due';
 
-  const startPollingForGrant = (kind: 'purchase' | 'planChange') => {
-    setSuccessKind(kind);
-    baselineRef.current = null;
-    setPollingForGrant(true);
-  };
-
-  // Payment finished inside the modal — close it and poll until the webhook
-  // applies the purchase to the account.
-  const handleCheckoutComplete = () => {
-    setCheckoutItem(null);
-    startPollingForGrant('purchase');
-  };
-
-  const handlePlanChangeResult = (result: PlanChangeResult) => {
-    if (result.status === 'applied') {
-      setPlanChangeTarget(null);
-      startPollingForGrant('planChange');
-      return;
-    }
-    if (result.status === 'scheduled') {
-      setPlanChangeTarget(null);
-      queryClient.invalidateQueries({ queryKey: ['billingSubscription', user?.id] });
-      toast({
-        title: 'Plan change scheduled',
-        description: result.effectiveAt
-          ? `Your plan changes on ${formatDate(result.effectiveAt)}.`
-          : 'Your plan changes at the end of the current period.',
-      });
-      return;
-    }
-    // requires_action: the modal stays open with the payment link; the webhook
-    // applies the change once the invoice is paid, so nothing to poll for yet.
-    queryClient.invalidateQueries({ queryKey: ['billingSubscription', user?.id] });
-  };
-
-  const dismissSuccessBanner = () => {
-    setSuccessKind(null);
+  const dismissReturnBanner = () => {
+    searchParams.delete('status');
+    setSearchParams(searchParams, { replace: true });
     setPollingForGrant(false);
   };
 
@@ -231,49 +169,22 @@ export function BillingPage() {
           </p>
         </div>
 
-        {successKind && (
-          <ReturnBanner tone="success" onDismiss={dismissSuccessBanner}>
+        {returnStatus === 'success' && (
+          <ReturnBanner tone="success" onDismiss={dismissReturnBanner}>
             {pollingForGrant ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                {successKind === 'planChange'
-                  ? 'Plan changed — applying it to your account…'
-                  : 'Payment received — applying it to your account…'}
+                Payment received — applying it to your account…
               </span>
-            ) : successKind === 'planChange' ? (
-              'Plan changed. Your account is up to date.'
             ) : (
               'Payment received. Your account is up to date.'
             )}
           </ReturnBanner>
         )}
-        {subscription?.pendingChange && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground">
-            <span>
-              Your plan changes to{' '}
-              <span className="font-semibold">
-                {subscription.pendingChange.tier} (
-                {subscription.pendingChange.interval === 'year' ? 'annual' : 'monthly'})
-              </span>{' '}
-              on {formatDate(subscription.pendingChange.effectiveAt)}. Until then you keep{' '}
-              {subscription.tier}.
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={busy}
-              onClick={() => cancelScheduledChange.mutate()}
-            >
-              {cancelScheduledChange.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Keep {subscription.tier}
-            </Button>
-          </div>
-        )}
-        {subscription?.cancelAtPeriodEnd && subscription.currentPeriodEnd && (
-          <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-            Your subscription ends on {formatDate(subscription.currentPeriodEnd)}. Reactivate it in
-            the billing portal to keep your plan or change it.
-          </div>
+        {returnStatus === 'cancelled' && (
+          <ReturnBanner tone="neutral" onDismiss={dismissReturnBanner}>
+            Checkout was cancelled — you haven't been charged.
+          </ReturnBanner>
         )}
         {summary?.subscriptionStatus === 'past_due' && (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
@@ -286,12 +197,6 @@ export function BillingPage() {
           <div className="rounded-xl bg-destructive/10 border border-destructive/40 text-destructive dark:text-red-400 px-4 py-3 text-sm">
             <span className="font-medium">Error:</span> Failed to load billing details. Try
             refreshing the page.
-          </div>
-        )}
-        {!isCheckoutConfigured && (
-          <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-            Purchases are temporarily unavailable — checkout isn't configured in this
-            environment.
           </div>
         )}
 
@@ -312,13 +217,6 @@ export function BillingPage() {
             {TIER_PLANS.map(plan => {
               const isCurrent = summary?.tier === plan.id;
               const annual = billingCycle === 'annual' ? plan.annual : undefined;
-              const viewedInterval: BillingInterval = annual ? 'year' : 'month';
-              // A subscriber viewing the other billing cycle of their own tier: the
-              // badge still marks the tier, but says which cycle they're actually on.
-              const currentCycleNote =
-                isCurrent && subscription?.interval && subscription.interval !== viewedInterval
-                  ? ` · ${subscription.interval === 'year' ? 'annual' : 'monthly'}`
-                  : '';
               return (
                 <div
                   key={plan.id}
@@ -332,7 +230,7 @@ export function BillingPage() {
                 >
                   {isCurrent && (
                     <span className="absolute -top-2.5 left-4 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground">
-                      Current plan{currentCycleNote}
+                      Current plan
                     </span>
                   )}
                   <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
@@ -368,21 +266,20 @@ export function BillingPage() {
                   </ul>
                   <PlanAction
                     plan={plan.id}
-                    planCredits={plan.credits}
-                    viewedInterval={viewedInterval}
                     summary={summary}
                     hasSubscription={hasSubscription}
-                    subscription={subscription}
-                    subscriptionLoading={hasSubscription && subscriptionQuery.isPending}
                     busy={busy}
+                    checkoutPending={
+                      checkoutMutation.isPending &&
+                      checkoutMutation.variables?.kind === 'subscription' &&
+                      checkoutMutation.variables?.id === (annual ? annual.id : plan.id)
+                    }
                     onSubscribe={() =>
-                      setCheckoutItem({
+                      checkoutMutation.mutate({
                         kind: 'subscription',
                         id: annual ? annual.id : (plan.id as CheckoutItemId),
-                        label: annual ? `${plan.id} plan (annual)` : `${plan.id} plan`,
                       })
                     }
-                    onChangePlan={setPlanChangeTarget}
                     onOpenPortal={() => portalMutation.mutate()}
                   />
                 </div>
@@ -414,16 +311,14 @@ export function BillingPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={busy || isLoading || !isCheckoutConfigured}
-                  onClick={() =>
-                    setCheckoutItem({
-                      kind: 'pack',
-                      id: pack.id,
-                      label: `${pack.credits.toLocaleString()} credits`,
-                    })
-                  }
+                  disabled={busy || isLoading}
+                  onClick={() => checkoutMutation.mutate({ kind: 'pack', id: pack.id })}
                 >
-                  {pack.price}
+                  {checkoutMutation.isPending && checkoutMutation.variables?.id === pack.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    pack.price
+                  )}
                 </Button>
               </div>
             ))}
@@ -432,24 +327,12 @@ export function BillingPage() {
 
         <p className="text-xs text-muted-foreground">
           Monthly credits reset every month on annual plans too, and don't roll over; purchased
-          credits (including annual bonus credits) never expire. Upgrades apply immediately
-          with a prorated charge; downgrades take effect at the end of the period you've paid
-          for. Cancelling keeps your access until the end of that period — no automatic
-          refunds. Invoices, receipts, card changes, and cancellation are handled in the
-          billing portal.
+          credits (including annual bonus credits) never expire. Cancelling keeps your access
+          until the end of the period you've paid for — no automatic refunds. Invoices,
+          receipts, card changes, plan switches, and cancellation are handled in the billing
+          portal.
         </p>
       </div>
-
-      <CheckoutModal
-        item={checkoutItem}
-        onClose={() => setCheckoutItem(null)}
-        onComplete={handleCheckoutComplete}
-      />
-      <PlanChangeModal
-        target={planChangeTarget}
-        onClose={() => setPlanChangeTarget(null)}
-        onResult={handlePlanChangeResult}
-      />
     </div>
   );
 }
@@ -678,32 +561,24 @@ function StatusBadge({ status }: { status: BillingSummary['subscriptionStatus'] 
 
 function PlanAction({
   plan,
-  planCredits,
-  viewedInterval,
   summary,
   hasSubscription,
-  subscription,
-  subscriptionLoading,
   busy,
+  checkoutPending,
   onSubscribe,
-  onChangePlan,
   onOpenPortal,
 }: {
   plan: BillingTier;
-  planCredits: number;
-  viewedInterval: BillingInterval;
   summary: BillingSummary | undefined;
   hasSubscription: boolean;
-  subscription: SubscriptionDetails | undefined;
-  subscriptionLoading: boolean;
   busy: boolean;
+  checkoutPending: boolean;
   onSubscribe: () => void;
-  onChangePlan: (target: PlanChangeTarget) => void;
   onOpenPortal: () => void;
 }) {
-  const isCurrentTier = summary?.tier === plan;
+  const isCurrent = summary?.tier === plan;
 
-  if (!summary || subscriptionLoading) {
+  if (!summary) {
     return (
       <Button className="mt-5" variant="outline" disabled>
         …
@@ -711,15 +586,16 @@ function PlanAction({
     );
   }
 
+  if (isCurrent) {
+    return (
+      <Button className="mt-5" variant="outline" disabled>
+        Current plan
+      </Button>
+    );
+  }
+
   if (plan === 'Free') {
     // Downgrading to Free = cancelling the subscription, which happens in the portal.
-    if (isCurrentTier) {
-      return (
-        <Button className="mt-5" variant="outline" disabled>
-          Current plan
-        </Button>
-      );
-    }
     return hasSubscription ? (
       <Button className="mt-5" variant="ghost" disabled={busy} onClick={onOpenPortal}>
         Cancel in portal
@@ -731,84 +607,19 @@ function PlanAction({
     );
   }
 
-  if (!hasSubscription) {
-    return isCurrentTier ? (
-      <Button className="mt-5" variant="outline" disabled>
-        Current plan
-      </Button>
-    ) : (
-      <Button className="mt-5" disabled={busy || !isCheckoutConfigured} onClick={onSubscribe}>
-        Subscribe to {plan}
-      </Button>
-    );
-  }
-
-  // Subscribers change plans in-app: the API switches the Stripe subscription
-  // (prorated now for more, at period end for less). If Stripe couldn't be read
-  // the portal remains as the fallback.
-  if (!subscription?.hasSubscription || !subscription.tier || !subscription.interval) {
-    return isCurrentTier ? (
-      <Button className="mt-5" variant="outline" disabled>
-        Current plan
-      </Button>
-    ) : (
+  // Existing subscribers change plans through the portal (checkout would be
+  // rejected by the API); everyone else goes to Stripe's hosted Checkout page.
+  if (hasSubscription) {
+    return (
       <Button className="mt-5" variant="outline" disabled={busy} onClick={onOpenPortal}>
-        Change in portal
+        {TIER_ORDER[plan] > TIER_ORDER[summary.tier] ? 'Upgrade in portal' : 'Downgrade in portal'}
       </Button>
     );
   }
-
-  const sameTier = subscription.tier === plan;
-  const sameInterval = subscription.interval === viewedInterval;
-  if (sameTier && sameInterval) {
-    return (
-      <Button className="mt-5" variant="outline" disabled>
-        Current plan
-      </Button>
-    );
-  }
-
-  const pending = subscription.pendingChange;
-  if (pending && pending.tier === plan && pending.interval === viewedInterval) {
-    return (
-      <Button className="mt-5" variant="outline" disabled>
-        Scheduled
-      </Button>
-    );
-  }
-
-  const targetId: PlanId = viewedInterval === 'year' ? (`${plan}Annual` as PlanId) : plan;
-  const cycleLabel = viewedInterval === 'year' ? 'annual' : 'monthly';
-  const isUpgrade = TIER_ORDER[plan] > TIER_ORDER[subscription.tier];
-  const label = sameTier
-    ? `Switch to ${cycleLabel}`
-    : isUpgrade
-    ? `Upgrade to ${plan}`
-    : `Downgrade to ${plan}`;
-  const benefit = sameTier
-    ? viewedInterval === 'year'
-      ? `Annual billing adds a one-time bonus of ${planCredits.toLocaleString()} purchased credits at each renewal.`
-      : undefined
-    : isUpgrade
-    ? `Your monthly allowance rises to ${planCredits.toLocaleString()} credits right away.`
-    : `Your monthly allowance becomes ${planCredits.toLocaleString()} credits from then on.`;
 
   return (
-    <Button
-      className="mt-5"
-      variant={isUpgrade || (sameTier && viewedInterval === 'year') ? 'default' : 'outline'}
-      disabled={busy || subscription.cancelAtPeriodEnd}
-      onClick={() =>
-        onChangePlan({
-          id: targetId,
-          tier: plan,
-          interval: viewedInterval,
-          label: `${plan} plan (${cycleLabel})`,
-          benefit,
-        })
-      }
-    >
-      {label}
+    <Button className="mt-5" disabled={busy} onClick={onSubscribe}>
+      {checkoutPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Subscribe to ${plan}`}
     </Button>
   );
 }

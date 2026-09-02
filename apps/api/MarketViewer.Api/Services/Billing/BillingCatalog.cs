@@ -1,6 +1,5 @@
 using MarketViewer.Api.Config;
 using MarketViewer.Contracts.Enums;
-using MarketViewer.Contracts.Responses.Billing;
 
 namespace MarketViewer.Api.Services.Billing;
 
@@ -108,33 +107,6 @@ public class BillingCatalog(
         }
 
         return false;
-    }
-
-    /// <summary>
-    /// Decides how a subscriber's plan change is applied: anything that gives the customer
-    /// more (a higher tier, or committing the same tier to a year) happens now with a
-    /// prorated charge; anything that gives them less (a lower tier, or dropping annual back
-    /// to monthly) waits for the period they have already paid for to end. Null when the
-    /// target is the plan they are already on.
-    /// </summary>
-    public static string ClassifyPlanChange(UserRole currentTier, string currentInterval, UserRole targetTier, string targetInterval)
-    {
-        if (targetTier > currentTier)
-        {
-            return PlanChangeTiming.Immediate;
-        }
-
-        if (targetTier < currentTier)
-        {
-            return PlanChangeTiming.PeriodEnd;
-        }
-
-        if (currentInterval == targetInterval)
-        {
-            return null;
-        }
-
-        return targetInterval == BillingInterval.Year ? PlanChangeTiming.Immediate : PlanChangeTiming.PeriodEnd;
     }
 
     /// <summary>
