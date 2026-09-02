@@ -1,7 +1,7 @@
 /**
  * Stripe helpers: driving the real test-mode embedded Checkout (rendered in a
  * Stripe iframe inside the app's checkout modal), and test-state management
- * through the Stripe API (customer cleanup between runs, plan upgrades).
+ * through the Stripe API (customer cleanup between runs).
  */
 import type { Page } from '@playwright/test';
 import Stripe from 'stripe';
@@ -40,63 +40,6 @@ export async function cleanupStripeCustomers(userId: string): Promise<void> {
     }
     await stripe.customers.del(customer.id);
   }
-}
-
-/**
- * Resolve a tier's subscription price from the Stripe test-mode catalog via
- * the product's `tier` metadata (part of the required dashboard setup, and
- * how the webhook processor maps products back to tiers). Looked up at
- * runtime so the suite needs no per-environment price-id config. Since plan
- * 17 each product carries both a monthly and a yearly price, so resolution
- * filters on the recurring interval instead of trusting default_price.
- */
-export async function findPriceIdForTier(
-  tier: 'Pro' | 'Premium',
-  interval: 'month' | 'year' = 'month'
-): Promise<string> {
-  const stripe = stripeClient();
-  const products = await stripe.products.search({
-    query: `active:'true' AND metadata['tier']:'${tier}'`,
-  });
-  const product = products.data[0];
-  if (!product) {
-    throw new Error(
-      `No active Stripe product tagged metadata tier=${tier} — is the test-mode dashboard setup complete?`
-    );
-  }
-  const prices = await stripe.prices.list({ product: product.id, active: true, limit: 100 });
-  const price = prices.data.find((p) => p.recurring?.interval === interval);
-  if (!price) {
-    throw new Error(`Stripe product ${product.id} (tier=${tier}) has no active ${interval}ly price`);
-  }
-  return price.id;
-}
-
-/**
- * Switch the user's active subscription to a new price, invoicing the
- * proration immediately — the same shape the Customer Portal produces on an
- * upgrade. Driving the Portal UI itself is too brittle (Stripe-owned DOM), and
- * what we're actually testing is our customer.subscription.updated handling.
- */
-export async function upgradeSubscription(userId: string, priceId: string): Promise<void> {
-  const stripe = stripeClient();
-  const customers = await stripe.customers.search({
-    query: `metadata['userId']:'${userId}'`,
-  });
-  for (const customer of customers.data) {
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customer.id,
-      status: 'active',
-    });
-    const subscription = subscriptions.data[0];
-    if (!subscription) continue;
-    await stripe.subscriptions.update(subscription.id, {
-      items: [{ id: subscription.items.data[0].id, price: priceId }],
-      proration_behavior: 'always_invoice',
-    });
-    return;
-  }
-  throw new Error(`No active subscription found for user ${userId}`);
 }
 
 /**

@@ -10,12 +10,7 @@ import {
   PRO_GRANT,
 } from '../src/env';
 import { deleteUserRow, resetUserRow } from '../src/reset';
-import {
-  cleanupStripeCustomers,
-  completeStripeCheckout,
-  findPriceIdForTier,
-  upgradeSubscription,
-} from '../src/stripe';
+import { cleanupStripeCustomers, completeStripeCheckout } from '../src/stripe';
 
 /** Poll the billing summary until `predicate` holds (webhook lag is expected). */
 async function waitForSummary(
@@ -125,19 +120,21 @@ test.describe('subscription lifecycle', () => {
     await page.waitForURL(/billing\.stripe\.com/, { timeout: 30_000 });
   });
 
-  test('upgrading Pro → Premium bumps the grant immediately', async ({ page }) => {
-    test.skip(!env.stripeSecretKey, 'Needs STRIPE_SECRET_KEY');
+  test('upgrading Pro → Premium in-app bumps the grant immediately', async ({ page }) => {
     const user = fixedUser('BILLING');
-
-    // Plan changes go through the Customer Portal, whose Stripe-owned DOM is
-    // too brittle to automate. Reproduce the portal's upgrade through the
-    // Stripe API instead — what's under test is our
-    // customer.subscription.updated handling, which is identical either way.
-    // The Premium price is resolved from the product's tier metadata.
-    await upgradeSubscription(user.id, await findPriceIdForTier('Premium'));
 
     await signIn(page, user.email);
     await page.goto('/billing');
+
+    // The in-app plan change: the confirm dialog previews the prorated charge
+    // (a live Stripe invoice preview), then the API switches the subscription
+    // and the customer.subscription.updated webhook grants the delta.
+    await page.getByRole('button', { name: 'Upgrade to Premium' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('Due today')).toBeVisible({ timeout: 30_000 });
+    await dialog.getByRole('button', { name: /^Confirm — pay/ }).click();
+    await expect(page.getByText(/Plan changed/)).toBeVisible({ timeout: 30_000 });
+
     const summary = await waitForSummary(
       page,
       (s) => s.tier === 'Premium',
