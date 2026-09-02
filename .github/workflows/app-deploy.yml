@@ -131,8 +131,17 @@ jobs:
             set_args+=(--set "$pair")
           done < <(echo "$vars_json" | jq -j 'to_entries[] | select(.value != null and .value != "") | "\(.key)=\(.value)\u0000"')
 
-          # Always include a value unique to this run so Railway sees a change
-          # and deploys every time, not only when the terraform outputs differ.
-          set_args+=(--set "DEPLOY_TRIGGER=${{ github.run_id }}-${{ github.run_attempt }}")
+          if [ ${#set_args[@]} -eq 0 ]; then
+            echo "No non-empty variables to push."
+            exit 0
+          fi
 
-          railway variables "${set_args[@]}" --service ${{ matrix.service.name }}
+          # --skip-deploys: the deploy happens explicitly in the next step via
+          # `railway up`; a variable change must not also trigger a build of the
+          # service's connected branch.
+          railway variables "${set_args[@]}" --skip-deploys --service ${{ matrix.service.name }}
+
+      - name: Deploy checked-out code to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service ${{ matrix.service.name }} --ci
