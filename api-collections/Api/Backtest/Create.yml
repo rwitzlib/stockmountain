@@ -26,21 +26,20 @@ http:
         },
         "entrySettings": {
           "filters": [
-            "adv() > 1.5 [1d]",
+            "adv() > 3 [1d]",
             "macd(12,26,9,ema) > 0 [1m]",
-            "crosses_over(ema(9), ema(21)) [1m]",
-            "close > ema(50) [1m]",
-            "close > ema(200) [1m]"
+            "close > 2.00 [1m]",
+            "float < 20000000"
           ]
         },
         "exitSettings": {
           "stopLoss": {
             "type": "percent",
-            "value": 7.5
+            "value": 2
           },
           "takeProfit": {
             "type": "percent",
-            "value": 15
+            "value": 5
           },
           "timedExit": {
             "avoidOvernight": true,
