@@ -176,8 +176,11 @@ export function BillingPage() {
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Payment received — applying it to your account…
               </span>
-            ) : (
+            ) : summary && !isError ? (
               'Payment received. Your account is up to date.'
+            ) : (
+              // The poll gave up without a readable summary: don't claim the grant landed.
+              "Payment received — we couldn't confirm your account yet. Refresh in a moment."
             )}
           </ReturnBanner>
         )}

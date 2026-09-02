@@ -389,6 +389,26 @@ public class BillingControllerUnitTests
     }
 
     [Fact]
+    public async Task PortalSession_MissingSecretKey_Returns500WithoutCallingStripe()
+    {
+        SetupUser(stripeCustomerId: "cus_1");
+        var controllerWithoutKey = new BillingController(
+            _users.Object,
+            _gateway.Object,
+            new BillingCatalog(new Dictionary<UserRole, float>(), new Dictionary<string, float>(), new Dictionary<string, string>()),
+            Options.Create(new StripeConfig { SecretKey = "   ", ReturnUrlBase = "https://app.test" }),
+            new AuthContext { UserId = "user-1", IsAuthenticated = true },
+            NullLogger<BillingController>.Instance);
+
+        var result = await controllerWithoutKey.CreatePortalSession();
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+        objectResult.Value.Should().BeEquivalentTo(new[] { "Billing is not configured" });
+        _gateway.Verify(g => g.CreatePortalSession(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
     public async Task PortalSession_WithoutBillingAccount_IsRejected()
     {
         SetupUser(stripeCustomerId: null);

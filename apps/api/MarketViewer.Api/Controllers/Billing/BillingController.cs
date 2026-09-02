@@ -67,7 +67,7 @@ public class BillingController(
             return StatusCode(StatusCodes.Status500InternalServerError, new[] { "Billing is not configured for this item" });
         }
 
-        if (string.IsNullOrEmpty(stripeOptions.Value.SecretKey))
+        if (string.IsNullOrWhiteSpace(stripeOptions.Value.SecretKey))
         {
             logger.LogError("Stripe secret key is not configured; cannot create a checkout session");
             return StatusCode(StatusCodes.Status500InternalServerError, new[] { "Billing is not configured" });
@@ -146,6 +146,12 @@ public class BillingController(
         if (string.IsNullOrEmpty(user.StripeCustomerId))
         {
             return BadRequest(new[] { "No billing account yet. Subscribe or buy credits first." });
+        }
+
+        if (string.IsNullOrWhiteSpace(stripeOptions.Value.SecretKey))
+        {
+            logger.LogError("Stripe secret key is not configured; cannot create a portal session");
+            return StatusCode(StatusCodes.Status500InternalServerError, new[] { "Billing is not configured" });
         }
 
         var returnUrlBase = stripeOptions.Value.ReturnUrlBase.TrimEnd('/');

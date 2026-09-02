@@ -395,6 +395,34 @@ public class StripeWebhookProcessorUnitTests
     }
 
     [Fact]
+    public async Task InvoicePaid_AnnualToMonthlyBilledAsSubscriptionUpdate_RecordsMonthlyInterval()
+    {
+        // Same tier, but the record still says annual: the grant path is the only thing
+        // that SETs BillingInterval back to "month".
+        var user = SetupUser(UserRole.Pro);
+        user.BillingInterval = BillingInterval.Year;
+        _users.Setup(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, BillingInterval.Month)).ReturnsAsync(true);
+
+        var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", "subscription_update", "price_pro")));
+
+        result.Should().BeTrue();
+        _users.Verify(u => u.ApplySubscriptionGrant("user-1", UserRole.Pro, 1000, BillingInterval.Month), Times.Once);
+    }
+
+    [Fact]
+    public async Task InvoicePaid_MonthlyToAnnualBilledAsSubscriptionUpdate_IsMoneyOnly()
+    {
+        // The switch bonus and interval ride customer.subscription.updated, never this invoice.
+        var user = SetupUser(UserRole.Pro);
+        user.BillingInterval = BillingInterval.Month;
+
+        var result = await _processor.Process(ParseEvent(InvoiceJson("invoice.paid", "subscription_update", "price_pro_annual")));
+
+        result.Should().BeTrue();
+        _users.Verify(u => u.ApplySubscriptionGrant(It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<float>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
     public async Task InvoicePaid_MissingMetadata_ResolvesUserViaCustomerLookup()
     {
         _gateway.Setup(g => g.GetCustomer("cus_1")).ReturnsAsync(new Customer
