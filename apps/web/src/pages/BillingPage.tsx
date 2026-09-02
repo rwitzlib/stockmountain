@@ -87,6 +87,9 @@ export function BillingPage() {
   );
   const returnStatus = searchParams.get('status'); // 'success' | 'cancelled' | null
   const [pollingForGrant, setPollingForGrant] = useState(returnStatus === 'success');
+  // Set only when the poll actually saw the summary change (the webhook landed);
+  // a poll that timed out leaves it false so the banner doesn't overclaim.
+  const [grantConfirmed, setGrantConfirmed] = useState(false);
   const baselineRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -119,6 +122,7 @@ export function BillingPage() {
       return;
     }
     if (snapshot !== baselineRef.current) {
+      setGrantConfirmed(true);
       setPollingForGrant(false);
       toast({ title: 'Purchase applied', description: 'Your account has been updated.' });
     }
@@ -176,10 +180,10 @@ export function BillingPage() {
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Payment received — applying it to your account…
               </span>
-            ) : summary && !isError ? (
+            ) : grantConfirmed && summary && !isError ? (
               'Payment received. Your account is up to date.'
             ) : (
-              // The poll gave up without a readable summary: don't claim the grant landed.
+              // The poll gave up before seeing the grant land: don't claim it did.
               "Payment received — we couldn't confirm your account yet. Refresh in a moment."
             )}
           </ReturnBanner>

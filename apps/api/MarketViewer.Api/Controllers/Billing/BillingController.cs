@@ -28,6 +28,8 @@ public class BillingController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
     [Authorize]
     [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> CreateCheckoutSession([FromBody] CheckoutSessionRequest request)
@@ -133,6 +135,8 @@ public class BillingController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
     [Authorize]
     [RequiresTier(UserRole.Free)]
     public async Task<IActionResult> CreatePortalSession()
