@@ -10,8 +10,8 @@ http:
     type: json
     data: |-
       {
-        "start": "2026-07-01",
-        "end": "2026-08-13",
+        "start": "2026-08-01",
+        "end": "2026-08-31",
         "positionSettings": {
           "startingBalance": 300000,
           "maxConcurrentPositions": 1000,
@@ -26,10 +26,9 @@ http:
         },
         "entrySettings": {
           "filters": [
-            "close > ema(9) [1m]",
-            "close > ema(20) [1m]",
-            "close > ema(200) [1m]",
-            "float > 30000000"
+            "crosses_over(ema(9), ema(21)) [1m]",
+            "close > ema(50) [1m]",
+            "close > ema(200) [1m]"
           ]
         },
         "exitSettings": {
