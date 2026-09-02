@@ -65,8 +65,10 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
                 new CheckoutSessionLineItemOptions { Price = spec.PriceId, Quantity = 1 }
             ],
             // Rendered inside our own modal; success is handled in-page via onComplete,
-            // so there is no return redirect at all.
-            UiMode = "embedded",
+            // so there is no return redirect at all. "embedded_page" is the Embedded
+            // Checkout mode on the API version Stripe.net 52 pins; the older "embedded"
+            // value is rejected there ("no longer supported. Use `embedded_page` instead").
+            UiMode = "embedded_page",
             RedirectOnCompletion = "never",
             AllowPromotionCodes = true,
             Metadata = new Dictionary<string, string> { { "userId", spec.UserId } }

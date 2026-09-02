@@ -89,7 +89,7 @@ first if anything below seems under-specified.
 Backend (small):
 
 - `CheckoutSessionSpec`: drop `SuccessUrl`/`CancelUrl` (nothing else uses them).
-- `StripeGateway.CreateCheckoutSession`: `UiMode = "embedded"`,
+- `StripeGateway.CreateCheckoutSession`: `UiMode = "embedded_page"` (the API version Stripe.net 52 pins rejects the older `"embedded"` value),
   `RedirectOnCompletion = "never"` (success is handled in-page; no return_url needed),
   `AllowPromotionCodes = true`; return `session.ClientSecret` instead of `session.Url`.
 - `CheckoutSessionResponse`: `Url` → `ClientSecret`. (`ReturnUrlBase` config stays — the
