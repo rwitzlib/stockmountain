@@ -111,6 +111,16 @@ export function BillingPage() {
     refetchInterval: pollingForGrant ? SUCCESS_POLL_MS : false,
   });
 
+  // The baseline and confirmation belong to one user and one checkout return:
+  // a sign-out/sign-in switch mid-poll must not compare the new user's summary
+  // against the previous user's snapshot, and a fresh ?status=success starts
+  // its own poll. Runs before the comparison effect below.
+  useEffect(() => {
+    baselineRef.current = null;
+    setGrantConfirmed(false);
+    setPollingForGrant(returnStatus === 'success');
+  }, [user?.id, returnStatus]);
+
   // Stop polling once the summary changes from the first snapshot we saw —
   // that's the webhook landing. If it never changes (webhook beat us back,
   // or is slow), the timeout below ends the poll quietly.
