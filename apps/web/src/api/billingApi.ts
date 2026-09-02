@@ -23,13 +23,30 @@ export type CheckoutItemId =
 	| 'PackSmall'
 	| 'PackLarge';
 
+interface ProblemDetails {
+	title?: string;
+	detail?: string;
+	traceId?: string;
+}
+
 async function throwWithApiErrors(response: Response, fallback: string): Promise<never> {
-	// Error bodies are plain string arrays, e.g. ["Unknown credit pack 'X'"]
-	let message = fallback;
+	// Known failures are plain string arrays, e.g. ["Unknown credit pack 'X'"]. An
+	// unhandled exception comes back as RFC 7807 ProblemDetails from the API's
+	// GlobalExceptionMiddleware, whose traceId locates the stack trace in the API logs.
+	let message = `${fallback} (HTTP ${response.status})`;
 	try {
-		const body = await response.json();
+		const body: unknown = await response.json();
 		if (Array.isArray(body) && body.length > 0) {
 			message = body.join(' ');
+		} else if (body && typeof body === 'object') {
+			const problem = body as ProblemDetails;
+			const parts = [problem.title, problem.detail].filter(Boolean);
+			if (parts.length > 0) {
+				message = parts.join(' ');
+				if (problem.traceId) {
+					message += ` (trace ${problem.traceId})`;
+				}
+			}
 		}
 	} catch {
 		// non-JSON body — keep the fallback

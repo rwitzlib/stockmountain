@@ -9,6 +9,7 @@ using MarketViewer.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Stripe;
 
 namespace MarketViewer.Api.Controllers.Billing;
 
@@ -66,49 +67,65 @@ public class BillingController(
             return StatusCode(StatusCodes.Status500InternalServerError, new[] { "Billing is not configured for this item" });
         }
 
-        var customerId = user.StripeCustomerId;
-        if (string.IsNullOrEmpty(customerId))
+        if (string.IsNullOrEmpty(stripeOptions.Value.SecretKey))
         {
-            customerId = await stripeGateway.CreateCustomer(user.Id);
-            if (!await userRepository.SetStripeCustomerId(user.Id, customerId))
+            logger.LogError("Stripe secret key is not configured; cannot create a checkout session");
+            return StatusCode(StatusCodes.Status500InternalServerError, new[] { "Billing is not configured" });
+        }
+
+        try
+        {
+            var customerId = user.StripeCustomerId;
+            if (string.IsNullOrEmpty(customerId))
             {
-                // Lost a concurrent first-checkout race: a parallel request linked its
-                // customer first. Use the stored one so this session lands on the customer
-                // the portal will open; the extra Stripe customer is a harmless orphan.
-                var refreshed = await userRepository.Get(user.Id);
-                if (string.IsNullOrEmpty(refreshed?.StripeCustomerId))
+                customerId = await stripeGateway.CreateCustomer(user.Id);
+                if (!await userRepository.SetStripeCustomerId(user.Id, customerId))
                 {
-                    logger.LogError("Failed to link Stripe customer {CustomerId} to user {UserId}", customerId, user.Id);
-                    return StatusCode(StatusCodes.Status500InternalServerError, new[] { "Could not set up billing; try again" });
+                    // Lost a concurrent first-checkout race: a parallel request linked its
+                    // customer first. Use the stored one so this session lands on the customer
+                    // the portal will open; the extra Stripe customer is a harmless orphan.
+                    var refreshed = await userRepository.Get(user.Id);
+                    if (string.IsNullOrEmpty(refreshed?.StripeCustomerId))
+                    {
+                        logger.LogError("Failed to link Stripe customer {CustomerId} to user {UserId}", customerId, user.Id);
+                        return StatusCode(StatusCodes.Status500InternalServerError, new[] { "Could not set up billing; try again" });
+                    }
+
+                    customerId = refreshed.StripeCustomerId;
                 }
-
-                customerId = refreshed.StripeCustomerId;
             }
+
+            // Webhook-lag guard, checked on the RESOLVED customer (covering the race path
+            // above where we adopt another request's customer): after a checkout completes,
+            // SubscriptionStatus stays non-active until the webhook lands, so the check at
+            // the top can't stop a second subscription purchase. Stripe itself is the
+            // authoritative record — ask it directly rather than keeping local pending-claim
+            // state. Residual risk accepted: two truly concurrent sessions created before
+            // EITHER payment exists can't be caught here (nothing exists on Stripe yet) —
+            // that needs the same user paying twice in parallel tabs within seconds.
+            if (isSubscription && await stripeGateway.HasLiveSubscription(customerId))
+            {
+                return BadRequest(new[] { "A subscription already exists or is being processed. Use the billing portal to change plans." });
+            }
+
+            var clientSecret = await stripeGateway.CreateCheckoutSession(new CheckoutSessionSpec
+            {
+                UserId = user.Id,
+                CustomerId = customerId,
+                PriceId = priceId,
+                IsSubscription = isSubscription,
+                PackId = isSubscription ? null : request.Id
+            });
+
+            return Ok(new CheckoutSessionResponse { ClientSecret = clientSecret });
         }
-
-        // Webhook-lag guard, checked on the RESOLVED customer (covering the race path
-        // above where we adopt another request's customer): after a checkout completes,
-        // SubscriptionStatus stays non-active until the webhook lands, so the check at
-        // the top can't stop a second subscription purchase. Stripe itself is the
-        // authoritative record — ask it directly rather than keeping local pending-claim
-        // state. Residual risk accepted: two truly concurrent sessions created before
-        // EITHER payment exists can't be caught here (nothing exists on Stripe yet) —
-        // that needs the same user paying twice in parallel tabs within seconds.
-        if (isSubscription && await stripeGateway.HasLiveSubscription(customerId))
+        catch (StripeException ex)
         {
-            return BadRequest(new[] { "A subscription already exists or is being processed. Use the billing portal to change plans." });
+            logger.LogError(ex,
+                "Stripe rejected checkout for user {UserId}, item {Id} ({Kind}): {StripeCode} {StripeMessage}",
+                user.Id, request.Id, request.Kind, ex.StripeError?.Code, ex.StripeError?.Message);
+            return StatusCode(StatusCodes.Status502BadGateway, new[] { $"Stripe rejected the checkout request: {DescribeStripeError(ex)}" });
         }
-
-        var clientSecret = await stripeGateway.CreateCheckoutSession(new CheckoutSessionSpec
-        {
-            UserId = user.Id,
-            CustomerId = customerId,
-            PriceId = priceId,
-            IsSubscription = isSubscription,
-            PackId = isSubscription ? null : request.Id
-        });
-
-        return Ok(new CheckoutSessionResponse { ClientSecret = clientSecret });
     }
 
     [HttpPost]
@@ -132,9 +149,19 @@ public class BillingController(
         }
 
         var returnUrlBase = stripeOptions.Value.ReturnUrlBase.TrimEnd('/');
-        var url = await stripeGateway.CreatePortalSession(user.StripeCustomerId, $"{returnUrlBase}/billing");
 
-        return Ok(new PortalSessionResponse { Url = url });
+        try
+        {
+            var url = await stripeGateway.CreatePortalSession(user.StripeCustomerId, $"{returnUrlBase}/billing");
+            return Ok(new PortalSessionResponse { Url = url });
+        }
+        catch (StripeException ex)
+        {
+            logger.LogError(ex,
+                "Stripe rejected portal session for user {UserId}: {StripeCode} {StripeMessage}",
+                user.Id, ex.StripeError?.Code, ex.StripeError?.Message);
+            return StatusCode(StatusCodes.Status502BadGateway, new[] { $"Stripe rejected the portal request: {DescribeStripeError(ex)}" });
+        }
     }
 
     [HttpGet]
@@ -160,5 +187,15 @@ public class BillingController(
             SubscriptionStatus = string.IsNullOrEmpty(user.SubscriptionStatus) ? "none" : user.SubscriptionStatus,
             HasBillingAccount = !string.IsNullOrEmpty(user.StripeCustomerId)
         });
+    }
+
+    /// <summary>
+    /// Stripe's own message ("No such price: 'price_x'", "Invalid API Key provided: sk_test_***")
+    /// is the actionable part when a purchase fails; without it the client only sees the
+    /// generic 500 from GlobalExceptionMiddleware. Stripe itself redacts key material in them.
+    /// </summary>
+    private static string DescribeStripeError(StripeException ex)
+    {
+        return string.IsNullOrEmpty(ex.StripeError?.Message) ? ex.Message : ex.StripeError.Message;
     }
 }
