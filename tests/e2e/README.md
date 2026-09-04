@@ -65,10 +65,12 @@ npm run report
 
 ## CI
 
-`.github/workflows/e2e.yml` runs the suite nightly (08:00 UTC) and on
-`workflow_dispatch` (not PR-blocking), assumes `AWS_DEPLOYMENT_ROLE` via OIDC
-for the Dynamo resets, and always uploads the Playwright HTML report as an
-artifact. Total config in the GitHub `dev` environment — three secrets:
+`.github/workflows/e2e.yml` runs the suite after every `app-deploy.yml`
+deploy (called as a reusable workflow from the same commit, so the tests
+always match the code that was just shipped; the check shows up as
+`e2e / e2e`), nightly (08:00 UTC) as a drift check against Stripe/Clerk, and
+on `workflow_dispatch`. It assumes `AWS_DEPLOYMENT_ROLE` via OIDC for the
+Dynamo resets, and always uploads the Playwright HTML report as an artifact. Total config in the GitHub `dev` environment — three secrets:
 
 - `E2E_CLERK_PUBLISHABLE_KEY` / `E2E_CLERK_SECRET_KEY` (dev Clerk instance)
 - `E2E_STRIPE_SECRET_KEY` (test mode)

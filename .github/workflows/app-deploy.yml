@@ -18,6 +18,12 @@ on:
           - dev
         default: dev
 
+# One deploy + e2e pass per environment at a time: the suite drives shared dev
+# test users, so a second run deploying or testing mid-run would race it.
+concurrency:
+  group: app-deploy-${{ inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     uses: rwitzlib/github-action-templates/.github/workflows/dotnet-container-deployment.yml@v1.11.1
@@ -145,3 +151,19 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: railway up --service ${{ matrix.service.name }} --ci
+
+  # End-to-end suite against the environment just deployed. Runs the e2e
+  # workflow from this same commit, so app and test code can never diverge.
+  # railway_deploy is skipped on non-master pushes; the suite still runs then
+  # (against the freshly deployed AWS side), it only stands down if a deploy
+  # step actually failed.
+  e2e:
+    needs: [deploy, railway_deploy]
+    if: ${{ !cancelled() && needs.deploy.result == 'success' && needs.railway_deploy.result != 'failure' }}
+    uses: ./.github/workflows/e2e.yml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      environment: ${{ inputs.environment || 'dev' }}
+    secrets: inherit

@@ -29,17 +29,30 @@ export async function cleanupStripeCustomers(userId: string): Promise<void> {
     query: `metadata['userId']:'${userId}'`,
   });
   for (const customer of customers.data) {
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customer.id,
-      status: 'all',
-    });
-    for (const subscription of subscriptions.data) {
-      if (subscription.status !== 'canceled' && subscription.status !== 'incomplete_expired') {
-        await stripe.subscriptions.cancel(subscription.id);
+    try {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customer.id,
+        status: 'all',
+      });
+      for (const subscription of subscriptions.data) {
+        if (subscription.status !== 'canceled' && subscription.status !== 'incomplete_expired') {
+          await stripe.subscriptions.cancel(subscription.id);
+        }
       }
+      await stripe.customers.del(customer.id);
+    } catch (error) {
+      // Search is eventually consistent: a customer deleted moments ago (by
+      // the previous attempt's reset, say) can still come back from the index.
+      // "No such customer" then just means there is nothing left to clean.
+      if (!isResourceMissing(error)) throw error;
     }
-    await stripe.customers.del(customer.id);
   }
+}
+
+function isResourceMissing(error: unknown): boolean {
+  return (
+    error instanceof Stripe.errors.StripeInvalidRequestError && error.code === 'resource_missing'
+  );
 }
 
 /**

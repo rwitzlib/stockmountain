@@ -12,6 +12,15 @@ on:
         options:
           - dev
         default: dev
+  # Called by app-deploy.yml after every deploy so the suite always runs
+  # against the code it just shipped (and the same commit's test code).
+  workflow_call:
+    inputs:
+      environment:
+        description: Environment to test against
+        required: false
+        type: string
+        default: dev
 
 jobs:
   e2e:
