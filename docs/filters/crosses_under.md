@@ -18,8 +18,13 @@ strategy, or to detect a breakdown *event* rather than the ongoing *state* `clos
 
 | parameter | type | required | default | meaning |
 |---|---|---|---|---|
-| series1 | series | yes | — | the line doing the crossing (e.g. `close`, `ema(5)`, `macd(12,26,9,ema).value`) |
-| series2 | series | yes | — | the line being crossed (e.g. `sma(20)`, `ema(20)`, `macd(12,26,9,ema).signal`) |
+| series1 | series or number | yes | — | the line doing the crossing (e.g. `close`, `ema(5)`, `macd(12,26,9,ema).value`) |
+| series2 | series or number | yes | — | the line being crossed (e.g. `sma(20)`, `ema(20)`, `macd(12,26,9,ema).signal`) or a fixed level (`30`, `0`, `100`) |
+
+Either argument may be a plain number. A number is treated as a constant series of the same
+length as the other argument, so `crosses_over(rsi(14,70,30,wilders), 30)` fires on the bar RSI
+climbs back through 30 and `crosses_over(70, rsi(14,70,30,wilders))` fires when RSI drops through
+70 (the constant "rises above" the falling series). Two numbers never cross and always return false.
 
 Fields (dot access): none (single boolean).
 
@@ -40,7 +45,10 @@ result      =  OR over j in [max(1, n-R) .. n-1] of crossed(j)
   bar-pairs ending on the latest bar). The first pair needs one bar of history before the range.
 - Equality counts as "above" beforehand and does not count as "below" afterwards: touching from above
   and bouncing does not fire; sitting exactly on the line and then dropping does.
-- Fewer than 2 aligned values, or a non-series argument, returns false (never an error).
+- A numeric argument `k` is expanded to `[k, k, …]` of the other series' length before alignment,
+  so a level cross is exactly `crossed(j)` with a constant `b` (or `a`).
+- Fewer than 2 aligned values, or two numeric arguments, returns false (never an error). Any other
+  non-series argument type is an `ArgumentException`.
 
 Python reference: `crosses(fx, left, right, r, over=False)` in `tools/golden/compute_outcomes.py`.
 
@@ -65,6 +73,11 @@ crosses_under(close, sma(20)) [1m, 5]
 Price lost its 20-bar SMA on any of the last five 1-minute bars.
 
 ```
+crosses_under(rsi(14,70,30,wilders), 70) [1m, 3]
+```
+RSI fell back through 70 on any of the last three minutes — the overbought run is fading.
+
+```
 crosses_under(ema(9), ema(21)) [5m]
 ```
 Fast EMA just dropped below the slow EMA on the latest 5-minute bar.
@@ -87,8 +100,9 @@ MACD bear cross before RSI has become oversold.
 - `[tf, N]` means "any cross in the last N bars"; a comparison such as `close < sma(20) [5m, 3]`
   means "true on all of the last 3 bars". Do not assume the two ranges compose the same way.
 - Series that are equal on both bars, or that touch from above and recover, never fire.
-- A scalar second argument (`crosses_under(close, 100)`) is not a series and silently returns false;
-  use `close < 100 [1m]` for a level test.
+- A level cross (`crosses_under(close, 100)`) is an *event*: true only on the bar price first closes
+  below 100. For "price is below 100" (a state) use `close < 100 [1m]`. Before 2026-09-04 a numeric
+  argument silently returned false — filters saved before then that use one never matched.
 - On the last bar of the day at intraday timeframes, the forming 15:59 bar and the first bar of the
   next session are adjacent — a gap-down open can register as a cross on the first bar of the day.
 
@@ -97,3 +111,6 @@ MACD bear cross before RSI has become oversold.
 - 2025-06-01 — added.
 - 2026-08-16 — semantics locked by golden test `cross-under-close-sma20-r5` against the Python
   `crosses()` reference.
+- 2026-09-04 — numeric arguments supported as a constant series (level crosses such as
+  `crosses_under(rsi(14,70,30,wilders), 70)`); previously any number made the call silently false.
+  Golden case `cross-under-rsi-level-70-r3`. Backtest entry cache bumped to v3.

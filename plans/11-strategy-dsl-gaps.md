@@ -144,6 +144,11 @@ decent proxy for "real" participation vs a few big prints.
   the bare `vwap` literal (which was Massive's per-bar `vw` — removed) and now backs the chart's
   `StudyType.vwap` via `IndicatorCalculationService`, so `Studies/VWAP.cs` (UTC-midnight reset) is only a
   fallback. Golden reference + 5 outcome cases + `VwapFunctionUnitTests`.
+- ~~**`crosses_over`/`crosses_under` with a numeric argument silently returned false**~~ — **FIXED 2026-09-04**:
+  a number on either side is now a constant series, so level crosses (`crosses_over(rsi(14,30,70,wilders), 30)`)
+  work; two numbers still never cross. Found because that exact entry filter produced a zero-trade backtest.
+  `CacheVersion` v2→v3; golden cases `cross-over-rsi-level-30` etc. Any strategy saved before this date that
+  used a level cross never matched and should be re-run.
 - **Incremental indicator values are stale on a forming candle** — `Sma/Ema/Rsi/Macd/Adv/SlopeFunction.Append`
   return `prev` when the bar count has not grown, but the backtester mutates the last 5m/1h/1d candle in
   place every minute; `close > sma(20) [5m]` compares against the SMA as of the candle's first minute.
