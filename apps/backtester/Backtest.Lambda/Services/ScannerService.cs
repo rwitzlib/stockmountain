@@ -331,9 +331,10 @@ public class ScannerService(IndicatorExpressionEngine engine, DataCache dataCach
     /// Segment of the S3 filter-cache key; bump whenever a change alters which minutes a filter
     /// matches for the same filter string and date, so results computed under the old semantics
     /// are never reused. History: v1 (implicit) same-day 1-minute history; v2 2026-08-17 the
-    /// previous session's minutes are prepended (<see cref="DataCache.PreviousMinuteSessions"/>).
+    /// previous session's minutes are prepended (<see cref="DataCache.PreviousMinuteSessions"/>);
+    /// v3 2026-09-04 crosses_over/crosses_under accept a numeric level (previously always false).
     /// </summary>
-    internal const string CacheVersion = "v2";
+    internal const string CacheVersion = "v3";
 
     /// <summary>
     /// Filter strings contain characters that break S3 requests (&lt;, &gt;, spaces), which

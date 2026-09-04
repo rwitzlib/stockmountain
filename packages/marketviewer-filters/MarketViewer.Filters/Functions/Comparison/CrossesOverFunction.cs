@@ -3,73 +3,22 @@ using MarketViewer.Filters.Interfaces;
 
 namespace MarketViewer.Filters.Functions.Comparison;
 
-
 /// <summary>
-/// Crosses above function - checks if series1 crossed above series2
-/// Can optionally check within a candle range
+/// True when series1 crosses from at-or-below to strictly above series2 on the latest bar
+/// (or on any bar in the candle range). Either argument may be a number, which is treated as a
+/// constant series so level crosses (`crosses_over(rsi(14,70,30,wilders), 30)`) work.
+/// Spec: docs/filters/crosses_over.md.
 /// </summary>
 [FilterFunction("crosses_over", Kind = FunctionKind.Boolean,
     Signature = "crosses_over(series1, series2)", Snippet = "crosses_over(close, sma(20))",
-    Description = "True when series1 crosses above series2 on the latest bar",
+    Description = "True when series1 crosses above series2 on the latest bar; either side may be a fixed level",
     Params = ["series1", "series2"], Cost = 3, Selectivity = 0.2, Contexts = FilterContext.Filters)]
 public class CrossesOverFunction : IBooleanFunction
 {
+    private const string Signature = "crosses_over(series1, series2)";
+
     public string Name => "crosses_over";
 
-    public object Execute(object[] parameters, ExpressionContext context)
-    {
-        if (parameters.Length < 2)
-            throw new ArgumentException("crosses_over function requires at least 2 parameters (series1, series2)");
-
-        // Extract series values, handling both List<IIndicatorResult> and List<double>
-        var series1Values = ExtractSeriesValues(parameters[0]);
-        var series2Values = ExtractSeriesValues(parameters[1]);
-
-        if (series1Values == null || series2Values == null)
-        {
-            // Fallback: no historical context -> cannot detect cross reliably
-            return false;
-        }
-
-        // Align series to the same length (take the minimum length)
-        var minLength = Math.Min(series1Values.Count, series2Values.Count);
-        if (minLength < 2)
-            return false;
-
-        // If lengths differ, truncate the longer series from the beginning
-        if (series1Values.Count > minLength)
-        {
-            series1Values = series1Values.Skip(series1Values.Count - minLength).ToList();
-        }
-        if (series2Values.Count > minLength)
-        {
-            series2Values = series2Values.Skip(series2Values.Count - minLength).ToList();
-        }
-
-        int range = context.CandleRange ?? 1;
-        var startIndex = Math.Max(1, minLength - range);
-
-        for (int i = startIndex; i < minLength; i++)
-        {
-            // Check if series1 crossed above series2
-            if (series1Values[i - 1] <= series2Values[i - 1] && series1Values[i] > series2Values[i])
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private List<double>? ExtractSeriesValues(object? parameter)
-    {
-        if (parameter is List<double> doubleSeries)
-        {
-            return doubleSeries;
-        }
-        else if (parameter is List<IIndicatorResult> indicatorSeries)
-        {
-            return indicatorSeries.Select(r => r.GetFieldValue("value")).ToList();
-        }
-        return null;
-    }
+    public object Execute(object[] parameters, ExpressionContext context) =>
+        CrossDetector.Detect(Name, Signature, parameters, context, over: true);
 }

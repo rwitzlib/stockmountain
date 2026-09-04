@@ -17,6 +17,7 @@ Semantics mirrored from MarketViewer.Filters (must stay in sync — these ARE th
     (right-aligned; if fewer than r are available, all available are used; none -> false).
     mode all (default) requires every bar to satisfy OP, mode any requires one.
   * `crosses_over(a,b)` in range r: some bar j in the last r bars has a[j-1] <= b[j-1] and a[j] > b[j].
+    A numeric argument is a constant series (level cross); two numbers never cross.
   * `time` is minutes since midnight America/New_York of the *evaluation clock*
     (the replay passes the current bar's timestamp).
   * Logical AND binds tighter than OR (standard precedence, "a OR b AND c" == "a OR (b AND c)");
@@ -130,8 +131,10 @@ def cmp(fx: Fixture, left: str, op: str, right, r: int = 1, mode: str = "all") -
     return out
 
 
-def crosses(fx: Fixture, left: str, right: str, r: int = 1, over: bool = True) -> np.ndarray:
-    a, b = fx.series(left), fx.series(right)
+def crosses(fx: Fixture, left, right, r: int = 1, over: bool = True) -> np.ndarray:
+    # A number on either side is a constant series (spec: docs/filters/crosses_over.md, Formula).
+    a = fx.series(left) if isinstance(left, str) else np.full(fx.n, float(left))
+    b = fx.series(right) if isinstance(right, str) else np.full(fx.n, float(right))
     valid = _valid(a, b)
     out = np.zeros(fx.n, dtype=bool)
     for i in range(fx.n):
@@ -245,6 +248,17 @@ CASES: list[Case] = [
     Case("cross-over-close-sma20", "crosses_over(close, sma(20)) [1m]", M1, lambda f: crosses(f, "close", "sma(20)")),
     Case("cross-under-close-sma20-r5", "crosses_under(close, sma(20)) [1m, 5]", M1, lambda f: crosses(f, "close", "sma(20)", r=5, over=False)),
     Case("cross-over-ema5-ema20", "crosses_over(ema(5), ema(20)) [1m]", M1, lambda f: crosses(f, "ema(5)", "ema(20)")),
+    # --- level crosses (numeric argument = constant series). The first case uses the user-facing
+    # rsi(14,30,70,…) spelling (thresholds swapped) — thresholds are informational, same series as RSI.
+    Case("cross-over-rsi-level-30", "crosses_over(rsi(14,30,70,wilders), 30) [1m]", M1_ALL, lambda f: crosses(f, RSI, 30),
+         note="level cross: RSI climbing back through 30 — the entry that returned zero trades before 2026-09-04"),
+    Case("cross-under-rsi-level-70-r3", f"crosses_under({RSI}, 70) [1m, 3]", M1, lambda f: crosses(f, RSI, 70, r=3, over=False)),
+    Case("cross-over-level-lhs-70", f"crosses_over(70, {RSI}) [1m]", M1, lambda f: crosses(f, 70, RSI),
+         note="constant on the left: 70 'rises above' RSI when RSI drops through 70"),
+    Case("cross-over-macd-hist-zero", "crosses_over(macd(12,26,9,ema).histogram, 0) [1m]", M1,
+         lambda f: crosses(f, "macd(12,26,9,ema).histogram", 0)),
+    Case("cross-two-literals-never", "crosses_over(105, 100) [1m]", M1, lambda f: crosses(f, 105, 100),
+         note="two numbers never cross; must be all-false, never an error"),
     # --- time gate (DST fixture: 2025-03-09 changes the UTC offset mid-fixture; half-day fixture)
     Case("time-first-30min", "time >= 570 AND time < 600 [1m]", ["TSLA_1m_2025-03-07_2025-03-11", "SPY_1m_2024-11-27_2024-12-02"],
          lambda f: cmp(f, "time", ">=", 570) & cmp(f, "time", "<", 600)),

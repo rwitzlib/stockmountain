@@ -101,8 +101,8 @@ case-insensitive.
 | [adv](./adv) | `adv([period])` | series | Average volume over the last `period` bars of the active timeframe including the current bar (default 30); classic ADV on [1d] |
 | [vwap](./vwap) | `vwap([anchor])` | series | Session VWAP anchored at 09:30 ET (no value pre-market); vwap(day) anchors at the Eastern date change to include pre-market |
 | [slope](./slope) | `slope(series[, period])` | transform | Linear regression slope of a series over a rolling window (default 5) |
-| [crosses_over](./crosses_over) | `crosses_over(series1, series2)` | boolean | True when series1 crosses above series2 on the latest bar |
-| [crosses_under](./crosses_under) | `crosses_under(series1, series2)` | boolean | True when series1 crosses below series2 on the latest bar |
+| [crosses_over](./crosses_over) | `crosses_over(series1, series2)` | boolean | True when series1 crosses above series2 on the latest bar; either side may be a fixed level (`crosses_over(rsi(14,70,30,wilders), 30)`) |
+| [crosses_under](./crosses_under) | `crosses_under(series1, series2)` | boolean | True when series1 crosses below series2 on the latest bar; either side may be a fixed level |
 | [support_resistance](./support_resistance) | `support_resistance(lookback, swing, cluster%, atrMult, atrPeriod, minTouches)` | series | Support/resistance zone mapper (alias: `sr`). Positive value = closer to resistance |
 
 Kinds: **keyword** — bare name, no parentheses; **series** — one value per bar, usable on either side
