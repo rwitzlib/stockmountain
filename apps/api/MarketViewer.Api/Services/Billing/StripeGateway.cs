@@ -55,6 +55,7 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
 
     public async Task<string> CreateCheckoutSession(CheckoutSessionSpec spec)
     {
+        var returnUrlBase = options.Value.ReturnUrlBase.TrimEnd('/');
         var sessionOptions = new CheckoutSessionCreateOptions
         {
             Customer = spec.CustomerId,
@@ -64,10 +65,10 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
             [
                 new CheckoutSessionLineItemOptions { Price = spec.PriceId, Quantity = 1 }
             ],
-            // Rendered inside our own modal; success is handled in-page via onComplete,
-            // so there is no return redirect at all.
-            UiMode = "embedded",
-            RedirectOnCompletion = "never",
+            // Stripe-hosted page; the billing page reads ?status on return and polls for
+            // the webhook-applied grant.
+            SuccessUrl = $"{returnUrlBase}/billing?status=success",
+            CancelUrl = $"{returnUrlBase}/billing?status=cancelled",
             AllowPromotionCodes = true,
             Metadata = new Dictionary<string, string> { { "userId", spec.UserId } }
         };
@@ -93,7 +94,7 @@ public class StripeGateway(IOptions<StripeConfig> options) : IStripeGateway
         }
 
         var session = await new CheckoutSessionService(_client.Value).CreateAsync(sessionOptions);
-        return session.ClientSecret;
+        return session.Url;
     }
 
     public async Task<string> CreatePortalSession(string customerId, string returnUrl)

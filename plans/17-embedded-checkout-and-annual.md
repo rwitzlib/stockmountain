@@ -1,5 +1,11 @@
 # Plan 17 — Embedded Checkout modal + annual billing
 
+> **Status (Sep 2026):** Phase 1 (the embedded Checkout modal) was reverted.
+> Purchases use Stripe's hosted Checkout page again (`success_url`/`cancel_url`
+> back to `/billing?status=…`) and existing subscribers change plans in the
+> Customer Portal. The web app no longer needs `VITE_STRIPE_PUBLISHABLE_KEY`.
+> Phase 2 (annual billing) stands.
+
 Goal: purchases never leave the site (Stripe **Embedded Checkout** rendered in a modal on
 `/billing`, replacing the hosted-page redirect), and an **annual billing option** at 20% off
 with a bonus-credit sweetener, so more revenue lands up front.

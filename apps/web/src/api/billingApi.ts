@@ -23,13 +23,30 @@ export type CheckoutItemId =
 	| 'PackSmall'
 	| 'PackLarge';
 
+interface ProblemDetails {
+	title?: string;
+	detail?: string;
+	traceId?: string;
+}
+
 async function throwWithApiErrors(response: Response, fallback: string): Promise<never> {
-	// Error bodies are plain string arrays, e.g. ["Unknown credit pack 'X'"]
-	let message = fallback;
+	// Known failures are plain string arrays, e.g. ["Unknown credit pack 'X'"]. An
+	// unhandled exception comes back as RFC 7807 ProblemDetails from the API's
+	// GlobalExceptionMiddleware, whose traceId locates the stack trace in the API logs.
+	let message = `${fallback} (HTTP ${response.status})`;
 	try {
-		const body = await response.json();
+		const body: unknown = await response.json();
 		if (Array.isArray(body) && body.length > 0) {
 			message = body.join(' ');
+		} else if (body && typeof body === 'object') {
+			const problem = body as ProblemDetails;
+			const parts = [problem.title, problem.detail].filter(Boolean);
+			if (parts.length > 0) {
+				message = parts.join(' ');
+				if (problem.traceId) {
+					message += ` (trace ${problem.traceId})`;
+				}
+			}
 		}
 	} catch {
 		// non-JSON body — keep the fallback
@@ -50,7 +67,7 @@ export const billingApi = {
 		return await response.json();
 	},
 
-	/** Returns the client secret for mounting the embedded Checkout session. */
+	/** Returns the Stripe-hosted Checkout page URL to redirect to. */
 	createCheckoutSession: async (kind: CheckoutKind, id: CheckoutItemId): Promise<string> => {
 		const response = await authFetch(`${BASE_URL}/billing/checkout-session`, {
 			method: 'POST',
@@ -61,8 +78,8 @@ export const billingApi = {
 			await throwWithApiErrors(response, 'Failed to start checkout');
 		}
 
-		const data: { clientSecret: string } = await response.json();
-		return data.clientSecret;
+		const data: { url: string } = await response.json();
+		return data.url;
 	},
 
 	/** Returns the Stripe Customer Portal URL to redirect to. */

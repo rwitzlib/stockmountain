@@ -3,12 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUser } from '@clerk/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Check, CreditCard, ExternalLink, Loader2, X } from 'lucide-react';
-import { billingApi, BillingSummary, BillingTier, CheckoutItemId } from '../api/billingApi';
 import {
-  CheckoutItem,
-  CheckoutModal,
-  isCheckoutConfigured,
-} from '../components/modals/CheckoutModal';
+  billingApi,
+  BillingSummary,
+  BillingTier,
+  CheckoutItemId,
+  CheckoutKind,
+} from '../api/billingApi';
 import { Button } from '../components/ui/button';
 import { Switch } from '../components/ui/switch';
 import { toast } from '../hooks/use-toast';
@@ -64,8 +65,8 @@ const PACKS: { id: CheckoutItemId; name: string; credits: number; price: string;
 
 const TIER_ORDER: Record<BillingTier, number> = { Free: 1, Pro: 2, Premium: 3 };
 
-// Webhook lag: after the embedded checkout completes we poll the summary until
-// the credit grant lands (or give up quietly after a minute).
+// Webhook lag: after Checkout returns we poll the summary until the credit
+// grant lands (or give up quietly after a minute).
 const SUCCESS_POLL_MS = 3000;
 const SUCCESS_POLL_TIMEOUT_MS = 60000;
 
@@ -78,14 +79,17 @@ export function BillingPage() {
   const navigate = useNavigate();
   const { isLoaded, isSignedIn, user } = useUser();
 
-  const [checkoutItem, setCheckoutItem] = useState<CheckoutItem | null>(null);
-  // ?cycle=annual carries the landing page's toggle selection into this page.
-  const [searchParams] = useSearchParams();
+  // ?cycle=annual carries the landing page's toggle selection into this page;
+  // ?status=success|cancelled is Stripe Checkout's return.
+  const [searchParams, setSearchParams] = useSearchParams();
   const [billingCycle, setBillingCycle] = useState<BillingCycle>(() =>
     searchParams.get('cycle') === 'annual' ? 'annual' : 'monthly',
   );
-  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
-  const [pollingForGrant, setPollingForGrant] = useState(false);
+  const returnStatus = searchParams.get('status'); // 'success' | 'cancelled' | null
+  const [pollingForGrant, setPollingForGrant] = useState(returnStatus === 'success');
+  // Set only when the poll actually saw the summary change (the webhook landed);
+  // a poll that timed out leaves it false so the banner doesn't overclaim.
+  const [grantConfirmed, setGrantConfirmed] = useState(false);
   const baselineRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -107,6 +111,16 @@ export function BillingPage() {
     refetchInterval: pollingForGrant ? SUCCESS_POLL_MS : false,
   });
 
+  // The baseline and confirmation belong to one user and one checkout return:
+  // a sign-out/sign-in switch mid-poll must not compare the new user's summary
+  // against the previous user's snapshot, and a fresh ?status=success starts
+  // its own poll. Runs before the comparison effect below.
+  useEffect(() => {
+    baselineRef.current = null;
+    setGrantConfirmed(false);
+    setPollingForGrant(returnStatus === 'success');
+  }, [user?.id, returnStatus]);
+
   // Stop polling once the summary changes from the first snapshot we saw —
   // that's the webhook landing. If it never changes (webhook beat us back,
   // or is slow), the timeout below ends the poll quietly.
@@ -118,6 +132,7 @@ export function BillingPage() {
       return;
     }
     if (snapshot !== baselineRef.current) {
+      setGrantConfirmed(true);
       setPollingForGrant(false);
       toast({ title: 'Purchase applied', description: 'Your account has been updated.' });
     }
@@ -136,23 +151,25 @@ export function BillingPage() {
       toast({ title: 'Billing portal unavailable', description: e.message, variant: 'destructive' }),
   });
 
+  // Purchases happen on Stripe's hosted Checkout page; Stripe sends the browser
+  // back to /billing?status=… when it's done.
+  const checkoutMutation = useMutation({
+    mutationFn: ({ kind, id }: { kind: CheckoutKind; id: CheckoutItemId }) =>
+      billingApi.createCheckoutSession(kind, id),
+    onSuccess: url => window.location.assign(url),
+    onError: (e: Error) =>
+      toast({ title: 'Checkout failed', description: e.message, variant: 'destructive' }),
+  });
+
   // Polling means a payment is being applied — hold new purchases until it lands
   // (UI protection only; the API independently rejects duplicate subscriptions).
-  const busy = portalMutation.isPending || pollingForGrant;
+  const busy = checkoutMutation.isPending || portalMutation.isPending || pollingForGrant;
   const hasSubscription =
     summary?.subscriptionStatus === 'active' || summary?.subscriptionStatus === 'past_due';
 
-  // Payment finished inside the modal — close it and poll until the webhook
-  // applies the purchase to the account.
-  const handleCheckoutComplete = () => {
-    setCheckoutItem(null);
-    setShowSuccessBanner(true);
-    baselineRef.current = null;
-    setPollingForGrant(true);
-  };
-
-  const dismissSuccessBanner = () => {
-    setShowSuccessBanner(false);
+  const dismissReturnBanner = () => {
+    searchParams.delete('status');
+    setSearchParams(searchParams, { replace: true });
     setPollingForGrant(false);
   };
 
@@ -166,16 +183,24 @@ export function BillingPage() {
           </p>
         </div>
 
-        {showSuccessBanner && (
-          <ReturnBanner tone="success" onDismiss={dismissSuccessBanner}>
+        {returnStatus === 'success' && (
+          <ReturnBanner tone="success" onDismiss={dismissReturnBanner}>
             {pollingForGrant ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Payment received — applying it to your account…
               </span>
-            ) : (
+            ) : grantConfirmed && summary && !isError ? (
               'Payment received. Your account is up to date.'
+            ) : (
+              // The poll gave up before seeing the grant land: don't claim it did.
+              "Payment received — we couldn't confirm your account yet. Refresh in a moment."
             )}
+          </ReturnBanner>
+        )}
+        {returnStatus === 'cancelled' && (
+          <ReturnBanner tone="neutral" onDismiss={dismissReturnBanner}>
+            Checkout was cancelled — you haven't been charged.
           </ReturnBanner>
         )}
         {summary?.subscriptionStatus === 'past_due' && (
@@ -189,12 +214,6 @@ export function BillingPage() {
           <div className="rounded-xl bg-destructive/10 border border-destructive/40 text-destructive dark:text-red-400 px-4 py-3 text-sm">
             <span className="font-medium">Error:</span> Failed to load billing details. Try
             refreshing the page.
-          </div>
-        )}
-        {!isCheckoutConfigured && (
-          <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-            Purchases are temporarily unavailable — checkout isn't configured in this
-            environment.
           </div>
         )}
 
@@ -267,11 +286,15 @@ export function BillingPage() {
                     summary={summary}
                     hasSubscription={hasSubscription}
                     busy={busy}
+                    checkoutPending={
+                      checkoutMutation.isPending &&
+                      checkoutMutation.variables?.kind === 'subscription' &&
+                      checkoutMutation.variables?.id === (annual ? annual.id : plan.id)
+                    }
                     onSubscribe={() =>
-                      setCheckoutItem({
+                      checkoutMutation.mutate({
                         kind: 'subscription',
                         id: annual ? annual.id : (plan.id as CheckoutItemId),
-                        label: annual ? `${plan.id} plan (annual)` : `${plan.id} plan`,
                       })
                     }
                     onOpenPortal={() => portalMutation.mutate()}
@@ -305,16 +328,14 @@ export function BillingPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={busy || isLoading || !isCheckoutConfigured}
-                  onClick={() =>
-                    setCheckoutItem({
-                      kind: 'pack',
-                      id: pack.id,
-                      label: `${pack.credits.toLocaleString()} credits`,
-                    })
-                  }
+                  disabled={busy || isLoading}
+                  onClick={() => checkoutMutation.mutate({ kind: 'pack', id: pack.id })}
                 >
-                  {pack.price}
+                  {checkoutMutation.isPending && checkoutMutation.variables?.id === pack.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    pack.price
+                  )}
                 </Button>
               </div>
             ))}
@@ -329,12 +350,6 @@ export function BillingPage() {
           portal.
         </p>
       </div>
-
-      <CheckoutModal
-        item={checkoutItem}
-        onClose={() => setCheckoutItem(null)}
-        onComplete={handleCheckoutComplete}
-      />
     </div>
   );
 }
@@ -566,6 +581,7 @@ function PlanAction({
   summary,
   hasSubscription,
   busy,
+  checkoutPending,
   onSubscribe,
   onOpenPortal,
 }: {
@@ -573,6 +589,7 @@ function PlanAction({
   summary: BillingSummary | undefined;
   hasSubscription: boolean;
   busy: boolean;
+  checkoutPending: boolean;
   onSubscribe: () => void;
   onOpenPortal: () => void;
 }) {
@@ -608,7 +625,7 @@ function PlanAction({
   }
 
   // Existing subscribers change plans through the portal (checkout would be
-  // rejected by the API); everyone else goes straight to Stripe Checkout.
+  // rejected by the API); everyone else goes to Stripe's hosted Checkout page.
   if (hasSubscription) {
     return (
       <Button className="mt-5" variant="outline" disabled={busy} onClick={onOpenPortal}>
@@ -618,8 +635,8 @@ function PlanAction({
   }
 
   return (
-    <Button className="mt-5" disabled={busy || !isCheckoutConfigured} onClick={onSubscribe}>
-      Subscribe to {plan}
+    <Button className="mt-5" disabled={busy} onClick={onSubscribe}>
+      {checkoutPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Subscribe to ${plan}`}
     </Button>
   );
 }

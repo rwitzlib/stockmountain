@@ -247,9 +247,3 @@ variable "cache_warmup_enabled" {
   default     = "true"
   description = "Enable cache warmup."
 }
-
-variable "vite_stripe_publishable_key" {
-  type        = string
-  default     = ""
-  description = "Stripe publishable key for the frontend."
-}

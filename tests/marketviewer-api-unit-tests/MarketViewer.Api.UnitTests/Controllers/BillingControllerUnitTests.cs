@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
+using Stripe;
+using System.Net;
 using Xunit;
 
 namespace MarketViewer.Api.UnitTests.Controllers;
@@ -42,7 +44,7 @@ public class BillingControllerUnitTests
             _users.Object,
             _gateway.Object,
             catalog,
-            Options.Create(new StripeConfig { ReturnUrlBase = "https://app.test/" }),
+            Options.Create(new StripeConfig { SecretKey = "sk_test_unit", ReturnUrlBase = "https://app.test/" }),
             new AuthContext { UserId = "user-1", IsAuthenticated = true },
             NullLogger<BillingController>.Instance);
     }
@@ -72,7 +74,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("cs_secret_1");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_1");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -82,7 +84,7 @@ public class BillingControllerUnitTests
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeOfType<CheckoutSessionResponse>()
-            .Which.ClientSecret.Should().Be("cs_secret_1");
+            .Which.Url.Should().Be("https://checkout.stripe.com/c/pay/cs_1");
         _users.Verify(u => u.SetStripeCustomerId("user-1", "cus_new"), Times.Once);
         spec.CustomerId.Should().Be("cus_new");
         spec.PriceId.Should().Be("price_pro");
@@ -106,7 +108,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("cs_secret_4");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_4");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -125,7 +127,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("cs_secret_2");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_2");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -146,7 +148,7 @@ public class BillingControllerUnitTests
     {
         SetupUser(role: UserRole.Pro, stripeCustomerId: "cus_1", subscriptionStatus: "active");
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
-            .ReturnsAsync("cs_secret_3");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_3");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -224,7 +226,7 @@ public class BillingControllerUnitTests
         SetupUser(stripeCustomerId: "cus_1", subscriptionStatus: null);
         _gateway.Setup(g => g.HasLiveSubscription("cus_1")).ReturnsAsync(true);
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
-            .ReturnsAsync("cs_secret_5");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_5");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -244,7 +246,7 @@ public class BillingControllerUnitTests
         CheckoutSessionSpec spec = null;
         _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
             .Callback<CheckoutSessionSpec>(s => spec = s)
-            .ReturnsAsync("cs_secret_annual");
+            .ReturnsAsync("https://checkout.stripe.com/c/pay/cs_annual");
 
         var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
         {
@@ -285,7 +287,7 @@ public class BillingControllerUnitTests
                 new Dictionary<UserRole, float> { { UserRole.Pro, 1000 } },
                 new Dictionary<string, float>(),
                 new Dictionary<string, string>()),
-            Options.Create(new StripeConfig { ReturnUrlBase = "https://app.test" }),
+            Options.Create(new StripeConfig { SecretKey = "sk_test_unit", ReturnUrlBase = "https://app.test" }),
             new AuthContext { UserId = "user-1", IsAuthenticated = true },
             NullLogger<BillingController>.Instance);
 
@@ -297,6 +299,113 @@ public class BillingControllerUnitTests
 
         result.Should().BeOfType<ObjectResult>()
             .Which.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+    }
+
+    [Fact]
+    public async Task CheckoutSession_MissingSecretKey_Returns500WithoutCallingStripe()
+    {
+        SetupUser();
+        var controllerWithoutKey = new BillingController(
+            _users.Object,
+            _gateway.Object,
+            new BillingCatalog(
+                new Dictionary<UserRole, float>(),
+                new Dictionary<string, float> { { "PackSmall", 250 } },
+                new Dictionary<string, string> { { "PackSmall", "price_pack_small" } }),
+            Options.Create(new StripeConfig { ReturnUrlBase = "https://app.test" }),
+            new AuthContext { UserId = "user-1", IsAuthenticated = true },
+            NullLogger<BillingController>.Instance);
+
+        var result = await controllerWithoutKey.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Pack,
+            Id = "PackSmall"
+        });
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+        objectResult.Value.Should().BeEquivalentTo(new[] { "Billing is not configured" });
+        _gateway.Verify(g => g.CreateCustomer(It.IsAny<string>()), Times.Never);
+        _gateway.Verify(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckoutSession_StripeRejection_Returns502WithStripeMessage()
+    {
+        SetupUser(stripeCustomerId: "cus_existing");
+        _gateway.Setup(g => g.CreateCheckoutSession(It.IsAny<CheckoutSessionSpec>()))
+            .ThrowsAsync(new StripeException(
+                HttpStatusCode.BadRequest,
+                new StripeError { Code = "resource_missing", Message = "No such price: 'price_pack_small'" },
+                "No such price: 'price_pack_small'"));
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Pack,
+            Id = "PackSmall"
+        });
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(StatusCodes.Status502BadGateway);
+        objectResult.Value.Should().BeEquivalentTo(
+            new[] { "Stripe rejected the checkout request: No such price: 'price_pack_small'" });
+    }
+
+    [Fact]
+    public async Task CheckoutSession_StripeRejectionWithoutErrorBody_UsesExceptionMessage()
+    {
+        SetupUser();
+        _gateway.Setup(g => g.CreateCustomer("user-1"))
+            .ThrowsAsync(new StripeException("Invalid API Key provided: sk_test_****unit"));
+
+        var result = await _classUnderTest.CreateCheckoutSession(new CheckoutSessionRequest
+        {
+            Kind = CheckoutKind.Pack,
+            Id = "PackSmall"
+        });
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(StatusCodes.Status502BadGateway);
+        objectResult.Value.Should().BeEquivalentTo(
+            new[] { "Stripe rejected the checkout request: Invalid API Key provided: sk_test_****unit" });
+    }
+
+    [Fact]
+    public async Task PortalSession_StripeRejection_Returns502WithStripeMessage()
+    {
+        SetupUser(stripeCustomerId: "cus_1");
+        _gateway.Setup(g => g.CreatePortalSession("cus_1", It.IsAny<string>()))
+            .ThrowsAsync(new StripeException(
+                HttpStatusCode.BadRequest,
+                new StripeError { Code = "resource_missing", Message = "No such customer: 'cus_1'" },
+                "No such customer: 'cus_1'"));
+
+        var result = await _classUnderTest.CreatePortalSession();
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(StatusCodes.Status502BadGateway);
+        objectResult.Value.Should().BeEquivalentTo(
+            new[] { "Stripe rejected the portal request: No such customer: 'cus_1'" });
+    }
+
+    [Fact]
+    public async Task PortalSession_MissingSecretKey_Returns500WithoutCallingStripe()
+    {
+        SetupUser(stripeCustomerId: "cus_1");
+        var controllerWithoutKey = new BillingController(
+            _users.Object,
+            _gateway.Object,
+            new BillingCatalog(new Dictionary<UserRole, float>(), new Dictionary<string, float>(), new Dictionary<string, string>()),
+            Options.Create(new StripeConfig { SecretKey = "   ", ReturnUrlBase = "https://app.test" }),
+            new AuthContext { UserId = "user-1", IsAuthenticated = true },
+            NullLogger<BillingController>.Instance);
+
+        var result = await controllerWithoutKey.CreatePortalSession();
+
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+        objectResult.Value.Should().BeEquivalentTo(new[] { "Billing is not configured" });
+        _gateway.Verify(g => g.CreatePortalSession(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]

@@ -21,7 +21,7 @@ public interface IStripeGateway
     /// </summary>
     Task<bool> HasLiveSubscription(string customerId);
 
-    /// <summary>Creates an embedded Checkout session and returns its client secret.</summary>
+    /// <summary>Creates a hosted Checkout session and returns its page URL.</summary>
     Task<string> CreateCheckoutSession(CheckoutSessionSpec spec);
 
     /// <summary>Creates a Customer Portal session and returns its hosted-page URL.</summary>

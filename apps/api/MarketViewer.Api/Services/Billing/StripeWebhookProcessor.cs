@@ -121,8 +121,12 @@ public class StripeWebhookProcessor(
         // An upgrade's prorated invoice (billing_reason subscription_update) is money only —
         // the credit delta was already granted by customer.subscription.updated. The grant
         // path also SETs BillingInterval from the paying price: that's what flips a
-        // period-end annual→monthly downgrade back to "month" at renewal.
-        var isUpgradeProration = invoice.BillingReason == "subscription_update";
+        // period-end annual→monthly downgrade back to "month" at renewal. A scheduled
+        // downgrade normally lands as a subscription_cycle renewal, but if Stripe bills the
+        // phase switch as subscription_update the lower tier (or the annual→monthly
+        // interval drop) must still be applied here — nothing else would ever record it.
+        var isUpgradeProration = invoice.BillingReason == "subscription_update"
+            && !IsDowngrade(await userRepository.Get(userId), tier, interval);
         var grant = catalog.GetMonthlyGrant(tier);
 
         var paymentApplied = await ApplyLedgeredMutation(
@@ -237,6 +241,23 @@ public class StripeWebhookProcessor(
         logger.LogDebug("Subscription update for user {UserId} is not an upgrade or annual switch ({Current} -> {New}); ignoring",
             userId, user.Role, newTier);
         return true;
+    }
+
+    /// <summary>
+    /// True when the invoiced price gives the user less than they hold: a lower tier, or the
+    /// same tier billed monthly while the record still says annual.
+    /// </summary>
+    private static bool IsDowngrade(UserRecord user, UserRole invoicedTier, string invoicedInterval)
+    {
+        if (user is null)
+        {
+            return false;
+        }
+
+        return invoicedTier < user.Role
+            || (invoicedTier == user.Role
+                && invoicedInterval == BillingInterval.Month
+                && user.BillingInterval == BillingInterval.Year);
     }
 
     /// <summary>
