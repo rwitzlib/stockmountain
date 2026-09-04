@@ -17,8 +17,8 @@ internal static class CrossDetector
     /// </summary>
     public static bool Detect(string name, string signature, object[] parameters, ExpressionContext context, bool over)
     {
-        if (parameters.Length < 2)
-            throw new ArgumentException($"{name} requires 2 arguments: {signature}");
+        if (parameters.Length != 2)
+            throw new ArgumentException($"{name} requires exactly 2 arguments, got {parameters.Length}: {signature}");
 
         var first = Classify(name, signature, parameters[0], "series1");
         var second = Classify(name, signature, parameters[1], "series2");

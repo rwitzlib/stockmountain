@@ -60,7 +60,8 @@ Findings that should shape what we test next:
 ## B. Backtestable today
 
 Conventions: one filter per line (lines are ANDed). Unless stated, exits = stop 2% / target 10% /
-timed 5m / cooldown 15m / fixed $5k, 2024-01-01 → today, so results are comparable to `d8e36f18`.
+timed 5m / cooldown 15m / fixed $5k, **2024-01-01 → 2026-08-13** (the `d8e36f18` window), so results are
+comparable to that run. Extend the end date only after re-running the baseline over the same window.
 Read the **Hold** stats, not High. Run each as a family: baseline + one change at a time.
 
 > **Caveat — `[5m]` / `[15m]` suffixes in backtests.** The backtest DataCache loads S3 aggregates
@@ -70,7 +71,7 @@ Read the **Hold** stats, not High. Run each as a family: baseline + one change a
 
 ### B1. Calibrate the live strategy (do these first)
 
-1. **Live filter set, verbatim, 2024→today.** Filters exactly as the paper bot runs them, exits
+1. **Live filter set, verbatim, 2024-01-01 → 2026-08-13.** Filters exactly as the paper bot runs them, exits
    2% / 15% / 5m, $10k fixed. This is the missing baseline; everything else is measured against it.
 2. **RSI smoothing A/B.** Same as #1 with `rsi(14,30,70,wilders) < 30 [1m]`. `ema` (alpha 2/15) is
    ~2× faster than Wilder's (alpha 1/14), so it fires on shallower dips; we do not know which is

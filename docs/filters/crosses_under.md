@@ -22,9 +22,9 @@ strategy, or to detect a breakdown *event* rather than the ongoing *state* `clos
 | series2 | series or number | yes | — | the line being crossed (e.g. `sma(20)`, `ema(20)`, `macd(12,26,9,ema).signal`) or a fixed level (`30`, `0`, `100`) |
 
 Either argument may be a plain number. A number is treated as a constant series of the same
-length as the other argument, so `crosses_over(rsi(14,70,30,wilders), 30)` fires on the bar RSI
-climbs back through 30 and `crosses_over(70, rsi(14,70,30,wilders))` fires when RSI drops through
-70 (the constant "rises above" the falling series). Two numbers never cross and always return false.
+length as the other argument, so `crosses_under(rsi(14,70,30,wilders), 70)` fires on the bar RSI
+falls back through 70 and `crosses_under(30, rsi(14,70,30,wilders))` fires when RSI climbs through
+30 (the constant "drops below" the rising series). Two numbers never cross and always return false.
 
 Fields (dot access): none (single boolean).
 

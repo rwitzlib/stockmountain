@@ -138,6 +138,9 @@ public class ComparisonFunctionUnitTests
         Assert.Contains("crosses_over(series1, series2)", ex.Message);
 
         Assert.Throws<ArgumentException>(() => new CrossesUnderFunction().Execute([series], context));
+        Assert.Throws<ArgumentException>(() => new CrossesOverFunction().Execute([series, 30.0, 0.0], context));   // extra argument is not ignored
+        var viaEngine = Assert.Throws<ArgumentException>(() => Eval("crosses_over(close, 30, 0)", Closes(100, 104, 106)));   // surfaces through the engine unwrapped
+        Assert.Contains("exactly 2 arguments", viaEngine.Message);
         Assert.Throws<ArgumentException>(() => new CrossesOverFunction().Execute([null!, series], context));
     }
 
