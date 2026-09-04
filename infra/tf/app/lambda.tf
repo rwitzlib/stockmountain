@@ -130,7 +130,7 @@ resource "aws_lambda_function" "backtest_worker" {
   function_name = "${var.team}-${var.environment}-${local.backtest_worker_service}"
   role          = aws_iam_role.backtest_lambda.arn
 
-  memory_size = 3008
+  memory_size = 4096
   timeout     = 900
 
   architectures = ["x86_64"]
