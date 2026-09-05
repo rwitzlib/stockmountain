@@ -186,6 +186,7 @@ export function FilterChips({ expression, onChange, className }: FilterChipsProp
               <select
                 key={key}
                 autoFocus
+                onClick={(e) => e.stopPropagation()}
                 defaultValue={segment.edit === 'op' ? segment.text : segment.text.replace(/[[\]\s]/g, '').split(',')[0]}
                 onChange={(e) => commitEdit(segment, e.target.value)}
                 onBlur={() => setEditingPath(null)}
@@ -201,6 +202,7 @@ export function FilterChips({ expression, onChange, className }: FilterChipsProp
             <input
               key={key}
               autoFocus
+              onClick={(e) => e.stopPropagation()}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={() => commitEdit(segment, draft)}
@@ -212,19 +214,25 @@ export function FilterChips({ expression, onChange, className }: FilterChipsProp
             />
           );
         }
+        if (!editable) {
+          // Plain span so clicks bubble to whatever container owns the row (e.g. open full editor).
+          return (
+            <span key={key} className={`rounded px-1 py-0.5 font-mono text-xs ${ROLE_CLASS[segment.role]}`}>
+              {segment.text}
+            </span>
+          );
+        }
         return (
           <button
             key={key}
             type="button"
-            disabled={!editable}
-            onClick={() => {
-              if (!editable) return;
+            title="Quick edit"
+            onClick={(e) => {
+              e.stopPropagation();
               setDraft(segment.text);
               setEditingPath(key);
             }}
-            className={`rounded px-1 py-0.5 font-mono text-xs ${ROLE_CLASS[segment.role]} ${
-              editable ? 'cursor-pointer hover:bg-accent hover:underline decoration-dotted underline-offset-2' : 'cursor-default'
-            }`}
+            className={`rounded px-1 py-0.5 font-mono text-xs ${ROLE_CLASS[segment.role]} cursor-pointer hover:bg-accent hover:underline decoration-dotted underline-offset-2`}
           >
             {segment.text}
           </button>

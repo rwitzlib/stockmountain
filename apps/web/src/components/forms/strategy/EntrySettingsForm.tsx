@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Trash2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
+import { Trash2, GripVertical, Pencil } from 'lucide-react';
 import { FilterComposer } from '../../filters/FilterComposer';
 import { FilterChips } from '../../filters/FilterChips';
 import { Button } from '../../ui/button';
@@ -12,37 +12,102 @@ interface EntrySettingsFormProps {
   context?: 'scan' | 'backtest' | 'chart';
 }
 
+const moveItem = <T,>(items: T[], from: number, to: number): T[] => {
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return items;
+  const next = [...items];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+};
+
 export function EntrySettingsForm({ value, onChange, context = 'scan' }: EntrySettingsFormProps) {
-  const [isComposerExpanded, setIsComposerExpanded] = useState(true);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  // Drag state: which row is being dragged, which row it's currently hovering over.
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+  // Only a mousedown on the grip arms the row for dragging, so text selection and chip clicks stay normal.
+  const [armedIndex, setArmedIndex] = useState<number | null>(null);
+
+  const setFilters = (filters: string[]) => onChange({ ...value, filters });
 
   const handleAddFilter = (expression: string) => {
-    onChange({
-      ...value,
-      filters: [...value.filters, expression],
-    });
+    setFilters([...value.filters, expression]);
   };
 
   const handleRemoveFilter = (index: number) => {
-    onChange({
-      ...value,
-      filters: value.filters.filter((_, i) => i !== index),
-    });
-  };
-
-  const handleMoveFilter = (index: number, direction: 'up' | 'down') => {
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= value.filters.length) return;
-
-    const newFilters = [...value.filters];
-    [newFilters[index], newFilters[newIndex]] = [newFilters[newIndex], newFilters[index]];
-    onChange({ ...value, filters: newFilters });
+    setFilters(value.filters.filter((_, i) => i !== index));
+    if (editingIndex === index) setEditingIndex(null);
   };
 
   const handleEditFilter = (index: number, newExpression: string) => {
-    onChange({
-      ...value,
-      filters: value.filters.map((f, i) => (i === index ? newExpression : f)),
-    });
+    setFilters(value.filters.map((f, i) => (i === index ? newExpression : f)));
+  };
+
+  const handleSaveEdit = (index: number, newExpression: string) => {
+    handleEditFilter(index, newExpression);
+    setEditingIndex(null);
+  };
+
+  const handleMove = (from: number, to: number) => {
+    const next = moveItem(value.filters, from, to);
+    if (next !== value.filters) setFilters(next);
+  };
+
+  const resetDrag = () => {
+    setDragIndex(null);
+    setOverIndex(null);
+    setArmedIndex(null);
+  };
+
+  const handleDragStart = (index: number) => (e: DragEvent<HTMLDivElement>) => {
+    if (armedIndex !== index) {
+      e.preventDefault();
+      return;
+    }
+    setEditingIndex(null);
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    // Firefox requires data to be set for the drag to begin.
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOver = (index: number) => (e: DragEvent<HTMLDivElement>) => {
+    if (dragIndex === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (overIndex !== index) setOverIndex(index);
+  };
+
+  const handleDrop = (index: number) => (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (dragIndex !== null) handleMove(dragIndex, index);
+    resetDrag();
+  };
+
+  // Row keys include the index, so a moved row remounts and its grip loses DOM focus.
+  // Track grips by index and re-focus the moved row's grip after the reorder renders.
+  const gripRefs = useRef(new Map<number, HTMLButtonElement | null>());
+  const [focusIndex, setFocusIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (focusIndex === null) return;
+    gripRefs.current.get(focusIndex)?.focus();
+    setFocusIndex(null);
+  }, [focusIndex]);
+
+  /** Keyboard fallback for the grip: arrow keys nudge the row up/down. */
+  const handleGripKeyDown = (index: number) => (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (index === 0) return;
+      handleMove(index, index - 1);
+      setFocusIndex(index - 1);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (index === value.filters.length - 1) return;
+      handleMove(index, index + 1);
+      setFocusIndex(index + 1);
+    }
   };
 
   return (
@@ -53,10 +118,9 @@ export function EntrySettingsForm({ value, onChange, context = 'scan' }: EntrySe
           <div>
             <h4 className="text-sm font-medium text-foreground">Entry Conditions</h4>
             <p className="text-xs text-muted-foreground">
-              {value.filters.length === 0 
+              {value.filters.length === 0
                 ? 'Add filters to define when to enter positions'
-                : `${value.filters.length} filter${value.filters.length !== 1 ? 's' : ''} configured (combined with AND)`
-              }
+                : `${value.filters.length} filter${value.filters.length !== 1 ? 's' : ''} configured (combined with AND) — click a condition to edit, drag the handle to reorder`}
             </p>
           </div>
           {value.filters.length > 0 && (
@@ -68,59 +132,120 @@ export function EntrySettingsForm({ value, onChange, context = 'scan' }: EntrySe
 
         {value.filters.length > 0 && (
           <div className="space-y-2">
-            {value.filters.map((filter, index) => (
-              <div
-                key={`${filter}-${index}`}
-                className="group flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border hover:bg-accent/40 transition-colors"
-              >
-                {/* Drag Handle / Index */}
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <GripVertical className="w-4 h-4 opacity-0 group-hover:opacity-50" />
-                  <span className="text-xs font-mono w-5">{index + 1}.</span>
-                </div>
+            {value.filters.map((filter, index) => {
+              const isEditing = editingIndex === index;
+              const isDragging = dragIndex === index;
+              const isDropTarget = dragIndex !== null && overIndex === index && dragIndex !== index;
+              const dropAbove = isDropTarget && dragIndex !== null && dragIndex > index;
 
-                {/* Filter Expression — chips when parseable, plain text fallback otherwise */}
-                <div className="flex-1 min-w-0">
-                  <FilterChips
-                    expression={filter}
-                    onChange={(expression) => handleEditFilter(index, expression)}
-                  />
-                </div>
+              if (isEditing) {
+                return (
+                  <div
+                    key={`${filter}-${index}-edit`}
+                    className="flex items-start gap-2 p-3 rounded-lg bg-card border border-ring/60 ring-2 ring-ring/20"
+                  >
+                    <span className="mt-2 w-5 text-xs font-mono text-muted-foreground">{index + 1}.</span>
+                    <div className="flex-1 min-w-0">
+                      <FilterComposer
+                        context={context}
+                        initialExpression={filter}
+                        autoFocus
+                        addButtonLabel="Save"
+                        onAddFilter={(expression) => handleSaveEdit(index, expression)}
+                        onCancel={() => setEditingIndex(null)}
+                      />
+                    </div>
+                  </div>
+                );
+              }
 
-                {/* Actions */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleMoveFilter(index, 'up')}
-                    disabled={index === 0}
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                  >
-                    <ChevronUp className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleMoveFilter(index, 'down')}
-                    disabled={index === value.filters.length - 1}
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveFilter(index)}
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+              return (
+                <div
+                  key={`${filter}-${index}`}
+                  draggable={armedIndex === index}
+                  onDragStart={handleDragStart(index)}
+                  onDragOver={handleDragOver(index)}
+                  onDrop={handleDrop(index)}
+                  onDragEnd={resetDrag}
+                  // Mouse convenience only: the row is not an interactive role because it
+                  // contains native controls. Keyboard users edit via the Edit button.
+                  onClick={() => setEditingIndex(index)}
+                  title="Click to edit"
+                  className={`group flex items-center gap-2 p-3 rounded-lg bg-muted/30 border transition-colors cursor-pointer hover:bg-accent/40 ${
+                    isDragging ? 'opacity-40 border-dashed border-border' : 'border-border'
+                  } ${
+                    isDropTarget
+                      ? dropAbove
+                        ? 'shadow-[0_-2px_0_0_hsl(var(--primary))]'
+                        : 'shadow-[0_2px_0_0_hsl(var(--primary))]'
+                      : ''
+                  }`}
+                >
+                  {/* Drag Handle / Index */}
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <button
+                      ref={(el) => {
+                        gripRefs.current.set(index, el);
+                      }}
+                      type="button"
+                      aria-label={`Reorder condition ${index + 1}. Drag, or use arrow keys.`}
+                      title="Drag to reorder"
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        setArmedIndex(index);
+                      }}
+                      onMouseUp={() => setArmedIndex(null)}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={handleGripKeyDown(index)}
+                      className="flex h-6 w-5 items-center justify-center rounded cursor-grab active:cursor-grabbing opacity-40 group-hover:opacity-80 hover:!opacity-100 hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100 transition-opacity"
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </button>
+                    <span className="text-xs font-mono w-5">{index + 1}.</span>
+                  </div>
+
+                  {/* Filter Expression — chips when parseable, plain text fallback otherwise */}
+                  <div className="flex-1 min-w-0">
+                    <FilterChips
+                      expression={filter}
+                      onChange={(expression) => handleEditFilter(index, expression)}
+                    />
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Edit condition"
+                      title="Edit"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingIndex(index);
+                      }}
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Remove condition"
+                      title="Remove"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveFilter(index);
+                      }}
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -138,35 +263,20 @@ export function EntrySettingsForm({ value, onChange, context = 'scan' }: EntrySe
 
       {/* Filter Composer */}
       <div className="space-y-3">
-        <button
-          type="button"
-          onClick={() => setIsComposerExpanded(!isComposerExpanded)}
-          className="w-full flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border hover:bg-accent transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">Filter Builder</span>
-            <span className="text-xs text-muted-foreground">
-              Build expressions with indicators, operators, and timeframes
-            </span>
-          </div>
-          {isComposerExpanded ? (
-            <ChevronUp className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          )}
-        </button>
-
-        {isComposerExpanded && (
-          <div className="p-4 rounded-lg border border-border bg-card">
-            <FilterComposer
-              onAddFilter={handleAddFilter}
-              context={context}
-              addButtonLabel="Add Entry Condition"
-            />
-          </div>
-        )}
+        <div className="flex items-baseline gap-2">
+          <span className="text-sm font-medium text-foreground">Filter Builder</span>
+          <span className="text-xs text-muted-foreground">
+            Build expressions with indicators, operators, and timeframes
+          </span>
+        </div>
+        <div className="p-4 rounded-lg border border-border bg-card">
+          <FilterComposer
+            onAddFilter={handleAddFilter}
+            context={context}
+            addButtonLabel="Add Entry Condition"
+          />
+        </div>
       </div>
     </div>
   );
 }
-

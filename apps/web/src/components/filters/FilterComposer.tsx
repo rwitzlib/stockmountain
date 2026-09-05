@@ -34,6 +34,11 @@ interface FilterComposerProps {
   context: FilterComposerContext;
   addButtonLabel?: string;
   disabled?: boolean;
+  /** Prefill the input (edit mode). The composer is not cleared after submit in this mode. */
+  initialExpression?: string;
+  /** When provided, shows a Cancel button and makes Escape (with the menu closed) cancel. */
+  onCancel?: () => void;
+  autoFocus?: boolean;
 }
 
 interface Suggestion {
@@ -83,11 +88,19 @@ const argIndexAt = (text: string, parenIndex: number, caret: number): number => 
 };
 
 export const FilterComposer = forwardRef(function FilterComposer(
-  { onAddFilter, context, addButtonLabel = 'Add Filter', disabled = false }: FilterComposerProps,
+  {
+    onAddFilter,
+    context,
+    addButtonLabel = 'Add Filter',
+    disabled = false,
+    initialExpression,
+    onCancel,
+    autoFocus = false,
+  }: FilterComposerProps,
   ref: Ref<FilterComposerRef>
 ) {
-  const [input, setInput] = useState('');
-  const [caret, setCaret] = useState(0);
+  const [input, setInput] = useState(initialExpression ?? '');
+  const [caret, setCaret] = useState(initialExpression?.length ?? 0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuIndex, setMenuIndex] = useState(0);
   const [validation, setValidation] = useState<FilterValidationResult | null>(null);
@@ -101,6 +114,16 @@ export const FilterComposer = forwardRef(function FilterComposer(
       inputRef.current?.focus();
     },
   }));
+
+  // Edit mode: land the caret at the end of the prefilled expression instead of wherever the browser puts it.
+  useEffect(() => {
+    if (!autoFocus || !initialExpression) return;
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(initialExpression.length, initialExpression.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data: functions = [] } = useQuery({
     queryKey: ['filterFunctions', context],
@@ -241,9 +264,11 @@ export const FilterComposer = forwardRef(function FilterComposer(
     }
     recordFilterUse(expression);
     onAddFilter(expression);
-    setInput('');
-    setValidation(null);
     setMenuOpen(false);
+    if (initialExpression === undefined) {
+      setInput('');
+      setValidation(null);
+    }
   };
 
   const status = !input.trim()
@@ -265,6 +290,7 @@ export const FilterComposer = forwardRef(function FilterComposer(
               ref={inputRef}
               value={input}
               disabled={disabled}
+              autoFocus={autoFocus}
               placeholder="Type a filter, e.g. rsi(14) < 30 [1m] — or pick a template"
               className="w-full rounded-lg border border-input bg-card text-foreground font-mono text-xs px-3 py-2 pr-8 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               onChange={(e) => {
@@ -306,6 +332,11 @@ export const FilterComposer = forwardRef(function FilterComposer(
                   e.preventDefault();
                   return;
                 }
+                if (e.key === 'Escape' && onCancel) {
+                  e.preventDefault();
+                  onCancel();
+                  return;
+                }
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   handleAdd();
@@ -325,6 +356,16 @@ export const FilterComposer = forwardRef(function FilterComposer(
           >
             {addButtonLabel}
           </Button>
+          {onCancel && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onCancel}
+              className="text-xs font-medium px-3 py-1 text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </Button>
+          )}
         </div>
 
         {menuOpen && suggestions.length > 0 && (
