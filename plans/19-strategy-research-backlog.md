@@ -216,7 +216,19 @@ should be appended there when picked up.
 1. **Model stop slippage in the backtest.** Live stop fills median −2.9% vs backtest −2.0% (finding
    A3). Options: fill stops at the next bar's open instead of the trigger price; or a configurable
    slippage in bps applied to exits (and entries) by price band. Until then, mentally haircut every
-   backtest PF on sub-$5 names. Also compare live entry fills vs signal-bar close.
+   backtest PF on sub-$5 names.
+   **1b. Fill entries at the next bar's open, not the signal bar's close** (measured 2026-09-04 on the
+   610-ticker universe of run `6891ea68`, sessions 2026-07-15 and 2026-08-12, ~1,800 RSI<30 signals and
+   ~570 RSI-cross-30 signals). `BuildEntryResult` prices the entry at the signal bar's close, which is
+   only known when that bar completes; the earliest real fill is the next bar's open. For `rsi < 30`
+   signals the signal bar closes *below* its own VWAP 75% of the time (a bid-side print), and the next
+   open averages **+0.12% to +0.15% above** the modeled fill. The 3-minute hold return measured from the
+   signal close was +0.21%/+0.23% (two days); measured from the next open it was +0.07%/+0.11% — roughly
+   half of the RSI-low edge in every backtest so far is fill optimism. For `crosses_over(rsi, 30)`
+   signals the bar closes *above* its VWAP 70% of the time and the next open is 0.06–0.18% *below*
+   the modeled fill; that strategy is flat-to-negative on realistic fills. This is the standard
+   "next-bar-open" backtest convention and should be the default; keep signal-close as an option only
+   for parity studies.
 2. **Fix `[5m]`/`[15m]` in backtests.** Rebuild intraday candles from the 1m series in `DataCache`
    (or store 5m/15m in S3) and make `/filters/validate` reject unsupported backtest timeframes
    until then. Half the ideas above want a 5m gate.
