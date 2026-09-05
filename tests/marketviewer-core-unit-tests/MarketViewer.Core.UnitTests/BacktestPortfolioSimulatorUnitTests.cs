@@ -345,6 +345,73 @@ public class BacktestPortfolioSimulatorUnitTests
         }
     }
 
+    [Fact]
+    public void Simulate_ProfitFactor_IsNull_NotInfinity_WhenNoLosingTrades()
+    {
+        // Regression: a run with winners and no losers produced float.PositiveInfinity, which
+        // System.Text.Json cannot write, so the orchestrator failed the whole backtest while
+        // serializing the stats summary ("An error occurred while processing the backtest request:
+        // .NET number values such as positive and negative infinity cannot be written as valid JSON").
+        var settings = CreateSettings(new Timeframe(15, Timespan.minute));
+        var response = new WorkerResponse
+        {
+            Date = StartDate,
+            Results =
+            [
+                CreateResult("WIN1", BoughtAt, BoughtAt.AddMinutes(5)),
+                CreateResult("WIN2", BoughtAt.AddMinutes(1), BoughtAt.AddMinutes(6))
+            ]
+        };
+
+        var portfolio = BacktestPortfolioSimulator.Simulate("backtest-id", 0f, StartDate, settings, [response]);
+
+        portfolio.Hold.Trades.Should().HaveCount(2);
+        portfolio.Hold.Stats.WinRatio.Should().Be(1f);
+        portfolio.Hold.Stats.ProfitFactor.Should().BeNull();
+        portfolio.High.Stats.ProfitFactor.Should().BeNull();
+
+        // Exactly what the orchestrator does with default options: must not throw.
+        var holdJson = System.Text.Json.JsonSerializer.Serialize(portfolio.Hold.Stats);
+        holdJson.Should().Contain("\"ProfitFactor\":null");
+        System.Text.Json.JsonSerializer.Serialize(new BacktestEntryStatsSummary
+        {
+            WinRatio = portfolio.Hold.Stats.WinRatio,
+            ProfitFactor = portfolio.Hold.Stats.ProfitFactor,
+            TotalTradesTaken = portfolio.Hold.Stats.TotalTradesTaken,
+            MaxDrawdown = portfolio.Hold.Stats.MaxDrawdown,
+            SharpeRatio = portfolio.Hold.Stats.SharpeRatio
+        }).Should().Contain("\"ProfitFactor\":null");
+    }
+
+    [Fact]
+    public void Simulate_ProfitFactor_IsGrossWinOverGrossLoss_WhenBothExist()
+    {
+        var settings = CreateSettings(new Timeframe(15, Timespan.minute));
+        var loser = CreateResult("LOSE", BoughtAt.AddMinutes(1), BoughtAt.AddMinutes(6));
+        loser.Hold.EndPrice = 99.5f; loser.Hold.EndPosition = 995f; loser.Hold.Profit = -5f;
+        loser.High.EndPrice = 99f; loser.High.EndPosition = 990f; loser.High.Profit = -10f;
+        var response = new WorkerResponse
+        {
+            Date = StartDate,
+            Results = [CreateResult("WIN", BoughtAt, BoughtAt.AddMinutes(5)), loser]
+        };
+
+        var portfolio = BacktestPortfolioSimulator.Simulate("backtest-id", 0f, StartDate, settings, [response]);
+
+        portfolio.Hold.Stats.ProfitFactor.Should().Be(10f / 5f);   // +10 / |-5|
+        portfolio.High.Stats.ProfitFactor.Should().Be(20f / 10f);  // +20 / |-10|
+    }
+
+    [Fact]
+    public void Simulate_ProfitFactor_IsNull_WhenNoTrades()
+    {
+        var settings = CreateSettings(new Timeframe(15, Timespan.minute));
+        var portfolio = BacktestPortfolioSimulator.Simulate("backtest-id", 0f, StartDate, settings, [new WorkerResponse { Date = StartDate, Results = [] }]);
+
+        portfolio.Hold.Stats.ProfitFactor.Should().BeNull();
+        System.Text.Json.JsonSerializer.Serialize(portfolio.Hold.Stats).Should().NotContain("Infinity");
+    }
+
     private static StrategyPositionSettings CreateSettings(
         Timeframe cooldown,
         bool allowSimultaneous = false,

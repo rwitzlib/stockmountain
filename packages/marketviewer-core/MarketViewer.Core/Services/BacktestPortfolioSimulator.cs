@@ -358,9 +358,9 @@ public static class BacktestPortfolioSimulator
         var soldPositions = trades?.ToList() ?? [];
         var grossProfit = soldPositions.Where(t => t.Profit > 0).Sum(t => t.Profit);
         var grossLoss = soldPositions.Where(t => t.Profit < 0).Sum(t => MathF.Abs(t.Profit));
-        var profitFactor = grossLoss > 0
-            ? grossProfit / grossLoss
-            : grossProfit > 0 ? float.PositiveInfinity : 0;
+        // Undefined (null) rather than infinity when nothing was lost: System.Text.Json refuses to
+        // write named floating-point literals, which failed whole backtests at the orchestrator.
+        float? profitFactor = grossLoss > 0 ? grossProfit / grossLoss : null;
 
         return new PerformanceMetrics(
             averageDailyReturn: (float)averageReturn,
@@ -429,7 +429,7 @@ public static class BacktestPortfolioSimulator
             float dailyReturnStdDev,
             float sharpeRatio,
             float maxDrawdown,
-            float profitFactor)
+            float? profitFactor)
         {
             AverageDailyReturn = averageDailyReturn;
             DailyReturnStdDev = dailyReturnStdDev;
@@ -442,8 +442,8 @@ public static class BacktestPortfolioSimulator
         public float DailyReturnStdDev { get; }
         public float SharpeRatio { get; }
         public float MaxDrawdown { get; }
-        public float ProfitFactor { get; }
+        public float? ProfitFactor { get; }
 
-        public static PerformanceMetrics Empty => new(0, 0, 0, 0, 0);
+        public static PerformanceMetrics Empty => new(0, 0, 0, 0, null);
     }
 }

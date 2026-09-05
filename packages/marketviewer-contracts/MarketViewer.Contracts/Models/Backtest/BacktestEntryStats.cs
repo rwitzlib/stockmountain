@@ -62,6 +62,8 @@ public class BacktestEntryStats
 
     /// <summary>
     /// Ratio of aggregated winning trade profits to aggregated losing trade losses.
+    /// Null when the ratio is undefined because there were no losing trades (a run with only
+    /// winners, or no trades at all); never infinity, which System.Text.Json cannot write.
     /// </summary>
-    public float ProfitFactor { get; set; }
+    public float? ProfitFactor { get; set; }
 }
