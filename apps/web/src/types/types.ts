@@ -11,7 +11,7 @@ export interface TradeStrategy {
   dailyReturnStdDev?: number;
   sharpeRatio?: number;
   maxDrawdown?: number;
-  profitFactor?: number;
+  profitFactor?: number | null;
 }
 
 export interface EquityPoint {

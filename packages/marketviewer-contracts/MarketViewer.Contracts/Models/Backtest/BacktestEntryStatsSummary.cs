@@ -16,8 +16,9 @@ public class BacktestEntryStatsSummary
 
     /// <summary>
     /// Ratio of aggregated winning trade profits to aggregated losing trade losses.
+    /// Null when undefined (no losing trades); see <see cref="BacktestEntryStats.ProfitFactor"/>.
     /// </summary>
-    public float ProfitFactor { get; set; }
+    public float? ProfitFactor { get; set; }
 
     /// <summary>
     /// Total number of trade entries taken.
