@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { Trash2, GripVertical, Pencil } from 'lucide-react';
 import { FilterComposer } from '../../filters/FilterComposer';
 import { FilterChips } from '../../filters/FilterChips';
@@ -84,14 +84,29 @@ export function EntrySettingsForm({ value, onChange, context = 'scan' }: EntrySe
     resetDrag();
   };
 
+  // Row keys include the index, so a moved row remounts and its grip loses DOM focus.
+  // Track grips by index and re-focus the moved row's grip after the reorder renders.
+  const gripRefs = useRef(new Map<number, HTMLButtonElement | null>());
+  const [focusIndex, setFocusIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (focusIndex === null) return;
+    gripRefs.current.get(focusIndex)?.focus();
+    setFocusIndex(null);
+  }, [focusIndex]);
+
   /** Keyboard fallback for the grip: arrow keys nudge the row up/down. */
   const handleGripKeyDown = (index: number) => (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'ArrowUp') {
       e.preventDefault();
+      if (index === 0) return;
       handleMove(index, index - 1);
+      setFocusIndex(index - 1);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
+      if (index === value.filters.length - 1) return;
       handleMove(index, index + 1);
+      setFocusIndex(index + 1);
     }
   };
 
@@ -147,23 +162,16 @@ export function EntrySettingsForm({ value, onChange, context = 'scan' }: EntrySe
               return (
                 <div
                   key={`${filter}-${index}`}
-                  role="button"
-                  tabIndex={0}
                   draggable={armedIndex === index}
                   onDragStart={handleDragStart(index)}
                   onDragOver={handleDragOver(index)}
                   onDrop={handleDrop(index)}
                   onDragEnd={resetDrag}
+                  // Mouse convenience only: the row is not an interactive role because it
+                  // contains native controls. Keyboard users edit via the Edit button.
                   onClick={() => setEditingIndex(index)}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) return;
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setEditingIndex(index);
-                    }
-                  }}
                   title="Click to edit"
-                  className={`group flex items-center gap-2 p-3 rounded-lg bg-muted/30 border transition-colors cursor-pointer hover:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  className={`group flex items-center gap-2 p-3 rounded-lg bg-muted/30 border transition-colors cursor-pointer hover:bg-accent/40 ${
                     isDragging ? 'opacity-40 border-dashed border-border' : 'border-border'
                   } ${
                     isDropTarget
@@ -176,6 +184,9 @@ export function EntrySettingsForm({ value, onChange, context = 'scan' }: EntrySe
                   {/* Drag Handle / Index */}
                   <div className="flex items-center gap-1 text-muted-foreground">
                     <button
+                      ref={(el) => {
+                        gripRefs.current.set(index, el);
+                      }}
                       type="button"
                       aria-label={`Reorder condition ${index + 1}. Drag, or use arrow keys.`}
                       title="Drag to reorder"
