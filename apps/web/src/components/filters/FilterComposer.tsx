@@ -97,9 +97,12 @@ const argIndexAt = (text: string, parenIndex: number, caret: number): number => 
  * between the "[" and the caret. Null when the caret is not inside a bracket.
  */
 const enclosingBracket = (text: string, caret: number): { bracketIndex: number; slot: number } | null => {
+  if (caret <= 0) return null;
   const open = text.lastIndexOf('[', caret - 1);
   if (open === -1) return null;
   if (text.slice(open + 1, caret).includes(']')) return null;
+  // The suffix must still be open: a ']' after the caret means the line is already complete.
+  if (text.indexOf(']', caret) !== -1) return null;
   const slot = text.slice(open + 1, caret).split(',').length - 1;
   return { bracketIndex: open, slot };
 };

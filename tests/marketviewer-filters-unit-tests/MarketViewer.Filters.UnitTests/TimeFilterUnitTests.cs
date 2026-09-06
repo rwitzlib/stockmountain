@@ -124,10 +124,15 @@ public class TimeFilterUnitTests
     {
         // "all" requires the full window for bar series (plan 20, decision 4), but the clock is one
         // value per evaluation, so a window must never make a time gate false for lack of candles.
-        var stockData = CreateStockData((9, 29), (9, 30), (9, 31));
+        var stockData = CreateStockData((9, 29), (9, 30));
 
         Assert.True(_engine.EvaluateScript(script, stockData, _timeframe));
-        Assert.True(_engine.Compile(script).EvaluateIncremental(stockData, _timeframe));
+
+        // Session path: full evaluation first, then a cached incremental transition on a new bar.
+        var session = _engine.Compile(script);
+        Assert.True(session.Evaluate(stockData, _timeframe));
+        stockData.Results.Add(CreateBar(9, 31));
+        Assert.True(session.EvaluateIncremental(stockData, _timeframe));
     }
 
     [Theory]

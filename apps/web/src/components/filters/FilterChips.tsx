@@ -116,10 +116,10 @@ export function FilterChips({ expression, onChange, className }: FilterChipsProp
         return;
       }
       setEditError(null);
-      if (next.canonical && next.canonical !== expression) onChange(next.canonical);
+      if (next.canonical && next.canonical !== canonical) onChange(next.canonical);
     } catch {
-      // Validation endpoint unreachable: hand the spliced text on rather than blocking the edit.
-      setEditError(null);
+      // Validation endpoint unreachable: hand the spliced text on rather than blocking the edit, but say so.
+      setEditError('Validation unavailable. The edit was applied unchecked.');
       onChange(spliced);
     }
   };
