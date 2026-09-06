@@ -124,7 +124,8 @@ public class TimeFilterUnitTests
     {
         // "all" requires the full window for bar series (plan 20, decision 4), but the clock is one
         // value per evaluation, so a window must never make a time gate false for lack of candles.
-        var stockData = CreateStockData((9, 29), (9, 30));
+        // Three bars so the bar-series side of the mixed case ("close > 0 [1m, 3]") has a full window.
+        var stockData = CreateStockData((9, 28), (9, 29), (9, 30));
 
         Assert.True(_engine.EvaluateScript(script, stockData, _timeframe));
 
