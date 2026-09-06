@@ -355,9 +355,13 @@ public class FilterSession
         }
         else
         {
-            var leftVal = EvaluateNode(binary.Left, ctx, incremental);
-            var rightVal = EvaluateNode(binary.Right, ctx, incremental);
-            result = binary.Operator.Execute(leftVal, rightVal, ctx);
+            // The evaluation clock is one value per evaluation: no candle window (see BinaryExpression.Evaluate).
+            var comparisonCtx = ExpressionShape.IsClock(binary.Left) || ExpressionShape.IsClock(binary.Right)
+                ? ctx.ForSingleCandle()
+                : ctx;
+            var leftVal = EvaluateNode(binary.Left, comparisonCtx, incremental);
+            var rightVal = EvaluateNode(binary.Right, comparisonCtx, incremental);
+            result = binary.Operator.Execute(leftVal, rightVal, comparisonCtx);
         }
 
         _cache[key] = new NodeCache { Result = result, DataCount = ctx.StockData.Results.Count, LastTimestamp = ctx.StockData.Results.LastOrDefault()?.Timestamp ?? 0 };

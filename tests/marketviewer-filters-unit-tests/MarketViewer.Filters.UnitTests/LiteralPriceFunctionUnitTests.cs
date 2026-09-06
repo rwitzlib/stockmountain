@@ -39,30 +39,30 @@ public class LiteralPriceFunctionUnitTests
 
         // Act & Assert
         // Test close prices
-        var closeResult = _engine.EvaluateScript("close > 101 [, 2]", stockData, timeframe);
+        var closeResult = _engine.EvaluateScript("close > 101 [1m, 2]", stockData, timeframe);
         Assert.True(closeResult);
 
         // Test open prices
-        var openResult = _engine.EvaluateScript("open < 103 [, 2]", stockData, timeframe);
+        var openResult = _engine.EvaluateScript("open < 103 [1m, 2]", stockData, timeframe);
         Assert.True(openResult);
 
         // Test high prices
-        var highResult = _engine.EvaluateScript("high > 102 [, 1]", stockData, timeframe);
+        var highResult = _engine.EvaluateScript("high > 102 [1m, 1]", stockData, timeframe);
         Assert.True(highResult);
 
         // Test low prices
-        var lowResult = _engine.EvaluateScript("low < 102 [, 2]", stockData, timeframe);
+        var lowResult = _engine.EvaluateScript("low < 102 [1m, 2]", stockData, timeframe);
         Assert.True(lowResult);
 
         // "vwap" is no longer a bare literal (Massive's per-bar vw); it is the vwap() indicator now.
-        Assert.ThrowsAny<Exception>(() => _engine.EvaluateScript("vwap > 100 [, 2]", stockData, timeframe));
+        Assert.ThrowsAny<Exception>(() => _engine.EvaluateScript("vwap > 100 [1m, 2]", stockData, timeframe));
 
         // Test with Indicator Comarison
-        var studyResult = _engine.EvaluateScript("sma(5) > 100 [ ,5]", stockData, timeframe);
+        var studyResult = _engine.EvaluateScript("sma(5) > 100 [1m, 5]", stockData, timeframe);
         Assert.True(studyResult);
 
         // Test with comparison function
-        var crossesResult = _engine.EvaluateScript("crosses_over(close, sma(5)) [, 3]", stockData, timeframe);
+        var crossesResult = _engine.EvaluateScript("crosses_over(close, sma(5)) [1m, 3]", stockData, timeframe);
         Assert.True(crossesResult);
     }
 
@@ -83,13 +83,13 @@ public class LiteralPriceFunctionUnitTests
 
         // Act & Assert
         // Close vs scalar
-        Assert.True(_engine.EvaluateScript("close > 99 [, 1]", stockData, timeframe));
+        Assert.True(_engine.EvaluateScript("close > 99 [1m, 1]", stockData, timeframe));
 
         // High vs low comparison
-        Assert.True(_engine.EvaluateScript("high > low [, 1]", stockData, timeframe));
+        Assert.True(_engine.EvaluateScript("high > low [1m, 1]", stockData, timeframe));
 
         // Volume vs scalar
-        Assert.True(_engine.EvaluateScript("volume >= 0 [, 1]", stockData, timeframe));
+        Assert.True(_engine.EvaluateScript("volume >= 0 [1m, 1]", stockData, timeframe));
     }
 
     [Fact]

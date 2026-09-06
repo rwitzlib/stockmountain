@@ -106,6 +106,10 @@ MACD bear cross before RSI has become oversold.
 - On the last bar of the day at intraday timeframes, the forming 15:59 bar and the first bar of the
   next session are adjacent — a gap-down open can register as a cross on the first bar of the day.
 
+- The suffix mode does not apply to a cross. A cross-only line is saved as `[tf, N, any]` and writing
+  `all` is rejected; on a mixed line (`close > sma(20) AND crosses_under(close, vwap()) [1m, 5, all]`)
+  `all` governs the comparison while the cross still fires on any candle in the window.
+
 ## Changelog
 
 - 2025-06-01 — added.
@@ -114,3 +118,5 @@ MACD bear cross before RSI has become oversold.
 - 2026-09-04 — numeric arguments supported as a constant series (level crosses such as
   `crosses_under(rsi(14,70,30,wilders), 70)`); previously any number made the call silently false.
   Golden case `cross-under-rsi-level-70-r3`. Backtest entry cache bumped to v3.
+- 2026-09-05 — cross-only lines print `any` in the suffix and reject `all`; the suffix is strictly
+  `[timeframe, candles, mode]` with a required timeframe (plan 20).

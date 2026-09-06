@@ -34,15 +34,15 @@ public class FieldAccessUnitTests
 
         // Act & Assert
         // Test default field access (.value is implicit)
-        var result1 = _engine.EvaluateScript("sma(3).value > 105 [, 1]", stockData, timeframe);
+        var result1 = _engine.EvaluateScript("sma(3).value > 105 [1m, 1]", stockData, timeframe);
         Assert.True(result1);
 
         // Test explicit field access
-        var result2 = _engine.EvaluateScript("sma(3).value > 105 [, 1]", stockData, timeframe);
+        var result2 = _engine.EvaluateScript("sma(3).value > 105 [1m, 1]", stockData, timeframe);
         Assert.True(result2);
 
         // Test that it fails without proper field
-        Assert.Throws<ArgumentException>(() => _engine.EvaluateScript("sma(3).invalid > 105 [, 1]", stockData, timeframe));
+        Assert.Throws<ArgumentException>(() => _engine.EvaluateScript("sma(3).invalid > 105 [1m, 1]", stockData, timeframe));
     }
 
     [Fact]
@@ -110,11 +110,11 @@ public class FieldAccessUnitTests
         var timeframe = new Timeframe(1, Timespan.minute);
 
         // Cross-over: ema(2) crosses above sma(3) in the last 3 candles
-        var crossesOver = _engine.EvaluateScript("crosses_over(ema(2).value, sma(3).value) [, 3]", stockData, timeframe);
+        var crossesOver = _engine.EvaluateScript("crosses_over(ema(2).value, sma(3).value) [1m, 3]", stockData, timeframe);
         Assert.True(crossesOver is bool);
 
         // Cross-under: sma(3) crosses below ema(2) in the last 3 candles
-        var crossesUnder = _engine.EvaluateScript("crosses_under(sma(3).value, ema(2).value) [, 3]", stockData, timeframe);
+        var crossesUnder = _engine.EvaluateScript("crosses_under(sma(3).value, ema(2).value) [1m, 3]", stockData, timeframe);
         Assert.True(crossesUnder is bool);
     }
 }

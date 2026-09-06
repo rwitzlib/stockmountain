@@ -31,7 +31,7 @@ bool result = engine.EvaluateScript("close > vwap()", stockData, timeframe);
 bool bullish = engine.EvaluateScript("macd(12,26,9,ema).histogram > 0", stockData, timeframe);
 
 // Series evaluation over range
-bool signal = engine.EvaluateScript("close > sma(20) [, 5]", stockData, timeframe);
+bool signal = engine.EvaluateScript("close > sma(20) [1m, 5]", stockData, timeframe);
 
 // Cross-over detection
 bool crossover = engine.EvaluateScript("crosses_over(close, sma(20))", stockData, timeframe);
@@ -56,7 +56,7 @@ indicator().fieldName
 
 ### Timeframe & Range
 ```javascript
-expression [timeframe, range]
+expression [timeframe, candles, mode]
 ```
 
 ## 📊 Supported Indicators
@@ -132,21 +132,21 @@ macd(12,26,9,ema).value > 0
 
 ### Candle Range Syntax
 ```javascript
-expression [, candleRange]
+expression [timeframe, candles]
 ```
 
 Evaluate expression over the last N candles:
 ```javascript
-// Check if SMA(20) > 100 in ANY of the last 5 candles
-sma(20) > 100 [, 5]
+// SMA(20) > 100 on ALL of the last 5 candles (the default mode); add `, any` for any of them
+sma(20) > 100 [1m, 5]
 
-// Check if MACD histogram > 0 in ANY of the last 3 candles
-macd(12,26,9,ema).histogram > 0 [, 3]
+// MACD histogram > 0 on all of the last 3 candles
+macd(12,26,9,ema).histogram > 0 [1m, 3]
 ```
 
 ### Timeframe + Range Syntax
 ```javascript
-expression [timeframe, candleRange]
+expression [timeframe, candles, mode]
 ```
 
 Evaluate on specific timeframe with range:
@@ -163,13 +163,13 @@ macd(12,26,9,ema).signal > 0 [1h, 5]
 ### Price-based Conditions
 ```javascript
 // Price above session VWAP
-close > vwap() [, 1]
+close > vwap() [1m, 1]
 
 // High breakout above resistance
-high > 150 AND close > 148 [, 1]
+high > 150 AND close > 148 [1m, 1]
 
 // Price within range
-low > 100 AND high < 200 [, 1]
+low > 100 AND high < 200 [1m, 1]
 ```
 
 ### Time-of-day Conditions
@@ -187,13 +187,13 @@ time.hour < 12
 ### Complex Trading Conditions
 ```javascript
 // Bullish MACD divergence + oversold RSI
-macd(12,26,9,ema).histogram > 0 AND rsi(14) < 30 [, 5]
+macd(12,26,9,ema).histogram > 0 AND rsi(14) < 30 [1m, 5]
 
 // Moving average crossover
-sma(20).value > sma(50).value [, 3]
+sma(20).value > sma(50).value [1m, 3]
 
 // MACD signal crossover
-macd(12,26,9,ema).value > macd(12,26,9,ema).signal [, 2]
+macd(12,26,9,ema).value > macd(12,26,9,ema).signal [1m, 2]
 ```
 
 ### Cross-over with Price Data
@@ -211,13 +211,13 @@ crosses_under(close, sma(50))
 ### Using Slope
 ```javascript
 // Slope of closing price over 5 bars is positive
-slope(close, 5) > 0 [, 1]
+slope(close, 5) > 0 [1m, 1]
 
 // Slope of MACD histogram over last 3 bars is increasing
-slope(macd(12,26,9,ema).histogram, 3) > 0 [, 1]
+slope(macd(12,26,9,ema).histogram, 3) > 0 [1m, 1]
 
 // Compare slopes of two series
-slope(ema(20), 5) > slope(ema(50), 5) [, 1]
+slope(ema(20), 5) > slope(ema(50), 5) [1m, 1]
 ```
 
 ## 🧱 Support/Resistance Indicator Guide
@@ -252,7 +252,7 @@ support_resistance().near_support = 1 AND support_resistance().support_strength 
 sr(120, 3, 0.6).support_touches >= 3 AND sr().support_zone_width < 1.5
 
 // Look for upside breakouts: price near resistance but strength fading
-sr().near_resistance = 1 AND sr().resistance_strength < 0.4 AND close > sr().resistance_upper [, 2]
+sr().near_resistance = 1 AND sr().resistance_strength < 0.4 AND close > sr().resistance_upper [1m, 2]
 
 // Compare relative distance to support vs. resistance
 sr().support_distance_pct < sr().resistance_distance_pct
@@ -273,7 +273,7 @@ rsi(14) > 70
 rsi(14, 70, 30, ema) > 70
 
 // Oversold condition example
-rsi(14, 70, 30, wilders) < 30 [, 1]
+rsi(14, 70, 30, wilders) < 30 [1m, 1]
 ```
 
 ### Multi-Timeframe Analysis
@@ -285,10 +285,10 @@ sma(200) > sma(200) [1d, 1] AND close > sma(20) [1h, 1]
 ### Risk Management
 ```javascript
 // Stop loss condition
-close < entry * 0.95 [, 1]
+close < entry * 0.95 [1m, 1]
 
 // Profit target
-close > entry * 1.10 [, 1]
+close > entry * 1.10 [1m, 1]
 ```
 
 ## 🏗️ Architecture
@@ -405,6 +405,7 @@ public class ExpressionContext
     public required Timeframe Timeframe { get; init; }
     public Dictionary<string, object>? Parameters { get; init; }
     public int? CandleRange { get; init; }
+    public RangeEvaluationMode RangeEvaluationMode { get; init; } = RangeEvaluationMode.All;
 }
 ```
 
@@ -445,7 +446,7 @@ The following enhancements are planned for future versions:
 
 - **Field names are case-insensitive**: `value`, `VALUE`, `Value` all work
 - **Default field is "value"**: Can be omitted in most expressions
-- **Series evaluation**: Checks if ANY value in range satisfies condition
+- **Series evaluation**: `[tf, N]` requires the condition on ALL of the last N candles (full window required); `[tf, N, any]` on any of them. Crosses are always any-of-window.
 - **Series alignment**: Indicators with different warm-up periods are automatically aligned by length
 - **Epsilon equality**: Floating-point comparisons use epsilon (1e-9) for precision handling
 - **Timeframe syntax**: Supports quantities (5m, 1h, 2d) and standard formats (1m, 1h, 1d)

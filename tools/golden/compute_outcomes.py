@@ -14,8 +14,11 @@ Two kinds of case:
 
 Semantics mirrored from MarketViewer.Filters (must stay in sync — these ARE the contract):
   * `a OP b [tf, r, mode]` compares the last r bars for which BOTH sides have a value
-    (right-aligned; if fewer than r are available, all available are used; none -> false).
-    mode all (default) requires every bar to satisfy OP, mode any requires one.
+    (right-aligned). mode all (default) requires the FULL window: every one of the last r bars
+    must have a value and satisfy OP, fewer than r available -> false (plan 20, decision 4).
+    mode any is true when at least one available bar satisfies OP; none available -> false.
+  * The suffix is strictly `[timeframe, candles, mode]`: timeframe is required inside a bracket,
+    a bare line means 1m / latest candle. Scalar-only lines (`float < N`) take no suffix.
   * `crosses_over(a,b)` in range r: some bar j in the last r bars has a[j-1] <= b[j-1] and a[j] > b[j].
     A numeric argument is a constant series (level cross); two numbers never cross.
   * `time` is minutes since midnight America/New_York of the *evaluation clock*
@@ -127,7 +130,11 @@ def cmp(fx: Fixture, left: str, op: str, right, r: int = 1, mode: str = "all") -
             js.append(j)
             j -= 1
         vals = per_bar[js]
-        out[i] = vals.all() if mode == "all" else vals.any()
+        if mode == "all":
+            # Full window required: a short run of valid bars (indicator warm-up edge) is false.
+            out[i] = len(js) == r and vals.all()
+        else:
+            out[i] = vals.any()
     return out
 
 
@@ -179,15 +186,16 @@ CASES: list[Case] = [
     Case("close-ne-open", "close != open [1m]", M1, lambda f: cmp(f, "close", "!=", "open")),
     Case("high-gt-close", "high > close [1m]", M1, lambda f: cmp(f, "high", ">", "close")),
     Case("low-lt-open", "low < open [1m]", M1, lambda f: cmp(f, "low", "<", "open")),
-    Case("float-unavailable-never-matches", "float < 50000000 [1m]", M1, lambda f: cmp(f, "float", "<", 50000000),
-         note="fixtures have no ticker details: float is NaN, so this must never match"),
+    Case("float-unavailable-never-matches", "float < 50000000", M1, lambda f: cmp(f, "float", "<", 50000000),
+         note="fixtures have no ticker details: float is NaN, so this must never match; scalar-only lines take no [tf] suffix"),
     Case("literal-lhs", "30 > rsi(14,70,30,wilders) [1m]", M1, lambda f: cmp(f, RSI, "<", 30)),
     # --- ranges and modes
     Case("rsi-overbought-range3-all", f"{RSI} > 70 [1m, 3]", M1, lambda f: cmp(f, RSI, ">", 70, r=3)),
     Case("rsi-ema-range3-any", "rsi(14,70,30,ema) < 35 [1m, 3, any]", M1, lambda f: cmp(f, "rsi(14,70,30,ema)", "<", 35, r=3, mode="any")),
     Case("rsi2-range2-any", "rsi(2,90,10,wilders) < 10 [1m, 2, any]", M1, lambda f: cmp(f, "rsi(2,90,10,wilders)", "<", 10, r=2, mode="any")),
-    Case("range-without-tf", f"{RSI} < 30 [, 2]", M1, lambda f: cmp(f, RSI, "<", 30, r=2)),
     Case("mode-all-explicit", "close > sma(20) [1m, 5, all]", M1, lambda f: cmp(f, "close", ">", "sma(20)", r=5)),
+    Case("all-requires-full-window", "close > vwap() [1m, 3]", M1, lambda f: cmp(f, "close", ">", "vwap()", r=3),
+         note="vwap() has no value before 09:30, so at 09:30 and 09:31 fewer than 3 pairs exist: false under all (full window required)"),
     # --- series vs series
     Case("close-gt-sma20", "close > sma(20) [1m]", M1_ALL, lambda f: cmp(f, "close", ">", "sma(20)")),
     Case("sma-stack", "sma(20) > sma(50) [1m]", M1, lambda f: cmp(f, "sma(20)", ">", "sma(50)")),

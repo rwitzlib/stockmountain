@@ -45,7 +45,9 @@ public class ToolsFilterHandler(IMarketDataRepository repository, IndicatorExpre
             {
                 var expression = engine.ParseExpression(filter);
 
-                passesFilter = engine.EvaluateExpression(expression, clonedResponse, new Timeframe(request.Multiplier, request.Timespan));
+                // A bare line defaults to 1m here as in scans and backtests (plan 20, decision 6); a
+                // [tf] suffix overrides it. The bars are still the chart's bars regardless.
+                passesFilter = engine.EvaluateExpression(expression, clonedResponse, RangeSuffix.DefaultTimeframe);
 
                 if (!passesFilter)
                 {

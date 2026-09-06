@@ -116,6 +116,21 @@ public class TimeFilterUnitTests
     }
 
     [Theory]
+    [InlineData("time >= 9:30 [1m, 3]")]
+    [InlineData("time >= 9:30 [1m, 3, any]")]
+    [InlineData("time.hour >= 9 [1m, 5]")]
+    [InlineData("time >= 9:30 AND close > 0 [1m, 3]")]
+    public void Time_Gate_Ignores_The_Candle_Window_On_Both_Evaluation_Paths(string script)
+    {
+        // "all" requires the full window for bar series (plan 20, decision 4), but the clock is one
+        // value per evaluation, so a window must never make a time gate false for lack of candles.
+        var stockData = CreateStockData((9, 29), (9, 30), (9, 31));
+
+        Assert.True(_engine.EvaluateScript(script, stockData, _timeframe));
+        Assert.True(_engine.Compile(script).EvaluateIncremental(stockData, _timeframe));
+    }
+
+    [Theory]
     [InlineData(10, 5, false)] // clock past the cutoff: stale last bar must not pass
     [InlineData(9, 55, true)]
     public void EvaluationTime_Overrides_Stale_Last_Bar(int clockHour, int clockMinute, bool expected)

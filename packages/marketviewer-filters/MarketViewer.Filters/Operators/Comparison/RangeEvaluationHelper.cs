@@ -24,7 +24,13 @@ internal static class RangeEvaluationHelper
         }
     }
 
-    public static bool Evaluate(int count, RangeEvaluationMode mode, Func<int, bool> predicate)
+    /// <summary>
+    /// Aggregates a comparison over the last <paramref name="count"/> aligned values of a window of
+    /// <paramref name="range"/> candles. <c>all</c> requires the full window: fewer than
+    /// <paramref name="range"/> values available is false (plan 20, decision 4). <c>any</c> is true
+    /// as soon as one available value satisfies the predicate.
+    /// </summary>
+    public static bool Evaluate(int count, int range, RangeEvaluationMode mode, Func<int, bool> predicate)
     {
         if (count <= 0)
         {
@@ -33,6 +39,11 @@ internal static class RangeEvaluationHelper
 
         if (mode == RangeEvaluationMode.All)
         {
+            if (count < range)
+            {
+                return false;
+            }
+
             for (int i = 0; i < count; i++)
             {
                 if (!predicate(i))

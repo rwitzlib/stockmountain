@@ -34,15 +34,15 @@ public class IndicatorFunctionUnitTests
 
         // Act & Assert
         // Test default field access (.value is implicit)
-        var result1 = _engine.EvaluateScript("sma(3) > 105 [, 1]", stockData, timeframe);
+        var result1 = _engine.EvaluateScript("sma(3) > 105 [1m, 1]", stockData, timeframe);
         Assert.True(result1);
 
         // Test explicit field access
-        var result2 = _engine.EvaluateScript("sma(3.0).value > 105 [, 1]", stockData, timeframe);
+        var result2 = _engine.EvaluateScript("sma(3.0).value > 105 [1m, 1]", stockData, timeframe);
         Assert.True(result2);
 
         // Test that it fails without proper field
-        Assert.Throws<ArgumentException>(() => _engine.EvaluateScript("sma(3).invalid > 105 [, 1]", stockData, timeframe));
+        Assert.Throws<ArgumentException>(() => _engine.EvaluateScript("sma(3).invalid > 105 [1m, 1]", stockData, timeframe));
     }
 
     [Fact]
@@ -64,15 +64,15 @@ public class IndicatorFunctionUnitTests
 
         // Act & Assert
         // Test default field access (.value is implicit)
-        var result1 = _engine.EvaluateScript("ema(3) > 105 [, 1]", stockData, timeframe);
+        var result1 = _engine.EvaluateScript("ema(3) > 105 [1m, 1]", stockData, timeframe);
         Assert.True(result1);
 
         // Test explicit field access
-        var result2 = _engine.EvaluateScript("ema(3).value > 105 [, 1]", stockData, timeframe);
+        var result2 = _engine.EvaluateScript("ema(3).value > 105 [1m, 1]", stockData, timeframe);
         Assert.True(result2);
 
         // Test that it fails without proper field
-        Assert.Throws<ArgumentException>(() => _engine.EvaluateScript("ema(3).invalid > 105 [, 1]", stockData, timeframe));
+        Assert.Throws<ArgumentException>(() => _engine.EvaluateScript("ema(3).invalid > 105 [1m, 1]", stockData, timeframe));
     }
 
     [Fact]
@@ -218,16 +218,16 @@ public class IndicatorFunctionUnitTests
         };
         var timeframe = new Timeframe(1, Timespan.minute);
 
-        var defaultAll = _engine.EvaluateScript("close > 101 [, 3]", stockData, timeframe);
+        var defaultAll = _engine.EvaluateScript("close > 101 [1m, 3]", stockData, timeframe);
         Assert.False(defaultAll); // 101 is not > 101
 
-        var explicitAll = _engine.EvaluateScript("close > 101 [, 3, ALL]", stockData, timeframe);
+        var explicitAll = _engine.EvaluateScript("close > 101 [1m, 3, ALL]", stockData, timeframe);
         Assert.False(explicitAll);
 
-        var anyResult = _engine.EvaluateScript("close > 101 [, 3, any]", stockData, timeframe);
+        var anyResult = _engine.EvaluateScript("close > 101 [1m, 3, any]", stockData, timeframe);
         Assert.True(anyResult);
 
-        var allPass = _engine.EvaluateScript("close >= 101 [, 3]", stockData, timeframe);
+        var allPass = _engine.EvaluateScript("close >= 101 [1m, 3]", stockData, timeframe);
         Assert.True(allPass);
     }
 
@@ -246,7 +246,7 @@ public class IndicatorFunctionUnitTests
             }
         };
         var minute = new Timeframe(1, Timespan.minute);
-        Assert.True(_engine.EvaluateScript("sma(3.0) > 105 [, 1]", stockData, minute));
+        Assert.True(_engine.EvaluateScript("sma(3.0) > 105 [1m, 1]", stockData, minute));
 
         var rangeBound = CreateRangeBoundData();
         var day = new Timeframe(1, Timespan.day);

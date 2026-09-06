@@ -18,9 +18,9 @@ same way live.
   `[timeframe, candles, mode]` suffix that says which candles the comparisons look at.
 
 ```
-close > sma(20) [5m, 3]
+close > sma(20) [5m, 3, all]
 volume > adv() [5m]
-time >= 9:45 AND time < 11:00
+time >= 9:45 AND time < 11:00 [1m]
 float < 50000000
 ```
 
@@ -49,27 +49,40 @@ float < 50000000
 ## The `[timeframe, candles, mode]` suffix
 
 One optional bracket suffix at the **end of the line**; it applies to every comparison on that line.
-Parts are comma-separated and may appear in any order; each is optional.
+The slots are positional and comma-separated: `[timeframe]`, `[timeframe, candles]` or
+`[timeframe, candles, mode]`. Inside a bracket the timeframe is always required.
 
 | suffix | meaning |
 |---|---|
-| *(none)* | default timeframe (`1m`), latest candle only |
+| *(none)* | 1-minute candles, latest candle only (a series line is saved as `[1m]`) |
 | `[5m]` | evaluate on 5-minute candles, latest candle only |
-| `[5m, 3]` | 5-minute candles; the comparison must hold on **all** of the last 3 candles |
+| `[5m, 3]` | 5-minute candles; the comparison must hold on **all** of the last 3 candles (saved as `[5m, 3, all]`) |
 | `[5m, 3, any]` | 5-minute candles; must hold on **any** of the last 3 candles |
-| `[, 2]` | default timeframe, all of the last 2 candles |
 | `[1d]` | daily candles, latest (forming) daily candle |
 
 - Timeframes: a quantity plus a unit — `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `1d`, `1w`, `1mo`.
   Units accept `m/min/minute`, `h/hr/hour`, `d/day`, `w/wk/week`, `mo/month`; a bare unit means 1
-  (`[h]` = `[1h]`). Default is `1m`.
-- Candles: a positive integer; the last N candles including the currently forming one. If fewer than
-  N candles exist, only the available ones are checked (an empty series is false).
-- Mode: `all` (default) or `any`.
+  (`[h]` = `[1h]`). A line without a suffix runs on `1m` everywhere (scans, backtests, the chart tool).
+- Candles: a positive integer; the last N candles including the currently forming one.
+  - `all` (the default) needs the **full window**: if fewer than N candles, or fewer than N indicator
+    values (warm-up, session-anchored `vwap()`), are available the line is false.
+  - `any` is true as soon as one available candle satisfies the comparison; no candles is false.
+- Mode: `all` or `any`; only allowed when candles is greater than 1.
+- Crosses: `crosses_over` / `crosses_under` fire when the cross happens on **any** candle in the
+  window whatever the mode says. A line made only of crosses rejects `all` and is saved with `any`.
+  On a mixed line (`close > sma(20) AND crosses_over(close, vwap()) [1m, 5, all]`) `all` governs the
+  comparison and the cross is any-of-window.
+- Scalars: `float` is a per-ticker value, so a line with no bar data (`float < 50000000`) takes no
+  suffix and is saved bare — a bare line always means a scalar filter. `time` is the evaluation
+  clock; a suffix on a `time`-only line is allowed but changes nothing.
+- Rejected, never silently reinterpreted: `[5]`, `[, 5]`, `[any]`, `[1m, any]`, `[1m, 1, any]`, a
+  suffix on a scalar-only line, `all` on a cross-only line, more than three slots, and anything after
+  the closing `]`.
+- Canonical form: when you add or save a filter the app rewrites it into one spelling. `close > sma(20)`
+  becomes `close > sma(20) [1m]`; `[1m, 5]` becomes `[1m, 5, all]`; `[1m, 1]` becomes `[1m]`;
+  function arguments are separated by `, `. Only the text changes, never the meaning.
 - The last candle in every timeframe is the **forming** candle: its `close` is the last price, its
   `volume` is volume so far, and indicators are recomputed on it every tick.
-- Scalars (`float`) and the evaluation clock (`time`) are single values; the suffix does not change
-  them.
 
 ## Dot field access
 

@@ -71,7 +71,7 @@ public class GreaterThanOrEqualOperator : IComparisonOperator
         var startIndexLeft = leftSeries.Count - pairsToCheck;
         var startIndexRight = rightSeries.Count - pairsToCheck;
 
-        return RangeEvaluationHelper.Evaluate(pairsToCheck, mode, i =>
+        return RangeEvaluationHelper.Evaluate(pairsToCheck, range, mode, i =>
         {
             var lv = leftSeries[startIndexLeft + i].GetFieldValue("value");
             var rv = rightSeries[startIndexRight + i].GetFieldValue("value");
@@ -88,7 +88,7 @@ public class GreaterThanOrEqualOperator : IComparisonOperator
         var startIndexLeft = leftSeries.Count - pairsToCheck;
         var startIndexRight = rightSeries.Count - pairsToCheck;
 
-        return RangeEvaluationHelper.Evaluate(pairsToCheck, mode, i =>
+        return RangeEvaluationHelper.Evaluate(pairsToCheck, range, mode, i =>
         {
             return leftSeries[startIndexLeft + i] >= rightSeries[startIndexRight + i];
         });
@@ -102,7 +102,7 @@ public class GreaterThanOrEqualOperator : IComparisonOperator
         var startIndex = Math.Max(0, series.Count - range);
         var count = series.Count - startIndex;
 
-        return RangeEvaluationHelper.Evaluate(count, mode, i =>
+        return RangeEvaluationHelper.Evaluate(count, range, mode, i =>
         {
             var value = series[startIndex + i].GetFieldValue("value");
             return predicate(value);
@@ -117,7 +117,7 @@ public class GreaterThanOrEqualOperator : IComparisonOperator
         var startIndex = Math.Max(0, series.Count - range);
         var count = series.Count - startIndex;
 
-        return RangeEvaluationHelper.Evaluate(count, mode, i =>
+        return RangeEvaluationHelper.Evaluate(count, range, mode, i =>
         {
             var value = series[startIndex + i];
             return predicate(value);

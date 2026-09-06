@@ -195,24 +195,17 @@ public class ComparisonOperatorsUnitTests
         var timeframe = new Timeframe(1, Timespan.minute);
 
         // Act & Assert
-        // Test basic expression with timeframe specification
-        // This should parse and evaluate normally
-        var result1 = _engine.EvaluateScript("100 > 99 [5m]", stockData, timeframe);
-        Assert.True(result1);
+        // Timeframe only
+        Assert.True(_engine.EvaluateScript("close > 99 [5m]", stockData, timeframe));
 
-        // Test expression with both timeframe and range
-        var result2 = _engine.EvaluateScript("100 > 99 [5m, 3]", stockData, timeframe);
-        Assert.True(result2);
+        // Timeframe and candle window (all of the last 3 closes are > 99)
+        Assert.True(_engine.EvaluateScript("close > 99 [5m, 3]", stockData, timeframe));
+        Assert.True(_engine.EvaluateScript("close > 99 [1m, 3]", stockData, timeframe));
+        Assert.True(_engine.EvaluateScript("close > 99 [1h, 2]", stockData, timeframe));
 
-        // Test expression with just range (should use default timeframe)
-        var result3 = _engine.EvaluateScript("100 > 99 [, 3]", stockData, timeframe);
-        Assert.True(result3);
-
-        var result4 = _engine.EvaluateScript("100 > 99 [5m]", stockData, timeframe);
-        Assert.True(result4);
-
-        var result5 = _engine.EvaluateScript("100 > 99 [1h, 2]", stockData, timeframe);
-        Assert.True(result5);
+        // The suffix needs bar data to apply to: a literal-only line rejects it (plan 20, decision 2)
+        Assert.ThrowsAny<Exception>(() => _engine.EvaluateScript("100 > 99 [5m]", stockData, timeframe));
+        Assert.True(_engine.EvaluateScript("100 > 99", stockData, timeframe));
 
         var result6 = _engine.EvaluateScript("close < 110 [1h]", stockData, timeframe);
         Assert.False(result6);

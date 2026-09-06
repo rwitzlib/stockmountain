@@ -97,7 +97,7 @@ public class ComparisonFunctionUnitTests
         var data = Closes(100, 102, 104);
         Assert.False(Eval("crosses_over(105, 100)", data));
         Assert.False(Eval("crosses_over(105, 100) [1m, 3]", data));
-        Assert.False(Eval("crosses_under(100, 105) [, 3]", data));
+        Assert.False(Eval("crosses_under(100, 105) [1m, 3]", data));
     }
 
     // ---------------------------------------------------------------- ranges and edges
