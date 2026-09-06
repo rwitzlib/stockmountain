@@ -1,6 +1,7 @@
 ﻿using Amazon.Lambda;
 using Amazon.Lambda.Model;
 using FluentValidation;
+using MarketViewer.Application.Services;
 using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Backtest;
@@ -51,6 +52,9 @@ public class BacktestHandler(
                     ErrorMessages = errors
                 };
             }
+
+            // Store and run the canonical spelling so every reader sees one shape (plan 20).
+            request.EntrySettings.Filters = FilterExpressionValidator.Canonicalize(request.EntrySettings.Filters);
 
             logger.LogInformation("Creating backtest with ID: {id} for user {userId}", request.Id, authContext.UserId);
 

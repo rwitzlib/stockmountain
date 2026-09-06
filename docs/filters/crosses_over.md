@@ -112,6 +112,10 @@ MACD bull cross while RSI still has room.
   above 100. For "price is above 100" (a state) use `close > 100 [1m]`. Before 2026-09-04 a numeric
   argument silently returned false — filters saved before then that use one never matched.
 
+- The suffix mode does not apply to a cross. A cross-only line is saved as `[tf, N, any]` and writing
+  `all` is rejected; on a mixed line (`close > sma(20) AND crosses_over(close, vwap()) [1m, 5, all]`)
+  `all` governs the comparison while the cross still fires on any candle in the window.
+
 ## Changelog
 
 - 2025-06-01 — added.
@@ -121,3 +125,5 @@ MACD bull cross while RSI still has room.
   `crosses_over(rsi(14,70,30,wilders), 30)`); previously any number made the call silently false.
   Golden cases `cross-over-rsi-level-30`, `cross-over-level-lhs-70`, `cross-over-macd-hist-zero`,
   `cross-two-literals-never`. Backtest entry cache bumped to v3.
+- 2026-09-05 — cross-only lines print `any` in the suffix and reject `all`; the suffix is strictly
+  `[timeframe, candles, mode]` with a required timeframe (plan 20).

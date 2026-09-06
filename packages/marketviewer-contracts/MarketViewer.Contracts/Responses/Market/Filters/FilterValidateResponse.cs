@@ -12,40 +12,45 @@ public class FilterValidateResponse
 [ExcludeFromCodeCoverage]
 public class FilterValidationResult
 {
+    /// <summary>The expression as submitted.</summary>
     public required string Expression { get; init; }
     public bool Valid { get; init; }
     public string? Error { get; init; }
 
-    /// <summary>Human-readable phrasing of the expression, e.g. "RSI(14) on the 1m chart is below 30".</summary>
+    /// <summary>Human-readable phrasing of the expression, e.g. "rsi(14) is below 30 on all of the last 5 1m candles".</summary>
     public string? Description { get; init; }
 
+    /// <summary>
+    /// The canonical spelling of the expression: explicit timeframe on series lines, explicit mode
+    /// when more than one candle is examined, normalized spacing. This is what gets stored and what
+    /// <see cref="Segments"/> index into. Clients replace the user's text with it on commit.
+    /// </summary>
+    public string? Canonical { get; init; }
+
+    /// <summary>The line's timeframe (1m when not written); null for scalar-only lines such as "float &lt; 20000000".</summary>
     public Timeframe? Timeframe { get; init; }
-    public FilterAstNode? Ast { get; init; }
+
+    /// <summary>
+    /// Display pieces of <see cref="Canonical"/> in order, each a character span with a rendering role.
+    /// Text between segments is punctuation. A quick edit is a text splice on one segment's span followed
+    /// by re-validation; clients never rebuild the expression themselves.
+    /// </summary>
+    public List<FilterSegment>? Segments { get; init; }
 }
 
-/// <summary>
-/// Presentation-oriented projection of the parser's expression tree — just enough
-/// structure for chip rendering and segment editing, not for evaluation.
-/// </summary>
+/// <summary>One span of a canonical filter expression.</summary>
 [ExcludeFromCodeCoverage]
-public class FilterAstNode
+public class FilterSegment
 {
-    /// <summary>binary | unary | function | field | data | literal | range</summary>
-    public required string Kind { get; init; }
+    /// <summary>function | data | literal | op | logic | timeframe</summary>
+    public required string Role { get; init; }
 
-    public string? Op { get; init; }                  // binary / unary (NOT)
-    public FilterAstNode? Left { get; init; }         // binary
-    public FilterAstNode? Right { get; init; }        // binary
+    /// <summary>Inclusive start offset into the canonical text.</summary>
+    public required int Start { get; init; }
 
-    public string? Name { get; init; }                // function
-    public List<FilterAstNode>? Args { get; init; }   // function
+    /// <summary>Exclusive end offset into the canonical text.</summary>
+    public required int End { get; init; }
 
-    public string? Field { get; init; }               // field / data
-    public FilterAstNode? Target { get; init; }       // field
-
-    public string? Value { get; init; }               // literal
-
-    public FilterAstNode? Inner { get; init; }        // range / unary
-    public Timeframe? Timeframe { get; init; }        // range
-    public int? Candles { get; init; }                // range
+    /// <summary>What a quick edit of this span changes: value | op | timeframe | candles | mode. Null when not editable.</summary>
+    public string? Edit { get; init; }
 }

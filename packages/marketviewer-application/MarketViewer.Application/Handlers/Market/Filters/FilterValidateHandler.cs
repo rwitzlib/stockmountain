@@ -1,5 +1,4 @@
 using MarketViewer.Application.Services;
-using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Requests.Market.Filters;
 using MarketViewer.Contracts.Responses.Market.Filters;
@@ -17,8 +16,9 @@ using System.Net;
 namespace MarketViewer.Application.Handlers.Market.Filters;
 
 /// <summary>
-/// Surfaces the real filter parser to the UI: validation errors, a presentation AST for
-/// chip rendering, and an English echo. The parser stays the single source of grammar truth.
+/// Surfaces the real filter parser to the UI: validation errors, the canonical spelling with
+/// display spans for chip rendering, and an English echo. The parser stays the single source of
+/// grammar truth; the client never serializes an expression itself (plan 20, decision 5).
 /// </summary>
 public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
 {
@@ -76,14 +76,18 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
                     };
                 }
             }
-            var ast = MapNode(parsed);
+
+            var canonical = FilterCanonicalizer.Canonicalize(parsed);
             return new FilterValidationResult
             {
                 Expression = expression,
                 Valid = true,
-                Description = Describe(ast),
-                Timeframe = _engine.ExtractTimeframe(parsed),
-                Ast = ast,
+                Description = Describe(canonical),
+                Canonical = canonical.Text,
+                Timeframe = canonical.Timeframe,
+                Segments = canonical.Segments
+                    .Select(s => new FilterSegment { Role = s.Role, Start = s.Start, End = s.End, Edit = s.Edit })
+                    .ToList(),
             };
         }
         catch (Exception e)
@@ -98,116 +102,63 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
         }
     }
 
-    #region AST mapping
-
-    private static FilterAstNode MapNode(IExpression expression) => expression switch
-    {
-        TimeframeRangeExpression range => new FilterAstNode
-        {
-            Kind = "range",
-            Inner = MapNode(range.GetInnerExpression()),
-            Timeframe = range.GetTimeframe(),
-            Candles = range.GetRange(),
-        },
-        BinaryExpression binary => new FilterAstNode
-        {
-            Kind = "binary",
-            Op = binary.Operator.Symbol,
-            Left = MapNode(binary.Left),
-            Right = MapNode(binary.Right),
-        },
-        UnaryExpression unary => new FilterAstNode
-        {
-            Kind = "unary",
-            Op = unary.Operator.Symbol,
-            Inner = MapNode(unary.Operand),
-        },
-        FunctionCallExpression function => new FilterAstNode
-        {
-            Kind = "function",
-            Name = function.FunctionName,
-            Args = function.GetArguments().Select(MapNode).ToList(),
-        },
-        FieldAccessExpression field => new FilterAstNode
-        {
-            Kind = "field",
-            Target = MapNode(field.GetTargetExpression()),
-            Field = field.GetFieldName(),
-        },
-        DataAccessExpression data => new FilterAstNode
-        {
-            Kind = "data",
-            Field = data.GetFieldName(),
-        },
-        LiteralExpression literal => new FilterAstNode
-        {
-            Kind = "literal",
-            Value = FormatLiteral(literal.GetValue()),
-        },
-        _ => new FilterAstNode
-        {
-            Kind = "raw",
-            Value = expression.ToString(),
-        },
-    };
-
-    private static string FormatLiteral(object? value) => value switch
-    {
-        null => "",
-        IFormattable formattable => formattable.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
-        _ => value.ToString() ?? "",
-    };
-
-    #endregion
-
     #region English echo
 
-    private static string Describe(FilterAstNode node) => node.Kind switch
+    private static string Describe(CanonicalFilter canonical)
     {
-        "range" => DescribeRange(node),
-        "binary" when IsLogical(node.Op) =>
-            $"{DescribeOperand(node.Left!, node.Op!)} {node.Op!.ToLowerInvariant()} {DescribeOperand(node.Right!, node.Op!)}",
-        "unary" => $"not {(IsLogicalNode(node.Inner!) ? $"({Describe(node.Inner!)})" : Describe(node.Inner!))}",
-        "binary" => $"{Describe(node.Left!)} is {OpPhrase(node.Op!)} {Describe(node.Right!)}",
-        "function" when node.Name is "crosses_over" && node.Args is { Count: 2 } =>
-            $"{Describe(node.Args[0])} crosses above {Describe(node.Args[1])}",
-        "function" when node.Name is "crosses_under" && node.Args is { Count: 2 } =>
-            $"{Describe(node.Args[0])} crosses below {Describe(node.Args[1])}",
-        "function" => $"{node.Name}({string.Join(", ", (node.Args ?? []).Select(Describe))})",
-        "field" => $"{Describe(node.Target!)} {node.Field}",
-        "data" => node.Field ?? "",
-        "literal" => node.Value ?? "",
-        _ => node.Value ?? "",
-    };
+        var inner = canonical.Root is TimeframeRangeExpression range ? range.GetInnerExpression() : canonical.Root;
+        var text = Describe(inner);
 
-    /// <summary>
-    /// A logical operand that is itself a logical expression with a different operator was
-    /// grouped by the user — keep the parentheses in the echo so "a and (b or c)" reads as written.
-    /// </summary>
-    private static string DescribeOperand(FilterAstNode operand, string parentOp) =>
-        IsLogicalNode(operand) && !string.Equals(operand.Op, parentOp, StringComparison.OrdinalIgnoreCase)
-            ? $"({Describe(operand)})"
-            : Describe(operand);
-
-    private static bool IsLogicalNode(FilterAstNode node) =>
-        node.Kind == "binary" && IsLogical(node.Op);
-
-    private static string DescribeRange(FilterAstNode node)
-    {
-        var text = Describe(node.Inner!);
-        if (node.Timeframe is not null)
+        if (canonical.Timeframe is null)
         {
-            text += $" on the {FormatTimeframe(node.Timeframe)} chart";
+            return text;
         }
-        if (node.Candles is > 1)
+
+        var timeframe = RangeSuffix.FormatTimeframe(canonical.Timeframe);
+        if (canonical.Candles is not > 1)
         {
-            text += $" over the last {node.Candles} candles";
+            return $"{text} on the {timeframe} chart";
+        }
+
+        var mode = canonical.Mode == RangeEvaluationMode.Any ? "any" : "all";
+        text = $"{text} on {mode} of the last {canonical.Candles} {timeframe} candles";
+        if (canonical.Mode == RangeEvaluationMode.All && canonical.HasCross)
+        {
+            // Mixed line: "all" governs the comparisons; a cross fires on any candle in the window.
+            text += " (the cross on any of them)";
         }
         return text;
     }
 
-    private static bool IsLogical(string? op) =>
-        op is not null && (op.Equals("AND", StringComparison.OrdinalIgnoreCase) || op.Equals("OR", StringComparison.OrdinalIgnoreCase));
+    private static string Describe(IExpression node) => node switch
+    {
+        TimeframeRangeExpression range => Describe(range.GetInnerExpression()),
+        BinaryExpression { Operator: ILogicalOperator } logical =>
+            $"{DescribeOperand(logical.Left, logical.Operator.Symbol)} {logical.Operator.Symbol.ToLowerInvariant()} {DescribeOperand(logical.Right, logical.Operator.Symbol)}",
+        UnaryExpression unary => $"not {(IsLogical(unary.Operand) ? $"({Describe(unary.Operand)})" : Describe(unary.Operand))}",
+        BinaryExpression comparison => $"{Describe(comparison.Left)} is {OpPhrase(comparison.Operator.Symbol)} {Describe(comparison.Right)}",
+        FunctionCallExpression { FunctionName: "crosses_over" } cross when cross.GetArguments().Count == 2 =>
+            $"{Describe(cross.GetArguments()[0])} crosses above {Describe(cross.GetArguments()[1])}",
+        FunctionCallExpression { FunctionName: "crosses_under" } cross when cross.GetArguments().Count == 2 =>
+            $"{Describe(cross.GetArguments()[0])} crosses below {Describe(cross.GetArguments()[1])}",
+        FunctionCallExpression function => FilterCanonicalizer.PrintValue(function),
+        FieldAccessExpression field => $"{Describe(field.GetTargetExpression())} {field.GetFieldName().ToLowerInvariant()}",
+        DataAccessExpression data => data.GetFieldName(),
+        LiteralExpression literal => FilterCanonicalizer.PrintValue(literal),
+        _ => node.ToString() ?? "",
+    };
+
+    /// <summary>
+    /// A logical operand that is itself a logical expression with a different operator was
+    /// grouped by the user: keep the parentheses in the echo so "a and (b or c)" reads as written.
+    /// </summary>
+    private static string DescribeOperand(IExpression operand, string parentOp) =>
+        operand is BinaryExpression { Operator: ILogicalOperator } child
+        && !string.Equals(child.Operator.Symbol, parentOp, StringComparison.OrdinalIgnoreCase)
+            ? $"({Describe(operand)})"
+            : Describe(operand);
+
+    private static bool IsLogical(IExpression node) => node is BinaryExpression { Operator: ILogicalOperator };
 
     private static string OpPhrase(string op) => op switch
     {
@@ -219,22 +170,6 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
         "!=" => "not equal to",
         _ => op,
     };
-
-    private static string FormatTimeframe(Timeframe timeframe)
-    {
-        var unit = timeframe.Timespan switch
-        {
-            Timespan.minute => "m",
-            Timespan.hour => "h",
-            Timespan.day => "d",
-            Timespan.week => "w",
-            Timespan.month => "mo",
-            Timespan.quarter => "q",
-            Timespan.year => "y",
-            _ => timeframe.Timespan.ToString(),
-        };
-        return $"{timeframe.Multiplier}{unit}";
-    }
 
     #endregion
 
@@ -254,7 +189,9 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
 
     /// <summary>
     /// The catalog is derived from <see cref="FunctionRegistry"/> ([FilterFunction] attributes +
-    /// KeywordRegistry) — there is no separate list to keep in sync. Optionally filtered to one context.
+    /// KeywordRegistry) plus one pseudo-entry for the "[timeframe, candles, mode]" line suffix
+    /// (<see cref="RangeSuffix"/>), so the composer's bracket hint is driven by the same definition the
+    /// parser uses. There is no separate list to keep in sync. Optionally filtered to one context.
     /// </summary>
     public OperationResult<FilterFunctionsResponse> Functions(string? context = null)
     {
@@ -275,6 +212,7 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
         var functions = FunctionRegistry.All
             .Where(d => required is null || d.SupportsContext(required.Value))
             .Select(ToInfo)
+            .Append(SuffixInfo())
             .ToList();
 
         return new()
@@ -297,6 +235,24 @@ public class FilterValidateHandler(ILogger<FilterValidateHandler> logger)
         Aliases = d.Aliases.Count > 0 ? d.Aliases.ToList() : null,
         Contexts = ContextList(d.Contexts),
         DocsUrl = $"/docs/filters/{d.Name}",
+    };
+
+    /// <summary>The bracket suffix as a catalog entry: valid in every context, documented on the reference index.</summary>
+    public static FilterFunctionInfo SuffixInfo() => new()
+    {
+        Kind = "suffix",
+        Name = RangeSuffix.CatalogName,
+        Signature = RangeSuffix.Signature,
+        Snippet = RangeSuffix.Snippet,
+        Description = RangeSuffix.Description,
+        Params = RangeSuffix.SlotNames.ToList(),
+        ParamOptions = new Dictionary<string, List<string>>
+        {
+            ["timeframe"] = RangeSuffix.TimeframeOptions.ToList(),
+            ["mode"] = RangeSuffix.ModeOptions.ToList(),
+        },
+        Contexts = ContextList(FilterContext.All),
+        DocsUrl = "/docs/filters",
     };
 
     #endregion

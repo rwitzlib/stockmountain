@@ -1,59 +1,6 @@
-import type { FilterAstNode, FilterTimeframe } from '../../types/filters';
-
-/** Short timeframe form used in range brackets: {multiplier}{unit}, e.g. "5m", "1d". */
-export function formatTimeframe(tf: FilterTimeframe): string {
-  const unit =
-    { minute: 'm', hour: 'h', day: 'd', week: 'w', month: 'mo', quarter: 'q', year: 'y' }[
-      tf.timespan
-    ] ?? tf.timespan;
-  return `${tf.multiplier}${unit}`;
-}
-
-/**
- * Serializes a presentation AST back to DSL text. Must round-trip anything the
- * validate endpoint emits — chip edits re-serialize the whole tree.
- */
-export function serializeAst(node: FilterAstNode): string {
-  switch (node.kind) {
-    case 'range': {
-      const inner = serializeAst(node.inner!);
-      const tf = node.timeframe ? formatTimeframe(node.timeframe) : '';
-      if (tf && node.candles) return `${inner} [${tf}, ${node.candles}]`;
-      if (tf) return `${inner} [${tf}]`;
-      if (node.candles) return `${inner} [, ${node.candles}]`;
-      return inner;
-    }
-    case 'binary':
-      return `${serializeOperand(node.left!, node)} ${node.op} ${serializeOperand(node.right!, node)}`;
-    case 'unary':
-      // NOT takes a single comparison; a logical operand must stay grouped.
-      return `NOT ${isLogical(node.inner!) ? `(${serializeAst(node.inner!)})` : serializeAst(node.inner!)}`;
-    case 'function':
-      return `${node.name}(${(node.args ?? []).map(serializeAst).join(', ')})`;
-    case 'field':
-      return `${serializeAst(node.target!)}.${node.field}`;
-    case 'data':
-      return node.field ?? '';
-    case 'literal':
-    case 'raw':
-    default:
-      return node.value ?? '';
-  }
-}
-
-export const isLogical = (node: FilterAstNode | undefined): boolean =>
-  !!node && node.kind === 'binary' && (node.op === 'AND' || node.op === 'OR');
-
-/**
- * The parser gives AND precedence over OR, so strictly only an OR nested under an AND needs
- * parentheses ("a AND (b OR c)", "(a OR b) AND c"). We also wrap an AND nested under an OR
- * ("a OR (b AND c)") — redundant for the parser but it keeps the round-tripped text unambiguous
- * to a reader. Same-operator chains stay flat.
- */
-function serializeOperand(operand: FilterAstNode, parent: FilterAstNode): string {
-  const text = serializeAst(operand);
-  return isLogical(parent) && isLogical(operand) && operand.op !== parent.op ? `(${text})` : text;
-}
+// Filter text is never assembled on the client: /filters/validate returns the canonical spelling
+// plus spans, and a chip edit is a splice on a span followed by re-validation (plan 20). What
+// remains here is the localStorage library of recents / pinned expressions and the templates.
 
 // ---- Recents / pinned library (localStorage, phase 3) ----
 
@@ -79,7 +26,7 @@ function saveFilterLibrary(entries: FilterLibraryEntry[]) {
   try {
     localStorage.setItem(LIBRARY_KEY, JSON.stringify(entries.slice(0, LIBRARY_CAP)));
   } catch {
-    // storage full/unavailable — recents are best-effort
+    // storage full/unavailable: recents are best-effort
   }
 }
 
@@ -107,12 +54,13 @@ export function toggleFilterPin(expression: string) {
   }
 }
 
-/** Named complete starting points for cold starts; inserted then modified. */
+/** Named complete starting points for cold starts; inserted then modified. Written in canonical form. */
 export const FILTER_TEMPLATES: { label: string; expression: string }[] = [
   { label: 'Oversold bounce', expression: 'rsi(14) < 30 [1m]' },
   { label: 'Volume surge', expression: 'volume > 1000000 [1d]' },
   { label: 'Above the 200-day', expression: 'close > sma(200) [1d]' },
   { label: 'Liquidity floor', expression: 'adv() > 2000000 [1d]' },
-  { label: 'MACD turning bullish', expression: 'macd(12,26,9,ema).histogram > 0 [5m]' },
+  { label: 'MACD turning bullish', expression: 'macd(12, 26, 9, ema).histogram > 0 [5m]' },
   { label: 'Above session VWAP', expression: 'close > vwap() [1m]' },
+  { label: 'Held above VWAP', expression: 'close > vwap() [1m, 5, all]' },
 ];

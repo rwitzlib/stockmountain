@@ -62,6 +62,14 @@ public static class FilterExpressionValidator
     }
 
     /// <summary>
+    /// Rewrites already-validated expressions to their canonical spelling (explicit timeframe and
+    /// mode, normalized spacing; see <see cref="FilterCanonicalizer"/>) so stored filters have one
+    /// shape. Call after validation: an invalid expression throws.
+    /// </summary>
+    public static List<string> Canonicalize(IEnumerable<string> expressions) =>
+        expressions.Select(e => Engine.Canonicalize(e).Text).ToList();
+
+    /// <summary>
     /// Returns the context-violation message for an already-parsed expression, or null
     /// when every function/keyword is allowed in <paramref name="context"/>.
     /// </summary>

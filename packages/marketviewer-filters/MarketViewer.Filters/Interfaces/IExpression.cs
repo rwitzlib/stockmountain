@@ -43,4 +43,21 @@ public class ExpressionContext
     /// Determines how range-based evaluations should aggregate candle results.
     /// </summary>
     public RangeEvaluationMode RangeEvaluationMode { get; init; } = RangeEvaluationMode.All;
+
+    /// <summary>
+    /// The same context restricted to the latest candle. Used for comparisons against the evaluation
+    /// clock (<c>time</c>), which is one value per evaluation: a candle window must not turn
+    /// "time &lt; 10:30 [1m, 3]" false for lack of candles.
+    /// </summary>
+    public ExpressionContext ForSingleCandle() => CandleRange is null or 1
+        ? this
+        : new ExpressionContext
+        {
+            StockData = StockData,
+            Timeframe = Timeframe,
+            Parameters = Parameters,
+            EvaluationTime = EvaluationTime,
+            CandleRange = 1,
+            RangeEvaluationMode = RangeEvaluationMode,
+        };
 }

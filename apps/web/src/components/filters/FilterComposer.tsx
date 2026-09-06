@@ -51,11 +51,16 @@ interface Suggestion {
   docsUrl?: string;
 }
 
-const wordAt = (text: string, caret: number) => {
+const wordAt = (text: string, caret: number, pattern: RegExp) => {
   const left = text.slice(0, caret);
-  const match = left.match(/[a-zA-Z_]+$/);
+  const match = left.match(pattern);
   return { word: match?.[0] ?? '', start: caret - (match?.[0].length ?? 0) };
 };
+
+/** Identifier before the caret, for function/keyword autocomplete. */
+const IDENTIFIER = /[a-zA-Z_]+$/;
+/** Token before the caret inside a bracket: timeframes start with a digit ("5m"). */
+const BRACKET_TOKEN = /[a-zA-Z0-9_]+$/;
 
 /** The innermost unclosed function call before the caret, for signature hints. */
 const enclosingFunction = (text: string, caret: number): { name: string; parenIndex: number } | null => {
@@ -85,6 +90,21 @@ const argIndexAt = (text: string, parenIndex: number, caret: number): number => 
     if (ch === ',' && depth === 0) index++;
   }
   return index;
+};
+
+/**
+ * The unclosed "[timeframe, candles, mode]" suffix the caret sits in, and which slot: commas
+ * between the "[" and the caret. Null when the caret is not inside a bracket.
+ */
+const enclosingBracket = (text: string, caret: number): { bracketIndex: number; slot: number } | null => {
+  if (caret <= 0) return null;
+  const open = text.lastIndexOf('[', caret - 1);
+  if (open === -1) return null;
+  if (text.slice(open + 1, caret).includes(']')) return null;
+  // The suffix must still be open: a ']' after the caret means the line is already complete.
+  if (text.indexOf(']', caret) !== -1) return null;
+  const slot = text.slice(open + 1, caret).split(',').length - 1;
+  return { bracketIndex: open, slot };
 };
 
 export const FilterComposer = forwardRef(function FilterComposer(
@@ -132,6 +152,9 @@ export const FilterComposer = forwardRef(function FilterComposer(
     retry: 1,
   });
 
+  /** The "[timeframe, candles, mode]" catalog entry: slot names and the tokens each slot accepts. */
+  const suffix = useMemo(() => functions.find((f) => f.kind === 'suffix'), [functions]);
+
   // Debounced validation against the real parser
   useEffect(() => {
     const expression = input.trim();
@@ -147,7 +170,7 @@ export const FilterComposer = forwardRef(function FilterComposer(
         const [result] = await filtersApi.validate([expression], context);
         if (seq === validateSeq.current) setValidation(result ?? null);
       } catch {
-        if (seq === validateSeq.current) setValidation(null); // API unreachable — don't block
+        if (seq === validateSeq.current) setValidation(null); // API unreachable: don't block
       } finally {
         if (seq === validateSeq.current) setValidating(false);
       }
@@ -155,7 +178,8 @@ export const FilterComposer = forwardRef(function FilterComposer(
     return () => clearTimeout(timer);
   }, [input, context]);
 
-  const { word, start: wordStart } = wordAt(input, caret);
+  const bracket = useMemo(() => enclosingBracket(input, caret), [input, caret]);
+  const { word, start: wordStart } = wordAt(input, caret, bracket ? BRACKET_TOKEN : IDENTIFIER);
 
   const suggestions = useMemo<Suggestion[]>(() => {
     if (!input.trim()) {
@@ -168,20 +192,34 @@ export const FilterComposer = forwardRef(function FilterComposer(
         ...FILTER_TEMPLATES.map((t) => ({ label: t.expression, detail: t.label, insert: t.expression, replaceWord: false })),
       ];
     }
+    if (bracket) {
+      // Inside the suffix: offer the tokens the active slot accepts (timeframes, then any/all).
+      const slotName = suffix?.params?.[bracket.slot]?.replace(/\?$/, '');
+      const options = slotName ? suffix?.paramOptions?.[slotName] ?? [] : [];
+      return options
+        .filter((o) => o.startsWith(word.toLowerCase()) && o !== word)
+        .map((o) => ({ label: o, detail: slotName ?? '', insert: o, replaceWord: true }));
+    }
     if (word.length < 1) return [];
     return functions
-      .filter((f: FilterFunctionInfo) => f.name.startsWith(word.toLowerCase()) && f.name !== word)
+      .filter((f: FilterFunctionInfo) => f.kind !== 'suffix' && f.name.startsWith(word.toLowerCase()) && f.name !== word)
       .slice(0, 8)
       .map((f) => ({ label: f.signature, detail: f.description, insert: f.snippet, replaceWord: true, docsUrl: f.docsUrl }));
-  }, [functions, input, word]);
+  }, [functions, suffix, input, word, bracket]);
 
   const signatureHint = useMemo(() => {
+    if (bracket) return null;
     const enclosing = enclosingFunction(input, caret);
     if (!enclosing) return null;
     const fn = functions.find((f) => f.name === enclosing.name);
     if (!fn) return null;
     return { fn, activeArg: argIndexAt(input, enclosing.parenIndex, caret) };
-  }, [functions, input, caret]);
+  }, [functions, input, caret, bracket]);
+
+  const bracketHint = useMemo(() => {
+    if (!bracket || !suffix?.params) return null;
+    return { slots: suffix.params.map((p) => p.replace(/\?$/, '')), activeSlot: bracket.slot, docsUrl: suffix.docsUrl };
+  }, [bracket, suffix]);
 
   const applySuggestion = (suggestion: Suggestion) => {
     let next: string;
@@ -252,6 +290,8 @@ export const FilterComposer = forwardRef(function FilterComposer(
   const handleAdd = async () => {
     const expression = input.trim();
     if (!expression || disabled) return;
+    // What gets committed is the server's canonical spelling (explicit timeframe/mode), not the raw text.
+    let committed = expression;
     try {
       const [result] = await filtersApi.validate([expression], context);
       if (!result?.valid) {
@@ -259,15 +299,18 @@ export const FilterComposer = forwardRef(function FilterComposer(
         return;
       }
       setValidation(result);
+      committed = result.canonical ?? expression;
     } catch {
-      // Validation endpoint unreachable — allow authoring rather than blocking
+      // Validation endpoint unreachable: allow authoring rather than blocking
     }
-    recordFilterUse(expression);
-    onAddFilter(expression);
+    recordFilterUse(committed);
+    onAddFilter(committed);
     setMenuOpen(false);
     if (initialExpression === undefined) {
       setInput('');
       setValidation(null);
+    } else {
+      setInput(committed);
     }
   };
 
@@ -291,7 +334,7 @@ export const FilterComposer = forwardRef(function FilterComposer(
               value={input}
               disabled={disabled}
               autoFocus={autoFocus}
-              placeholder="Type a filter, e.g. rsi(14) < 30 [1m] — or pick a template"
+              placeholder="Type a filter, e.g. rsi(14) < 30 [1m], or pick a template"
               className="w-full rounded-lg border border-input bg-card text-foreground font-mono text-xs px-3 py-2 pr-8 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               onChange={(e) => {
                 setInput(e.target.value);
@@ -317,7 +360,8 @@ export const FilterComposer = forwardRef(function FilterComposer(
                     setMenuIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
                     return;
                   }
-                  if ((e.key === 'Enter' || e.key === 'Tab') && word.length > 0) {
+                  // Inside an open bracket the line cannot be valid yet, so Enter picks a token even before typing one.
+                  if ((e.key === 'Enter' || e.key === 'Tab') && (word.length > 0 || bracket)) {
                     e.preventDefault();
                     applySuggestion(suggestions[menuIndex]);
                     return;
@@ -404,6 +448,40 @@ export const FilterComposer = forwardRef(function FilterComposer(
         )}
       </div>
 
+      {bracketHint && (
+        <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+          {bracketHint.docsUrl && (
+            <a
+              href={bracketHint.docsUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Documentation for the [timeframe, candles, mode] suffix"
+              className="inline-flex items-center gap-0.5 font-sans hover:text-foreground"
+            >
+              docs <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+          <span>
+            [
+            {bracketHint.slots.map((slot, i) => (
+              <span key={slot}>
+                {i > 0 && ', '}
+                <span
+                  className={
+                    i === bracketHint.activeSlot
+                      ? 'rounded bg-green-500/15 px-0.5 font-semibold text-green-700 dark:text-green-400'
+                      : undefined
+                  }
+                >
+                  {slot}
+                </span>
+              </span>
+            ))}
+            ]
+          </span>
+        </div>
+      )}
+
       {signatureHint && (
         <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
           {signatureHint.fn.docsUrl && (
@@ -446,11 +524,16 @@ export const FilterComposer = forwardRef(function FilterComposer(
         <div className="text-[11px] text-red-600 dark:text-red-400">{validation.error}</div>
       )}
       {status === 'valid' && validation?.description && (
-        <div className="text-[11px] text-muted-foreground italic">“{validation.description}”</div>
+        <div className="text-[11px] text-muted-foreground italic">
+          “{validation.description}”
+          {validation.canonical && validation.canonical !== input.trim() && (
+            <span className="not-italic"> · saved as <code className="font-mono">{validation.canonical}</code></span>
+          )}
+        </div>
       )}
       {status === 'unknown' && (
         <div className="text-[11px] text-amber-600 dark:text-amber-400">
-          Validation unavailable — is the API running with the /filters endpoints? The expression will be added unchecked.
+          Validation unavailable. Is the API running with the /filters endpoints? The expression will be added unchecked.
         </div>
       )}
     </div>

@@ -28,6 +28,15 @@ public class IndicatorExpressionEngine
     }
 
     /// <summary>
+    /// Parses a script and returns its canonical form: deterministic text with an explicit
+    /// timeframe and mode, plus display spans. See <see cref="Parsing.FilterCanonicalizer"/>.
+    /// </summary>
+    public Parsing.CanonicalFilter Canonicalize(string script)
+    {
+        return Parsing.FilterCanonicalizer.Canonicalize(ParseExpression(script));
+    }
+
+    /// <summary>
     /// Evaluates an expression against the given market data
     /// </summary>
     /// <param name="expression">The expression to evaluate</param>

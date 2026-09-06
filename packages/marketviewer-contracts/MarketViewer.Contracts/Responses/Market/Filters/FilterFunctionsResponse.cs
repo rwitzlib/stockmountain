@@ -10,12 +10,12 @@ public class FilterFunctionsResponse
 
 /// <summary>
 /// Autocomplete metadata for one completable token: an indicator function, a price
-/// literal, or a comparison/logical operator.
+/// literal, or the "[timeframe, candles, mode]" line suffix (kind "suffix").
 /// </summary>
 [ExcludeFromCodeCoverage]
 public class FilterFunctionInfo
 {
-    /// <summary>function | literal | operator. Functions additionally carry <see cref="FunctionKind"/>.</summary>
+    /// <summary>function | literal | suffix. Functions additionally carry <see cref="FunctionKind"/>.</summary>
     public required string Kind { get; init; }
 
     /// <summary>series | transform | boolean | keyword — the registry kind (see FilterFunctionAttribute).</summary>
@@ -32,6 +32,12 @@ public class FilterFunctionInfo
 
     /// <summary>Ordered parameter names for active-argument highlighting; "?" suffix marks optional, e.g. ["series", "period?"].</summary>
     public List<string>? Params { get; init; }
+
+    /// <summary>
+    /// Fixed choices for parameters that take one of a few tokens, keyed by parameter name
+    /// (without the "?" suffix), e.g. the suffix's timeframe → ["1m", "5m", …], mode → ["all", "any"].
+    /// </summary>
+    public Dictionary<string, List<string>>? ParamOptions { get; init; }
 
     /// <summary>Dot-accessible fields, e.g. macd → ["value", "signal", "histogram"].</summary>
     public List<string>? Fields { get; init; }

@@ -71,7 +71,13 @@ public class BinaryExpression : IExpression
             }
         }
 
-        // Default behavior for non-logical operators
+        // Default behavior for non-logical operators. A comparison against the evaluation clock is a
+        // single value, so the candle window (and its full-window rule) does not apply to it.
+        if (ExpressionShape.IsClock(_left) || ExpressionShape.IsClock(_right))
+        {
+            context = context.ForSingleCandle();
+        }
+
         var leftEval = _left.Evaluate(context);
         var rightEval = _right.Evaluate(context);
         return _operator.Execute(leftEval, rightEval, context);

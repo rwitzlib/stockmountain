@@ -1,4 +1,5 @@
 using FluentValidation;
+using MarketViewer.Application.Services;
 using MarketViewer.Contracts.Caching;
 using MarketViewer.Contracts.Dtos;
 using MarketViewer.Contracts.Models;
@@ -37,6 +38,9 @@ public class StrategyUpdateHandler(
                     ErrorMessages = validationResult.Errors.Select(e => e.ErrorMessage).ToList()
                 };
             }
+
+            // Store the canonical spelling so every reader sees one shape (plan 20).
+            request.EntrySettings.Filters = FilterExpressionValidator.Canonicalize(request.EntrySettings.Filters);
 
             var existingStrategy = await strategyRepository.Get(request.Id);
 

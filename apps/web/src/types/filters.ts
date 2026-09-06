@@ -31,28 +31,30 @@ export interface ChartFilterMatchResponse {
   metadata?: Record<string, unknown>;
 }
 
-// ---- /filters/validate + /filters/functions contracts (plan 13) ----
+// ---- /filters/validate + /filters/functions contracts (plans 13, 20) ----
 
 export interface FilterTimeframe {
   multiplier: number;
   timespan: string;
 }
 
-export interface FilterAstNode {
-  kind: 'binary' | 'unary' | 'function' | 'field' | 'data' | 'literal' | 'range' | 'raw';
-  /** binary operator, or 'NOT' for unary */
-  op?: string;
-  left?: FilterAstNode;
-  right?: FilterAstNode;
-  name?: string;
-  args?: FilterAstNode[];
-  field?: string;
-  target?: FilterAstNode;
-  value?: string;
-  /** range: the wrapped expression; unary: the negated operand */
-  inner?: FilterAstNode;
-  timeframe?: FilterTimeframe;
-  candles?: number;
+export type FilterSegmentRole = 'function' | 'data' | 'literal' | 'op' | 'logic' | 'timeframe';
+
+/** What a quick edit of a segment changes. */
+export type FilterSegmentEdit = 'value' | 'op' | 'timeframe' | 'candles' | 'mode';
+
+/**
+ * One span of the canonical expression. Text between segments is punctuation. The client renders
+ * slices of `canonical` and edits by splicing a span, then re-validates; it never rebuilds the
+ * expression itself.
+ */
+export interface FilterSegment {
+  role: FilterSegmentRole;
+  /** Inclusive start offset into the canonical text. */
+  start: number;
+  /** Exclusive end offset into the canonical text. */
+  end: number;
+  edit?: FilterSegmentEdit;
 }
 
 export interface FilterValidationResult {
@@ -60,18 +62,22 @@ export interface FilterValidationResult {
   valid: boolean;
   error?: string;
   description?: string;
+  /** Canonical spelling: explicit timeframe/mode, normalized spacing. Stored and displayed in place of the input. */
+  canonical?: string;
   timeframe?: FilterTimeframe;
-  ast?: FilterAstNode;
+  segments?: FilterSegment[];
 }
 
 export interface FilterFunctionInfo {
-  kind: 'function' | 'literal' | 'operator';
+  kind: 'function' | 'literal' | 'suffix';
   name: string;
   signature: string;
   snippet: string;
   description: string;
   /** Ordered parameter names; "?" suffix marks optional (e.g. ["series", "period?"]). */
   params?: string[];
+  /** Fixed choices per parameter (name without "?"), e.g. the suffix's timeframe and mode slots. */
+  paramOptions?: Record<string, string[]>;
   fields?: string[];
   /** series | transform | boolean | keyword (registry kind). */
   functionKind?: string;
