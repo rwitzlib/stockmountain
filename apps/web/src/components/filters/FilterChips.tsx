@@ -116,7 +116,9 @@ export function FilterChips({ expression, onChange, className }: FilterChipsProp
         return;
       }
       setEditError(null);
-      if (next.canonical && next.canonical !== canonical) onChange(next.canonical);
+      // The server's canonical spelling wins; a valid response without one keeps the edit as spliced.
+      const committed = next.canonical ?? spliced;
+      if (committed !== canonical) onChange(committed);
     } catch {
       // Validation endpoint unreachable: hand the spliced text on rather than blocking the edit, but say so.
       setEditError('Validation unavailable. The edit was applied unchecked.');
