@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { filtersApi } from '../../api/filtersApi';
 import type { FilterSegment, FilterSegmentRole } from '../../types/filters';
@@ -50,6 +50,8 @@ export function FilterChips({ expression, onChange, className }: FilterChipsProp
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
+  // Only the newest edit may commit: a slower validation of an earlier edit must not overwrite it.
+  const editSeq = useRef(0);
 
   const { data: results } = useQuery({
     queryKey: ['filterAst', expression],
@@ -109,8 +111,10 @@ export function FilterChips({ expression, onChange, className }: FilterChipsProp
     const spliced = canonical.slice(0, segment.start) + value + canonical.slice(segment.end);
     if (spliced === canonical) return;
 
+    const seq = ++editSeq.current;
     try {
       const [next] = await filtersApi.validate([spliced]);
+      if (seq !== editSeq.current) return; // a newer edit superseded this one
       if (!next?.valid) {
         setEditError(next?.error ?? 'That edit does not parse.');
         return;
@@ -120,6 +124,7 @@ export function FilterChips({ expression, onChange, className }: FilterChipsProp
       const committed = next.canonical ?? spliced;
       if (committed !== canonical) onChange(committed);
     } catch {
+      if (seq !== editSeq.current) return;
       // Validation endpoint unreachable: hand the spliced text on rather than blocking the edit, but say so.
       setEditError('Validation unavailable. The edit was applied unchecked.');
       onChange(spliced);
