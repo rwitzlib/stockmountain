@@ -71,6 +71,9 @@ jobs:
         }
     secrets: inherit
 
+  # Deploys github.sha (master on push, the selected branch on workflow_dispatch).
+  # Turn off Railway "Automatic deployments" on these services so a GitHub-connected
+  # trigger branch cannot overwrite this SHA after the job finishes.
   railway_deploy:
     needs: deploy
     if: github.event_name == 'workflow_dispatch' || github.ref_name == 'master'
@@ -92,6 +95,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # workflow_dispatch uses the branch selected in the Actions UI; push uses that commit.
+          ref: ${{ github.sha }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v6
@@ -108,6 +114,9 @@ jobs:
           # The wrapper pollutes stdout, breaking `terraform output -json`
           terraform_wrapper: false
 
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli
+
       - name: Push terraform outputs to Railway
         working-directory: infra/tf/app
         env:
@@ -122,8 +131,6 @@ jobs:
             echo "::add-mask::$value"
           done
 
-          npm install --global @railway/cli
-
           # NUL-delimited so values survive any character; empty values are dropped
           # (an unset TF_VAR_* defaults to "" and the Railway CLI rejects `KEY=`).
           set_args=()
@@ -136,12 +143,91 @@ jobs:
             exit 0
           fi
 
-          # --skip-deploys: the deploy happens explicitly in the next step via
-          # `railway up`; a variable change must not also trigger a build of the
-          # service's connected branch.
+          # --skip-deploys: a variable change must not also trigger a build of the
+          # service's connected GitHub branch. The next step deploys github.sha.
           railway variables "${set_args[@]}" --skip-deploys --service ${{ matrix.service.name }}
 
-      - name: Deploy checked-out code to Railway
+      - name: Deploy GitHub commit to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service ${{ matrix.service.name }} --ci
+          RAILWAY_SERVICE_NAME: ${{ matrix.service.name }}
+          GIT_SHA: ${{ github.sha }}
+          GIT_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          echo "Railway deploy: service=${RAILWAY_SERVICE_NAME} ref=${GIT_REF} sha=${GIT_SHA}"
+          git log -1 --oneline "${GIT_SHA}"
+
+          # Project tokens bind project + environment; account tokens need a prior `railway link`.
+          status_json=$(railway status --json)
+
+          service_id=$(echo "$status_json" | jq -r --arg name "$RAILWAY_SERVICE_NAME" '
+            .services.edges[]? | select(.node.name == $name) | .node.id
+          ' | head -n1)
+          environment_id=$(echo "$status_json" | jq -r '
+            .environments.edges[0].node.id // empty
+          ')
+
+          if [ -z "$service_id" ] || [ -z "$environment_id" ]; then
+            echo "::error::Could not resolve Railway service/environment IDs from railway status."
+            echo "$status_json" | jq '{name, id, services: [.services.edges[]?.node | {id, name}], environments: [.environments.edges[]?.node | {id, name}]}'
+            exit 1
+          fi
+
+          echo "Railway service_id=${service_id} environment_id=${environment_id}"
+
+          payload=$(jq -n \
+            --arg serviceId "$service_id" \
+            --arg environmentId "$environment_id" \
+            --arg commitSha "$GIT_SHA" \
+            '{
+              query: "mutation($serviceId: String!, $environmentId: String!, $commitSha: String) { serviceInstanceDeployV2(serviceId: $serviceId, environmentId: $environmentId, commitSha: $commitSha) }",
+              variables: { serviceId: $serviceId, environmentId: $environmentId, commitSha: $commitSha }
+            }')
+
+          # Project tokens use Project-Access-Token; account tokens use Authorization.
+          # Railway rejects some default curl user agents.
+          resp=$(curl -sS https://backboard.railway.com/graphql/v2 \
+            -H "Project-Access-Token: ${RAILWAY_TOKEN}" \
+            -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: Mozilla/5.0" \
+            --data "$payload")
+
+          echo "Railway GraphQL response: $(echo "$resp" | jq -c '{data, errors}')"
+
+          errors=$(echo "$resp" | jq -c '.errors // empty')
+          deployment_id=$(echo "$resp" | jq -r '.data.serviceInstanceDeployV2 // empty')
+
+          if [ -z "$deployment_id" ]; then
+            # Railway only indexes commits it can see via the GitHub App. If this SHA
+            # is not found, upload the Actions checkout so dispatch branches still ship.
+            if echo "$errors" | grep -qi 'commit'; then
+              echo "GitHub SHA not found in Railway; uploading the checked-out tree with railway up."
+              railway up --service "$RAILWAY_SERVICE_NAME" --ci --message "${GIT_REF}@${GIT_SHA}"
+              exit 0
+            fi
+            echo "::error::Railway did not return a deployment id."
+            exit 1
+          fi
+
+          for i in $(seq 1 60); do
+            status_payload=$(jq -n --arg id "$deployment_id" \
+              '{query: "query($id: String!) { deployment(id: $id) { status } }", variables: { id: $id }}')
+            status=$(curl -sS https://backboard.railway.com/graphql/v2 \
+              -H "Project-Access-Token: ${RAILWAY_TOKEN}" \
+              -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -H "User-Agent: Mozilla/5.0" \
+              --data "$status_payload" | jq -r '.data.deployment.status // empty')
+            echo "[${i}] Railway deployment ${deployment_id}: ${status}"
+            case "$status" in
+              SUCCESS) exit 0 ;;
+              FAILED|CRASHED|REMOVED) exit 1 ;;
+            esac
+            sleep 15
+          done
+
+          echo "::error::Timed out waiting for Railway deployment ${deployment_id}"
+          exit 1
