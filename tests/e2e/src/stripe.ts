@@ -100,6 +100,86 @@ export async function upgradeSubscription(userId: string, priceId: string): Prom
 }
 
 /**
+ * Get past Stripe Link's "Confirm it's you" one-time-code prompt if Checkout
+ * shows it. Link accounts are keyed by email across every Stripe merchant, so
+ * once one exists for a fixed test address (as happened for the billing user
+ * on 2026-09-13) the hosted page prompts for a Link login in one of two
+ * shapes: a modal dialog over the card form right after the email is typed
+ * (first purchase), or an inline panel that replaces the whole payment form
+ * when the customer email is already known (later purchases). The modal's
+ * overlay swallows every click, including submit; the panel has no card
+ * fields until "Pay without Link" is chosen. Bypassing keeps the test on the
+ * plain card path; logging in would pay with Link's saved method instead,
+ * which is not what we exercise.
+ *
+ * Waits up to `timeout` for the prompt; returns whether one was dismissed.
+ */
+async function bypassLinkLogin(page: Page, timeout: number): Promise<boolean> {
+  const codeInput = page.getByRole('textbox', { name: /Security code character/i }).first();
+  const appeared = await codeInput
+    .waitFor({ state: 'visible', timeout })
+    .then(() => true)
+    .catch(() => false);
+  if (!appeared) return false;
+
+  const payWithoutLink = page.getByRole('button', { name: /Pay without Link/i });
+  if (await payWithoutLink.isVisible().catch(() => false)) {
+    await payWithoutLink.click();
+  } else {
+    await page.getByRole('dialog').getByRole('button', { name: 'close' }).click();
+  }
+  await codeInput.waitFor({ state: 'hidden', timeout: 10_000 });
+  return true;
+}
+
+/**
+ * Hydration gate + layout detection in one step: Checkout renders either the
+ * card fields directly, or a payment-method accordion (Card / Cash App /
+ * Klarna / wallets) whose card fields only exist after selecting "Card", or —
+ * when a Link account exists for the customer's email — a Link login panel
+ * with no card fields at all. A one-shot probe can't tell any of these from
+ * "still hydrating", so race the layout signals and let whichever renders
+ * first decide. Returns once the card fields are visible.
+ */
+async function waitForCardFields(page: Page): Promise<void> {
+  const cardNumber = page.locator('#cardNumber');
+  const cardRadio = page
+    .locator('input[type="radio"][value="card"]')
+    .or(page.getByRole('radio', { name: 'Card' }))
+    .first();
+  const linkCode = page.getByRole('textbox', { name: /Security code character/i }).first();
+  const directLayout = cardNumber.waitFor({ state: 'visible', timeout: 30_000 });
+  const accordionLayout = cardRadio.waitFor({ state: 'attached', timeout: 30_000 });
+  const linkLayout = linkCode.waitFor({ state: 'visible', timeout: 30_000 });
+  // Observe every rejection: the losing waiters time out later and would
+  // otherwise surface as unhandled rejections.
+  directLayout.catch(() => {});
+  accordionLayout.catch(() => {});
+  linkLayout.catch(() => {});
+  await Promise.race([directLayout, accordionLayout, linkLayout]).catch(() => {
+    throw new Error(
+      'Stripe Checkout rendered neither card fields, a Card payment-method option, nor a Link login'
+    );
+  });
+
+  // The race just settled, so the prompt is either on screen now or not coming.
+  if (await bypassLinkLogin(page, 500)) {
+    // The card form only mounts after opting out of Link; detect its shape
+    // afresh (this can't recurse forever — the prompt is gone now).
+    await waitForCardFields(page);
+    return;
+  }
+
+  if (!(await cardNumber.isVisible().catch(() => false))) {
+    // The radio input itself may be visually hidden behind its label; force-check.
+    await cardRadio.check({ force: true }).catch(async () => {
+      await page.getByText('Card', { exact: true }).first().click();
+    });
+    await cardNumber.waitFor({ state: 'visible', timeout: 15_000 });
+  }
+}
+
+/**
  * Fill the hosted Checkout card form with the 4242 test card and submit, then
  * wait for the redirect back to the app. Assumes the page is mid-navigation
  * to checkout.stripe.com when called.
@@ -110,33 +190,8 @@ export async function completeStripeCheckout(
 ): Promise<void> {
   await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
 
-  // Hydration gate + layout detection in one step: Checkout renders either
-  // the card fields directly, or a payment-method accordion (Card / Cash App /
-  // Klarna / wallets) whose card fields only exist after selecting "Card".
-  // A one-shot probe can't tell "accordion" from "still hydrating", so race
-  // the two layout signals and let whichever renders first decide.
+  await waitForCardFields(page);
   const cardNumber = page.locator('#cardNumber');
-  const cardRadio = page
-    .locator('input[type="radio"][value="card"]')
-    .or(page.getByRole('radio', { name: 'Card' }))
-    .first();
-  const directLayout = cardNumber.waitFor({ state: 'visible', timeout: 30_000 });
-  const accordionLayout = cardRadio.waitFor({ state: 'attached', timeout: 30_000 });
-  // Observe both rejections: the losing waiter times out later and would
-  // otherwise surface as an unhandled rejection.
-  directLayout.catch(() => {});
-  accordionLayout.catch(() => {});
-  await Promise.race([directLayout, accordionLayout]).catch(() => {
-    throw new Error('Stripe Checkout rendered neither card fields nor a Card payment-method option');
-  });
-
-  if (!(await cardNumber.isVisible().catch(() => false))) {
-    // The radio input itself may be visually hidden behind its label; force-check.
-    await cardRadio.check({ force: true }).catch(async () => {
-      await page.getByText('Card', { exact: true }).first().click();
-    });
-    await cardNumber.waitFor({ state: 'visible', timeout: 15_000 });
-  }
 
   // Contact info renders as a required email input (first purchase — our
   // Stripe customers are created without an email, the user store has none)
@@ -158,6 +213,9 @@ export async function completeStripeCheckout(
     });
     if (await emailInput.isVisible().catch(() => false)) {
       await emailInput.fill(options.email);
+      // Link looks the address up as soon as it is entered; the dialog lands
+      // within about a second when an account exists.
+      await bypassLinkLogin(page, 3_000);
     }
   }
 
@@ -175,11 +233,13 @@ export async function completeStripeCheckout(
   // If the opt-out verifiably fails, satisfying the phone requirement is the
   // only way forward, so that fallback is mandatory (not best-effort): a
   // throw here beats a silent 90s wait for a redirect that never comes.
+  // The box is absent altogether once a Link login was bypassed above, so
+  // the probe is bounded: it is on screen within milliseconds when it exists.
   const saveInfo = page
     .getByRole('checkbox', { name: /Save my information/i })
     .or(page.locator('#enableStripePass'))
     .first();
-  if (await saveInfo.isChecked().catch(() => false)) {
+  if (await saveInfo.isChecked({ timeout: 3_000 }).catch(() => false)) {
     await saveInfo.uncheck({ force: true }).catch(() => {});
     if (await saveInfo.isChecked().catch(() => false)) {
       const phone = page.locator('#phoneNumber');
@@ -188,6 +248,9 @@ export async function completeStripeCheckout(
     }
   }
 
+  // Last look before submitting: Link can re-prompt after the card fields
+  // are touched, and the overlay would otherwise intercept the click.
+  await bypassLinkLogin(page, 1_000);
   await page.getByTestId('hosted-payment-submit-button').click();
   await page.waitForURL((url) => url.host !== 'checkout.stripe.com', { timeout: 90_000 });
 }
