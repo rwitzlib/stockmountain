@@ -37,6 +37,9 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
             ["LambdaFunction"] = context.FunctionName
         });
 
+        // An API build that predates fill settings sends none; run and record the defaults.
+        request.FillSettings ??= new BacktestFillSettings();
+
         var wideEvent = WideEvent.Start("backtest-orchestrator")
             .SetRequestId(context.AwsRequestId)
             .Set("backtest_id", request.Id)
@@ -44,7 +47,10 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
             .Set("backtest_start", request.Start.ToString("yyyy-MM-dd"))
             .Set("backtest_end", request.End.ToString("yyyy-MM-dd"))
             .Set("day_span", (request.End - request.Start).Days + 1)
-            .Set("filter_count", request.EntrySettings?.Filters?.Count ?? 0);
+            .Set("filter_count", request.EntrySettings?.Filters?.Count ?? 0)
+            .Set("entry_fill", request.FillSettings.EntryFill.ToString())
+            .Set("slippage_percent", request.FillSettings.SlippagePercent)
+            .Set("stop_slippage_percent", request.FillSettings.StopSlippagePercent);
 
         try
         {
@@ -147,6 +153,7 @@ public class OrchestratorFunction(IServiceProvider serviceProvider)
                 PositionSettings = request.PositionSettings,
                 EntrySettings = request.EntrySettings,
                 ExitSettings = request.ExitSettings,
+                FillSettings = request.FillSettings,
             };
             record.HoldStatsJson = JsonSerializer.Serialize(ToSummary(portfolio.Hold.Stats));
             record.HighStatsJson = JsonSerializer.Serialize(ToSummary(portfolio.High.Stats));

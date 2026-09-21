@@ -56,6 +56,10 @@ public class BacktestHandler(
             // Store and run the canonical spelling so every reader sees one shape (plan 20).
             request.EntrySettings.Filters = FilterExpressionValidator.Canonicalize(request.EntrySettings.Filters);
 
+            // Record the fill model the run actually uses: a stored backtest without fill
+            // settings predates them and ran with BacktestFillSettings.Legacy (ADR 0005).
+            request.FillSettings ??= new BacktestFillSettings();
+
             logger.LogInformation("Creating backtest with ID: {id} for user {userId}", request.Id, authContext.UserId);
 
             var record = new BacktestContextRecord

@@ -1,4 +1,5 @@
-﻿using MarketViewer.Contracts.Models.Strategy;
+﻿using MarketViewer.Contracts.Models.Backtest;
+using MarketViewer.Contracts.Models.Strategy;
 using System.Diagnostics.CodeAnalysis;
 
 namespace MarketViewer.Contracts.Requests.Market.Backtest;
@@ -13,6 +14,7 @@ public class OrchestratorRequest
     public StrategyPositionSettings PositionSettings { get; set; }
     public StrategyExitSettings ExitSettings { get; set; }
     public StrategyEntrySettings EntrySettings { get; set; }
+    public BacktestFillSettings? FillSettings { get; set; }
     public bool DetailedResponse { get; set; } = false;
     public bool IncludeSnapshot { get; set; } = false;
 }

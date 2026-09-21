@@ -1,6 +1,8 @@
 using MarketViewer.Application.Validators;
 using MarketViewer.Contracts.Enums;
+using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Models;
+using MarketViewer.Contracts.Models.Backtest;
 using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Requests.Market.Backtest;
 using System;
@@ -50,6 +52,49 @@ public class BacktestRequestValidatorUnitTests
         var result = _validator.Validate(ValidRequest());
 
         Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void Validate_FillSettingsWithinRange_Passes()
+    {
+        var request = ValidRequest(r => r.FillSettings = new BacktestFillSettings
+        {
+            EntryFill = BacktestEntryFill.signalClose,
+            SlippagePercent = 0.1f,
+            StopSlippagePercent = 1f,
+        });
+
+        Assert.True(_validator.Validate(request).IsValid);
+    }
+
+    [Theory]
+    [InlineData(-0.1f, 0f, "Slippage must be between 0% and 10%.")]
+    [InlineData(10.5f, 0f, "Slippage must be between 0% and 10%.")]
+    [InlineData(0f, -1f, "Stop slippage must be between 0% and 10%.")]
+    [InlineData(0f, 11f, "Stop slippage must be between 0% and 10%.")]
+    public void Validate_SlippageOutOfRange_Fails(float slippage, float stopSlippage, string expected)
+    {
+        var request = ValidRequest(r => r.FillSettings = new BacktestFillSettings
+        {
+            SlippagePercent = slippage,
+            StopSlippagePercent = stopSlippage,
+        });
+
+        var result = _validator.Validate(request);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == expected);
+    }
+
+    [Fact]
+    public void Validate_UnknownEntryFill_Fails()
+    {
+        var request = ValidRequest(r => r.FillSettings = new BacktestFillSettings { EntryFill = (BacktestEntryFill)99 });
+
+        var result = _validator.Validate(request);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Entry fill must be nextBarOpen or signalClose.");
     }
 
     [Fact]
