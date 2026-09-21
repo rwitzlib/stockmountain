@@ -31,7 +31,7 @@ export interface EquityPoint {
   skippedConcurrency?: number;
 }
 
-export type ExitReason = 'timedExit' | 'takeProfit' | 'stopLoss' | 'endOfData' | 'soldAtHigh' | 'manual';
+export type ExitReason = 'timedExit' | 'takeProfit' | 'stopLoss' | 'trailingStop' | 'endOfData' | 'soldAtHigh' | 'manual';
 
 export interface ExecutedTrade {
   ticker: string;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, Play } from 'lucide-react';
 import type { BacktestFillSettings, BacktestRequest } from '../types/backtest';
-import type { Exit, ExitSettings, PositionSettings, Timeframe } from '../types/strategy';
+import type { Exit, ExitSettings, PositionSettings, Timeframe, TrailingStop } from '../types/strategy';
 import { backtestApi } from '../api/backtestApi';
 import { Clock } from '../components/clock/Clock';
 import { MarketStatus } from '../components/market';
@@ -73,6 +73,14 @@ function fromRequest(request: BacktestRequest): BacktestFormData {
 
 const formatExit = (exit: Exit) =>
   exit.type === 'percent' ? `${exit.value}%` : `$${exit.value}`;
+
+// "2% (arms +2%)" / "$50" / "Off"
+const formatTrailingStop = (trailingStop: TrailingStop | undefined) => {
+  if (!trailingStop) return 'Off';
+  const unit = (n: number) => (trailingStop.type === 'percent' ? `${n}%` : `$${n}`);
+  const arm = trailingStop.activation ? ` (arms +${unit(trailingStop.activation)})` : '';
+  return `${unit(trailingStop.value)}${arm}`;
+};
 
 const formatTimeframe = (timeframe: Timeframe | undefined) => {
   if (!timeframe) return 'Off';
@@ -360,6 +368,11 @@ export function BacktestCreatePage() {
                 label="Take profit"
                 value={formatExit(exitSettings.takeProfit)}
                 valueColor="var(--chart-gain)"
+              />
+              <RailRow
+                label="Trailing stop"
+                value={formatTrailingStop(exitSettings.trailingStop)}
+                valueColor={exitSettings.trailingStop ? 'var(--chart-loss)' : undefined}
               />
               <RailRow label="Timed exit" value={formatTimeframe(exitSettings.timedExit.timeframe)} />
               <RailRow

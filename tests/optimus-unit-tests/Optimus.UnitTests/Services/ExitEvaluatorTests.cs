@@ -17,7 +17,8 @@ public class ExitEvaluatorTests
         float stopLossValue = -5f,
         float takeProfitValue = 10f,
         ExitValueType exitValueType = ExitValueType.percent,
-        Timeframe? timedExitTimeframe = null)
+        Timeframe? timedExitTimeframe = null,
+        TrailingStop? trailingStop = null)
     {
         return new StrategyDto
         {
@@ -27,12 +28,13 @@ public class ExitEvaluatorTests
             {
                 StopLoss = new Exit { Type = exitValueType, Value = stopLossValue },
                 TakeProfit = new Exit { Type = exitValueType, Value = takeProfitValue },
+                TrailingStop = trailingStop,
                 TimedExit = new TimedExit { Timeframe = timedExitTimeframe ?? new Timeframe(1, Timespan.day) }
             }
         };
     }
 
-    private static TradeRecord BuildTrade(int shares = 10, float entryPrice = 100f, DateTimeOffset? openedAt = null)
+    private static TradeRecord BuildTrade(int shares = 10, float entryPrice = 100f, DateTimeOffset? openedAt = null, float? highWaterMark = null)
     {
         return new TradeRecord
         {
@@ -40,7 +42,8 @@ public class ExitEvaluatorTests
             Shares = shares,
             EntryPrice = entryPrice,
             EntryPosition = shares * entryPrice,
-            OpenedAt = (openedAt ?? OpenedAt).ToString("o")
+            OpenedAt = (openedAt ?? OpenedAt).ToString("o"),
+            HighWaterMark = highWaterMark
         };
     }
 
@@ -147,6 +150,102 @@ public class ExitEvaluatorTests
         var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), null, OpenedAt.AddMinutes(31));
 
         Assert.Equal(BacktestExitReason.timedExit, result);
+    }
+
+    [Fact]
+    public void Evaluate_ReturnsTrailingStop_WhenPriceFallsTrailDistanceFromHighWaterMark()
+    {
+        // Mark 120 with a 5% trail rests the stop at 114; 113.9 is through it while the
+        // fixed 5% stop (95) and 10% target (110, already passed on the way up) are not.
+        var strategy = BuildStrategy(takeProfitValue: 50f, trailingStop: new TrailingStop { Type = ExitValueType.percent, Value = 5f });
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(highWaterMark: 120f), 113.9f, OpenedAt.AddMinutes(5));
+
+        Assert.Equal(BacktestExitReason.trailingStop, result);
+    }
+
+    [Fact]
+    public void Evaluate_ReturnsNull_WhenPriceAboveTrail()
+    {
+        var strategy = BuildStrategy(takeProfitValue: 50f, trailingStop: new TrailingStop { Type = ExitValueType.percent, Value = 5f });
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(highWaterMark: 120f), 115f, OpenedAt.AddMinutes(5));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void Evaluate_TrailsFromEntry_WhenNoHighWaterMarkPersisted()
+    {
+        // Records predating the field (or never above entry) trail from the entry price:
+        // a 2% trail at a $100 entry rests at 98, above the fixed 5% stop.
+        var strategy = BuildStrategy(trailingStop: new TrailingStop { Type = ExitValueType.percent, Value = 2f });
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 97.5f, OpenedAt.AddMinutes(5));
+
+        Assert.Equal(BacktestExitReason.trailingStop, result);
+    }
+
+    [Fact]
+    public void Evaluate_DoesNotArmTrailingStop_BelowActivationGain()
+    {
+        // 2% trail arms at +5%: mark 104 is below that, so a fall to 101 holds.
+        var strategy = BuildStrategy(trailingStop: new TrailingStop { Type = ExitValueType.percent, Value = 2f, Activation = 5f });
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(highWaterMark: 104f), 101f, OpenedAt.AddMinutes(5));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void Evaluate_ArmsTrailingStop_OnceActivationGainReached()
+    {
+        var strategy = BuildStrategy(trailingStop: new TrailingStop { Type = ExitValueType.percent, Value = 2f, Activation = 5f });
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(highWaterMark: 106f), 103.5f, OpenedAt.AddMinutes(5));
+
+        Assert.Equal(BacktestExitReason.trailingStop, result);
+    }
+
+    [Fact]
+    public void Evaluate_ReturnsStopLoss_WhenFixedStopSitsAboveTrail()
+    {
+        // 3% fixed stop (97) is above a 5% trail from entry (95): a tick through both is
+        // attributed to the fixed stop, the level price crossed first.
+        var strategy = BuildStrategy(stopLossValue: 3f, trailingStop: new TrailingStop { Type = ExitValueType.percent, Value = 5f });
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(), 90f, OpenedAt.AddMinutes(5));
+
+        Assert.Equal(BacktestExitReason.stopLoss, result);
+    }
+
+    [Fact]
+    public void Evaluate_ReturnsTrailingStop_WhenTrailRatchetedAboveFixedStop()
+    {
+        var strategy = BuildStrategy(stopLossValue: 3f, trailingStop: new TrailingStop { Type = ExitValueType.percent, Value = 5f });
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(highWaterMark: 120f), 90f, OpenedAt.AddMinutes(5));
+
+        Assert.Equal(BacktestExitReason.trailingStop, result);
+    }
+
+    [Fact]
+    public void Evaluate_ReturnsTrailingStop_ForFlatValueType()
+    {
+        // $50 flat trail on 10 shares is $5/share: mark 120 rests the stop at 115.
+        var strategy = BuildStrategy(
+            stopLossValue: -500f, takeProfitValue: 5000f, exitValueType: ExitValueType.flat,
+            trailingStop: new TrailingStop { Type = ExitValueType.flat, Value = 50f });
+
+        var result = ExitEvaluator.Evaluate(strategy, BuildTrade(highWaterMark: 120f), 114f, OpenedAt.AddMinutes(5));
+
+        Assert.Equal(BacktestExitReason.trailingStop, result);
+    }
+
+    [Fact]
+    public void TrailingStopPrice_ReturnsNull_WhenStrategyHasNoTrailingStop()
+    {
+        Assert.Null(ExitEvaluator.TrailingStopPrice(BuildStrategy(), BuildTrade(highWaterMark: 120f)));
     }
 
     // Session bounds for the same Wednesday the trades above open on.

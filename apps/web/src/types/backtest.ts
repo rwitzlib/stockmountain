@@ -57,6 +57,11 @@ export interface BacktestRequestInfo {
       type?: string;
       value?: number;
     };
+    trailingStop?: {
+      type?: string;
+      value?: number;
+      activation?: number;
+    };
     timedExit?: {
       timeframe: {
         multiplier: number;
@@ -112,6 +117,11 @@ export interface BacktestEntry {
       takeProfit?: {
         type?: string;
         value?: number;
+      };
+      trailingStop?: {
+        type?: string;
+        value?: number;
+        activation?: number;
       };
       timedExit?: {
         timeframe?: {

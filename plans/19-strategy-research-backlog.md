@@ -189,7 +189,7 @@ should be appended there when picked up.
 | # | Strategy | Blocked on |
 |---|---|---|
 | C1 | RSI-low with **exit when RSI crosses back over 50** (or close crosses VWAP). Finding A1 puts the ceiling at roughly +$9k on `d8e36f18`. | Conditional exits **(plan 11 #1)** — the single highest-value item |
-| C2 | RSI-low with a **trailing stop** (e.g. trail 1.5% from the high water mark once +2%) to keep the fat tail (A4) | Trailing stop **(plan 11 #6)** |
+| C2 | RSI-low with a **trailing stop** (e.g. trail 1.5% from the high water mark once +2%) to keep the fat tail (A4) | ~~Trailing stop (plan 11 #6)~~ **UNBLOCKED 2026-09-21** (ADR 0006) — backtestable now |
 | C3 | "Give up" exit: **flat after N minutes if not +X%** (A2 says non-bouncers lose) | New: break-even / time-and-price exit rule; could be a special case of C1 |
 | C4 | **True relative volume** `rvol > 3` (volume vs same-time-of-day baseline) | `rvol` **(plan 11 #2)** |
 | C5 | `volume > 3 * adv(30)`, `close < 0.97 * sma(20)`, `close * volume > 1000000` (dollar volume) | DSL arithmetic **(plan 11 #3)** |
@@ -257,5 +257,5 @@ should be appended there when picked up.
    bot's +18% is real.
 2. B2 #9/#10 (enter on the turn) and B2 #13 (VWAP gate) — cheapest structural improvements.
 3. D2 (5m in backtests), then re-run the ⚠ items.
-4. Plan 11 #1 (conditional exits) + #6 (trailing stop) — unlock C1–C3, the biggest upside per A1/A4.
+4. Plan 11 #1 (conditional exits) — unlocks C1/C3, the biggest upside per A1. (#6 trailing stop shipped 2026-09-21; run C2.)
 5. C9 (Bollinger) via the `add-filter-function` skill — the one missing indicator for this family.

@@ -12,6 +12,7 @@ const KNOWN_EXIT_REASONS: ExitReason[] = [
   'timedExit',
   'takeProfit',
   'stopLoss',
+  'trailingStop',
   'endOfData',
   'soldAtHigh',
   'manual',
@@ -66,7 +67,7 @@ function toExecutedTrade(trade: Trade): ExecutedTrade {
     startPosition: trade.entryPosition,
     endPosition: trade.closePosition,
     profit: trade.profit ?? 0,
-    stoppedOut: exitReason === 'stopLoss',
+    stoppedOut: exitReason === 'stopLoss' || exitReason === 'trailingStop',
     exitReason,
   };
 }

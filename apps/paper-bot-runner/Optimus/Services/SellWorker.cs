@@ -147,6 +147,7 @@ public class SellWorker(
 
         if (exitReason is null)
         {
+            await RatchetHighWaterMark(strategy, trade, currentPrice);
             return;
         }
 
@@ -168,6 +169,37 @@ public class SellWorker(
         }
 
         await UpdateStateOnClose(strategy, trade, sellResult);
+    }
+
+    /// <summary>
+    /// Persists a new post-entry high on the trade so the trailing stop survives worker
+    /// restarts. Only strategies with a trailing stop pay for the write, and only on a
+    /// tick that actually raised the mark; a failed write is retried naturally by the
+    /// next tick that is still above the stale mark.
+    /// </summary>
+    private async Task RatchetHighWaterMark(StrategyDto strategy, TradeRecord trade, float? currentPrice)
+    {
+        if (strategy.ExitSettings?.TrailingStop is null || currentPrice is null or <= 0)
+        {
+            return;
+        }
+
+        var previousMark = Math.Max(trade.HighWaterMark ?? 0, trade.EntryPrice);
+
+        if (currentPrice.Value <= previousMark)
+        {
+            return;
+        }
+
+        if (await tradeRepository.RaiseHighWaterMark(trade.Id, currentPrice.Value))
+        {
+            trade.HighWaterMark = currentPrice.Value;
+        }
+        else
+        {
+            logger.LogWarning("Did not persist high-water mark {HighWaterMark} for {Ticker} (strategy {StrategyId})",
+                currentPrice.Value, trade.Ticker, strategy.Id);
+        }
     }
 
     /// <summary>

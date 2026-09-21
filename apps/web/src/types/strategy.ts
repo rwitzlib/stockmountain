@@ -47,11 +47,21 @@ export interface TimedExit {
   timeframe: Timeframe;
 }
 
+// Trails `value` (percent of the high-water mark, or position dollars) below the
+// highest price since entry; `activation` is the gain that must be reached before it
+// arms (same units), 0/undefined arms immediately.
+export interface TrailingStop {
+  type: ExitValueType;
+  value: number;
+  activation?: number;
+}
+
 // Stop loss, take profit, and timed exit are mandatory (enforced by the API);
-// only conditional exits are optional.
+// the trailing stop and conditional exits are optional.
 export interface ExitSettings {
   stopLoss: Exit;
   takeProfit: Exit;
+  trailingStop?: TrailingStop;
   conditionalExit?: string[];
   timedExit: TimedExit;
 }

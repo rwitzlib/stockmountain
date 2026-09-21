@@ -7,6 +7,7 @@ using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Models;
 using MarketViewer.Contracts.Models.Backtest;
+using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Requests.Market.Backtest;
 using MarketViewer.Contracts.Responses.Market.Backtest;
 using MarketViewer.Filters;
@@ -549,30 +550,46 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             //}
         }
 
-        if (CheckStopLoss(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var stopLoss, out var stopLossFill))
+        var hasStopLoss = CheckStopLoss(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var stopLoss, out var stopLossFill);
+        var hasTrailingStop = CheckTrailingStop(request, shares, entryPrice, candlesWithinMarketHours, out var trailingStop, out var trailingStopFill);
+
+        // The fixed and trailing stops are two resting sell stops on the same position:
+        // the earlier bar wins, and on the same bar the higher stop is the one price
+        // reaches first. Once the trail has ratcheted above the fixed stop it is always
+        // the higher of the two, so late in a winning trade it takes over.
+        var trailingWins = hasTrailingStop
+            && (!hasStopLoss
+                || trailingStop.Timestamp < stopLoss.Timestamp
+                || (trailingStop.Timestamp == stopLoss.Timestamp && trailingStopFill >= stopLossFill));
+
+        if (hasStopLoss || hasTrailingStop)
         {
+            var stopCandle = trailingWins ? trailingStop : stopLoss;
+            var stopFill = trailingWins ? trailingStopFill : stopLossFill;
+            var stopReason = trailingWins ? BacktestExitReason.trailingStop : BacktestExitReason.stopLoss;
+
             // Book the modeled fill: the stop price, or the open when a bar gaps through
             // the stop â€” losses can exceed the configured value, matching live behavior.
             // A stop sells into a falling bid, so it slips further on top of that.
-            stopLossFill *= 1 - stopSlippage;
-            var stopLossValue = stopLossFill * shares - entryPosition;
+            stopFill *= 1 - stopSlippage;
+            var stopValue = stopFill * shares - entryPosition;
 
             // On a same-bar tie, assume the worst case: the stop fills before the target.
-            if (profitTarget is null || stopLoss.Timestamp <= profitTarget.Timestamp)
+            if (profitTarget is null || stopCandle.Timestamp <= profitTarget.Timestamp)
             {
                 result.Hold.StoppedOut = true;
-                result.Hold.ExitReason = BacktestExitReason.stopLoss;
-                result.Hold.Profit = stopLossValue;
-                result.Hold.SoldAt = ToExecutionMinute(stopLoss.Timestamp);
-                result.Hold.EndPosition = result.StartPosition + stopLossValue;
-                result.Hold.EndPrice = stopLossFill;
+                result.Hold.ExitReason = stopReason;
+                result.Hold.Profit = stopValue;
+                result.Hold.SoldAt = ToExecutionMinute(stopCandle.Timestamp);
+                result.Hold.EndPosition = result.StartPosition + stopValue;
+                result.Hold.EndPrice = stopFill;
 
                 result.High.StoppedOut = true;
-                result.High.ExitReason = BacktestExitReason.stopLoss;
-                result.High.Profit = stopLossValue;
-                result.High.SoldAt = ToExecutionMinute(stopLoss.Timestamp);
-                result.High.EndPosition = result.StartPosition + stopLossValue;
-                result.High.EndPrice = stopLossFill;
+                result.High.ExitReason = stopReason;
+                result.High.Profit = stopValue;
+                result.High.SoldAt = ToExecutionMinute(stopCandle.Timestamp);
+                result.High.EndPosition = result.StartPosition + stopValue;
+                result.High.EndPrice = stopFill;
             }
 
             //if (passesExitFiltersTimestamp is null || stopLoss.Timestamp < passesExitFiltersTimestamp.Value.ToUnixTimeMilliseconds())
@@ -712,6 +729,44 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
         fillPrice = Math.Max(profitTargetCandle.Open, targetPrice.Value);
         return true;
+    }
+
+    /// <summary>
+    /// Walks the bars in order, ratcheting a high-water mark from each bar's high and
+    /// testing the next bar's low against the stop that mark implies. The stop a bar is
+    /// tested against comes from the bars before it: within one bar the order of high and
+    /// low is unknown, so the trail is never tightened by the bar that triggers it. That
+    /// also mirrors live, where the sell worker evaluates a tick against the mark from
+    /// the ticks before it. Fills follow CheckStopLoss (stop price, or the open on a gap).
+    /// </summary>
+    internal static bool CheckTrailingStop(WorkerRequest request, int shares, float entryPrice, List<Bar> results, out Bar trailingStopCandle, out float fillPrice)
+    {
+        var trailingStop = request.ExitSettings.TrailingStop;
+        trailingStopCandle = null;
+        fillPrice = 0f;
+
+        if (trailingStop is null || shares <= 0)
+        {
+            return false;
+        }
+
+        var highWaterMark = entryPrice;
+
+        foreach (var bar in results)
+        {
+            var stopPrice = TrailingStopMath.StopPrice(trailingStop, entryPrice, shares, highWaterMark);
+
+            if (stopPrice is not null && bar.Low <= stopPrice)
+            {
+                trailingStopCandle = bar;
+                fillPrice = Math.Min(bar.Open, stopPrice.Value);
+                return true;
+            }
+
+            highWaterMark = Math.Max(highWaterMark, bar.High);
+        }
+
+        return false;
     }
 
     //private async Task<DateTimeOffset?> WhenPassesExitFilters(StrategyEntry entry, WorkerRequest request)

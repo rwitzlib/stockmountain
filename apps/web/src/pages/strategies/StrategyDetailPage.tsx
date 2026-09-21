@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Trade } from '../../types/trade';
-import { Exit, Timeframe } from '../../types/strategy';
+import { Exit, Timeframe, TrailingStop } from '../../types/strategy';
 import { Button } from '../../components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../../components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
@@ -33,6 +33,12 @@ type TradeResponse = {
 function formatExitConfig(config: Exit | undefined): string {
   if (!config) return 'Not set';
   return config.type === 'percent' ? `${config.value}%` : `$${config.value}`;
+}
+
+function formatTrailingStop(config: TrailingStop): string {
+  const unit = (n: number) => (config.type === 'percent' ? `${n}%` : `$${n}`);
+  const arm = config.activation ? ` (arms +${unit(config.activation)})` : '';
+  return `${unit(config.value)}${arm}`;
 }
 
 function formatTimeframe(timeframe: Timeframe | undefined): string {
@@ -283,6 +289,13 @@ const StrategyDetailPage = () => {
               label="Take profit"
               value={formatExitConfig(exitSettings.takeProfit)}
               valueColor="var(--chart-gain)"
+            />
+          )}
+          {exitSettings.trailingStop && (
+            <RailRow
+              label="Trailing stop"
+              value={formatTrailingStop(exitSettings.trailingStop)}
+              valueColor="var(--chart-loss)"
             />
           )}
           {exitSettings.timedExit?.timeframe && (

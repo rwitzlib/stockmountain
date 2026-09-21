@@ -1,6 +1,7 @@
 using MarketViewer.Contracts.Dtos;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Enums.Backtest;
+using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Records;
 using Optimus.Infrastructure.Utilities;
 
@@ -8,9 +9,10 @@ namespace Optimus.Services;
 
 /// <summary>
 /// Pure exit decision logic for an open position. Evaluation order is timed exit, then
-/// stop loss, then take profit — a same-tick tie goes to the stop, matching the
-/// backtester's same-bar semantics. Reasons use the shared BacktestExitReason vocabulary
-/// so live trades and backtest results report exits identically.
+/// the stops (fixed and trailing — the higher one is what price reaches first), then
+/// take profit — a same-tick tie goes to the stop, matching the backtester's same-bar
+/// semantics. Reasons use the shared BacktestExitReason vocabulary so live trades and
+/// backtest results report exits identically.
 /// </summary>
 public static class ExitEvaluator
 {
@@ -18,6 +20,9 @@ public static class ExitEvaluator
     /// Returns the exit reason for the position, or null to keep holding.
     /// <paramref name="currentPrice"/> may be null (e.g. halted ticker); the timed exit
     /// still applies, price-based exits are skipped.
+    /// The trailing stop is priced from <see cref="TradeRecord.HighWaterMark"/> as
+    /// persisted before this tick — the caller ratchets the mark afterwards — so a tick
+    /// never tightens the stop it is being tested against, matching the backtester.
     /// <paramref name="session"/> carries today's close and the next session's open: a
     /// timed exit projected to land between them can never fire on its own clock (the
     /// worker only runs during the session), so it is pulled forward to the session's
@@ -50,9 +55,21 @@ public static class ExitEvaluator
 
         var currentPosition = currentPrice.Value * trade.Shares;
 
-        if (IsThresholdHit(strategy.ExitSettings?.StopLoss, currentPosition, trade.EntryPosition, isStop: true))
+        var fixedStopHit = IsThresholdHit(strategy.ExitSettings?.StopLoss, currentPosition, trade.EntryPosition, isStop: true);
+        var trailingStopPrice = TrailingStopPrice(strategy, trade);
+        var trailingStopHit = trailingStopPrice is not null && currentPrice.Value <= trailingStopPrice;
+
+        if (fixedStopHit || trailingStopHit)
         {
-            return BacktestExitReason.stopLoss;
+            // Both stops crossed on one tick: attribute the exit to the higher stop, the
+            // one price fell through first. The fixed stop's price is implied by its
+            // threshold, so compare via "is the trail above the fixed stop's level".
+            var fixedStopPrice = FixedStopPrice(strategy.ExitSettings?.StopLoss, trade);
+
+            var trailingWins = trailingStopHit
+                && (!fixedStopHit || fixedStopPrice is null || trailingStopPrice >= fixedStopPrice);
+
+            return trailingWins ? BacktestExitReason.trailingStop : BacktestExitReason.stopLoss;
         }
 
         if (IsThresholdHit(strategy.ExitSettings?.TakeProfit, currentPosition, trade.EntryPosition, isStop: false))
@@ -61,6 +78,33 @@ public static class ExitEvaluator
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The trailing stop's resting price for the trade, or null when the strategy has no
+    /// trailing stop or it has not armed yet. A record with no persisted high-water mark
+    /// (never above entry, or predating the field) trails from the entry price.
+    /// </summary>
+    public static float? TrailingStopPrice(StrategyDto strategy, TradeRecord trade)
+    {
+        var highWaterMark = Math.Max(trade.HighWaterMark ?? 0, trade.EntryPrice);
+
+        return TrailingStopMath.StopPrice(strategy.ExitSettings?.TrailingStop, trade.EntryPrice, trade.Shares, highWaterMark);
+    }
+
+    private static float? FixedStopPrice(MarketViewer.Contracts.Models.Strategy.Exit stopLoss, TradeRecord trade)
+    {
+        if (stopLoss is null || trade.Shares <= 0)
+        {
+            return null;
+        }
+
+        return stopLoss.Type switch
+        {
+            ExitValueType.percent => trade.EntryPrice * (1 - Math.Abs(stopLoss.Value) / 100),
+            ExitValueType.flat => trade.EntryPrice - Math.Abs(stopLoss.Value) / trade.Shares,
+            _ => null
+        };
     }
 
     private static bool IsThresholdHit(MarketViewer.Contracts.Models.Strategy.Exit exit, float currentPosition, float entryPosition, bool isStop)

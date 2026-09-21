@@ -36,6 +36,45 @@ public class TradeRepository(TradeConfig config, IAmazonDynamoDB dynamodb, ILogg
         }
     }
 
+    /// <summary>
+    /// Raises the trade's high-water mark in place. Conditional so it only ever moves up
+    /// and never touches a trade that was closed by another writer between the caller's
+    /// read and this write (a whole-record Put would resurrect it as open). Returns false
+    /// when the condition failed or the write errored; both are safe to ignore.
+    /// </summary>
+    public async Task<bool> RaiseHighWaterMark(string id, float highWaterMark)
+    {
+        try
+        {
+            await dynamodb.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName = config.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { "Id", new AttributeValue { S = id } }
+                },
+                UpdateExpression = "SET HighWaterMark = :hwm",
+                ConditionExpression = "OrderStatus = :open AND (attribute_not_exists(HighWaterMark) OR HighWaterMark < :hwm)",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":hwm", new AttributeValue { N = highWaterMark.ToString(System.Globalization.CultureInfo.InvariantCulture) } },
+                    { ":open", new AttributeValue { S = TradeStatus.Open.ToString() } }
+                }
+            });
+
+            return true;
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            return false;
+        }
+        catch (Exception e)
+        {
+            logger.LogError("Exception: {message}", e.Message);
+            return false;
+        }
+    }
+
     public async Task<TradeRecord> Get(string id)
     {
         try

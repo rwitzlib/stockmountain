@@ -33,6 +33,7 @@ function MaskedConfigRail({ config }: { config: ShareConfig }) {
   const exitParts = [
     config.hasStopLoss ? 'stop loss' : null,
     config.hasProfitTarget ? 'take profit' : null,
+    config.hasTrailingStop ? 'trailing stop' : null,
     config.hasTimedExit ? 'timed exit' : null,
   ].filter(Boolean);
 
@@ -130,7 +131,7 @@ function ConfigRail({ config }: { config: ShareConfig }) {
         </Card>
       )}
 
-      {exits && (exits.stopLoss || exits.takeProfit || exits.timedExit) && (
+      {exits && (exits.stopLoss || exits.takeProfit || exits.trailingStop || exits.timedExit) && (
         <Card className="p-4">
           <h3 className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">
             Exits
@@ -147,6 +148,18 @@ function ConfigRail({ config }: { config: ShareConfig }) {
               label="Take profit"
               value={formatStopConfig(exits.takeProfit)}
               valueColor="var(--chart-gain)"
+            />
+          )}
+          {exits.trailingStop && (
+            <RailRow
+              label="Trailing stop"
+              value={
+                formatStopConfig(exits.trailingStop) +
+                (exits.trailingStop.activation
+                  ? ` (arms +${formatStopConfig({ type: exits.trailingStop.type, value: exits.trailingStop.activation })})`
+                  : '')
+              }
+              valueColor="var(--chart-loss)"
             />
           )}
           {exits.timedExit?.timeframe && (

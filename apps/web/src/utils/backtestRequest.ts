@@ -19,6 +19,7 @@ export function getBacktestRequestInfo(entry: BacktestEntry): BacktestRequestInf
       exitInfo: {
         stopLoss: req.exitSettings?.stopLoss,
         profitTarget: req.exitSettings?.takeProfit,
+        trailingStop: req.exitSettings?.trailingStop,
         timedExit: req.exitSettings?.timedExit?.timeframe
           ? {
               timeframe: {
