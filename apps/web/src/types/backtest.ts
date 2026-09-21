@@ -18,6 +18,17 @@ export interface BacktestRequest {
   positionSettings: PositionSettings;
   entrySettings: EntrySettings;
   exitSettings: ExitSettings;
+  /** Omitted on create means the API defaults; absent on a stored backtest means legacy fills. */
+  fillSettings?: BacktestFillSettings;
+}
+
+export type BacktestEntryFill = 'nextBarOpen' | 'signalClose';
+
+/** How the backtester prices fills. Slippage is percent of price, always adverse. */
+export interface BacktestFillSettings {
+  entryFill: BacktestEntryFill;
+  slippagePercent: number;
+  stopSlippagePercent: number;
 }
 
 export interface BacktestEntryStatsSummary {
@@ -113,6 +124,7 @@ export interface BacktestEntry {
     entrySettings?: {
       filters?: string[];
     };
+    fillSettings?: Partial<BacktestFillSettings>;
     id?: string;
   };
   /** Legacy shape — prefer `request` when present */

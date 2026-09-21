@@ -1,4 +1,5 @@
-﻿using MarketViewer.Contracts.Models.Strategy;
+﻿using MarketViewer.Contracts.Models.Backtest;
+using MarketViewer.Contracts.Models.Strategy;
 using System.Diagnostics.CodeAnalysis;
 
 namespace MarketViewer.Contracts.Requests.Market.Backtest;
@@ -11,4 +12,7 @@ public class BacktestCreateRequest : BaseRequest
     public required StrategyPositionSettings PositionSettings { get; init; }
     public required StrategyExitSettings ExitSettings { get; set; }
     public required StrategyEntrySettings EntrySettings { get; set; }
+
+    /// <summary>Fill model; omitted means the current defaults.</summary>
+    public BacktestFillSettings? FillSettings { get; set; }
 }

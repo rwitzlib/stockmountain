@@ -3,6 +3,7 @@ using FluentAssertions;
 using MarketViewer.Contracts.Enums;
 using MarketViewer.Contracts.Enums.Backtest;
 using MarketViewer.Contracts.Models;
+using MarketViewer.Contracts.Models.Backtest;
 using MarketViewer.Contracts.Models.Strategy;
 using MarketViewer.Contracts.Requests.Market.Backtest;
 using Massive.Client.Models;
@@ -524,7 +525,7 @@ public class WorkerExitLogicUnitTests
     }
 
     [Fact]
-    public void BuildEntryResult_FillsAtSignalBarClose_MatchingLiveSnapshotPrice()
+    public void BuildEntryResult_SignalCloseFill_MatchesPaperSnapshotPrice()
     {
         var request = CreateRequest();
         var entryEnd = EntryStart.AddHours(1);
@@ -552,7 +553,7 @@ public class WorkerExitLogicUnitTests
     }
 
     [Fact]
-    public void BuildEntryResult_NoSignalBar_FallsBackToFillBarClose()
+    public void BuildEntryResult_SignalCloseFillWithoutSignalBar_FallsBackToFillBarClose()
     {
         var request = CreateRequest();
         var entryEnd = EntryStart.AddHours(1);
@@ -567,6 +568,142 @@ public class WorkerExitLogicUnitTests
 
         result.StartPrice.Should().Be(100f);
         result.Shares.Should().Be(10);
+    }
+
+    [Fact]
+    public void BuildEntryResult_DefaultFill_EntersAtNextBarOpen()
+    {
+        // The signal bar closes at $50 but that price is gone once the signal is known:
+        // the default model buys the next bar's open.
+        var request = CreateRequest(fillSettings: new BacktestFillSettings { StopSlippagePercent = 0f });
+        var entryEnd = EntryStart.AddHours(1);
+
+        var entry = CreateEntry();
+        entry.Bars = [CreateBar(EntryStart.ToUnixTimeMilliseconds(), high: 51f, low: 49f, close: 50f)];
+
+        var bars = new List<Bar>
+        {
+            CreateBar(EntryStart.AddMinutes(1).ToUnixTimeMilliseconds(), high: 102f, low: 99f, close: 101f, open: 100f),
+            CreateBarAt(entryEnd, 110f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, entry, bars, entryEnd);
+
+        result.StartPrice.Should().Be(100f);
+        result.Shares.Should().Be(10);
+        result.BoughtAt.Should().Be(EntryStart.AddMinutes(1));
+        result.Hold.Profit.Should().Be(100f);
+    }
+
+    [Fact]
+    public void BuildEntryResult_NullFillSettings_UsesDefaults()
+    {
+        var request = CreateRequest(stopLoss: new Exit { Type = ExitValueType.percent, Value = 5f });
+        request.FillSettings = null;
+        var entryEnd = EntryStart.AddHours(1);
+
+        var bars = new List<Bar>
+        {
+            CreateBar(EntryStart.AddMinutes(1).ToUnixTimeMilliseconds(), high: 101f, low: 99f, close: 99.5f, open: 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 97f, low: 94f, close: 96f, open: 97f),
+            CreateBarAt(entryEnd, 100f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        // Next-bar-open entry at $100, $95 stop slipped by the default 0.5%.
+        result.StartPrice.Should().Be(100f);
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+        result.Hold.EndPrice.Should().BeApproximately(95f * 0.995f, 0.0001f);
+    }
+
+    [Fact]
+    public void BuildEntryResult_StopOnFillBar_TriggersAfterOpenEntry()
+    {
+        // Entering at the open exposes the trade to the rest of the fill bar.
+        var request = CreateRequest(
+            stopLoss: new Exit { Type = ExitValueType.percent, Value = 5f },
+            fillSettings: new BacktestFillSettings { StopSlippagePercent = 0f });
+        var entryEnd = EntryStart.AddHours(1);
+
+        var bars = new List<Bar>
+        {
+            CreateBar(EntryStart.AddMinutes(1).ToUnixTimeMilliseconds(), high: 100f, low: 94f, close: 96f, open: 100f),
+            CreateBarAt(entryEnd, 100f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+        result.Hold.EndPrice.Should().Be(95f);
+        result.Hold.SoldAt.Should().Be(EntryStart.AddMinutes(2));
+    }
+
+    [Fact]
+    public void BuildEntryResult_MarketSlippage_AppliesToEntryAndTimedExit()
+    {
+        var request = CreateRequest(fillSettings: new BacktestFillSettings { SlippagePercent = 1f, StopSlippagePercent = 0f });
+        var entryEnd = EntryStart.AddHours(1);
+
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBarAt(entryEnd, 110f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.StartPrice.Should().BeApproximately(101f, 0.0001f);
+        result.Shares.Should().Be(9);
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.timedExit);
+        result.Hold.EndPrice.Should().BeApproximately(108.9f, 0.0001f);
+        result.High.EndPrice.Should().BeApproximately(108.9f, 0.0001f);
+        result.Hold.Profit.Should().BeApproximately((108.9f - 101f) * 9, 0.01f);
+    }
+
+    [Fact]
+    public void BuildEntryResult_StopSlippage_AppliesOnTopOfGapThroughFill()
+    {
+        // 5% stop ($95), bar opens through it at $91, then the fill slips another 1%.
+        var request = CreateRequest(
+            stopLoss: new Exit { Type = ExitValueType.percent, Value = 5f },
+            fillSettings: new BacktestFillSettings { StopSlippagePercent = 1f });
+        var entryEnd = EntryStart.AddHours(1);
+
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 92f, low: 89f, close: 90f, open: 91f),
+            CreateBarAt(entryEnd, 100f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+        result.Hold.EndPrice.Should().BeApproximately(90.09f, 0.0001f);
+        result.Hold.Profit.Should().BeApproximately(-99.1f, 0.01f);
+        result.Hold.MaxDrawdown.Should().BeLessThanOrEqualTo(result.Hold.Profit);
+    }
+
+    [Fact]
+    public void BuildEntryResult_TakeProfit_NeverSlips()
+    {
+        var request = CreateRequest(
+            takeProfit: new Exit { Type = ExitValueType.percent, Value = 5f },
+            fillSettings: new BacktestFillSettings { SlippagePercent = 0f, StopSlippagePercent = 2f });
+        var entryEnd = EntryStart.AddHours(1);
+
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 106f, low: 100f, close: 104f, open: 101f),
+            CreateBarAt(entryEnd, 100f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.takeProfit);
+        result.Hold.EndPrice.Should().BeApproximately(105f, 0.0001f);
     }
 
     #endregion
@@ -587,10 +724,13 @@ public class WorkerExitLogicUnitTests
         return CreateBar(time.ToUnixTimeMilliseconds(), high: price, low: price, close: price);
     }
 
-    private static WorkerRequest CreateRequest(Exit stopLoss = null, Exit takeProfit = null)
+    // Exit-mechanics tests pin the legacy fill model (signal close, no slippage) so their
+    // round numbers isolate the rule under test; fill-model tests pass their own settings.
+    private static WorkerRequest CreateRequest(Exit stopLoss = null, Exit takeProfit = null, BacktestFillSettings fillSettings = null)
     {
         return new WorkerRequest
         {
+            FillSettings = fillSettings ?? BacktestFillSettings.Legacy,
             Date = DateTimeOffset.Parse("2025-05-27"),
             PositionSettings = new StrategyPositionSettings
             {

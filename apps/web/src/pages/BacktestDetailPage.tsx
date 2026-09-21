@@ -2,8 +2,10 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FilterDisplay } from '../components/backtest/FilterDisplay';
 import { BacktestReport, BenchmarkBar, RailRow } from '../components/backtest/BacktestReport';
+import { FillsRailCard } from '../components/backtest/FillsRailCard';
 import { ShareDialog } from '../components/backtest/ShareDialog';
 import { defaultExitSettings } from '../components/forms/strategy/ExitSettingsForm';
+import { defaultFillSettings } from '../components/forms/backtest/FillSettingsForm';
 import { backtestApi } from '../api/backtestApi';
 import { TradingData } from '../types/types';
 import { BacktestEntry, BacktestRequest } from '../types/backtest';
@@ -375,6 +377,10 @@ export function BacktestDetailPage() {
       positionSettings,
       entrySettings,
       exitSettings,
+      // Absent on a pre-fill-settings backtest: the create form then applies the defaults.
+      fillSettings: backtestEntry.request?.fillSettings
+        ? { ...defaultFillSettings, ...backtestEntry.request.fillSettings }
+        : undefined,
     };
   };
 
@@ -712,6 +718,8 @@ export function BacktestDetailPage() {
                       )}
                     </Card>
                   )}
+
+                  <FillsRailCard fillSettings={backtestEntry.request?.fillSettings} />
 
                   <Card className="p-4">
                     <h3 className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">

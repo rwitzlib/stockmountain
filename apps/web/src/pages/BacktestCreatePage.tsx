@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, Play } from 'lucide-react';
-import type { BacktestRequest } from '../types/backtest';
+import type { BacktestFillSettings, BacktestRequest } from '../types/backtest';
 import type { Exit, ExitSettings, PositionSettings, Timeframe } from '../types/strategy';
 import { backtestApi } from '../api/backtestApi';
 import { Clock } from '../components/clock/Clock';
@@ -11,11 +11,13 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { RailRow } from '../components/backtest/BacktestReport';
+import { FillsRailCard } from '../components/backtest/FillsRailCard';
 import { EntrySettingsForm } from '../components/forms/strategy/EntrySettingsForm';
 import { SectionHeading } from '../components/forms/SectionHeading';
 import { FilterChips } from '../components/filters/FilterChips';
 import { ExitSettingsForm, defaultExitSettings } from '../components/forms/strategy/ExitSettingsForm';
 import { PositionSettingsForm } from '../components/forms/strategy/PositionSettingsForm';
+import { FillSettingsForm, defaultFillSettings } from '../components/forms/backtest/FillSettingsForm';
 import { toast } from '../hooks/use-toast';
 
 const formatDateInput = (date: Date) => date.toISOString().split('T')[0];
@@ -33,18 +35,22 @@ const defaultPositionSettings: PositionSettings = {
 interface BacktestFormData {
   positionSettings: PositionSettings;
   exitSettings: ExitSettings;
+  fillSettings: BacktestFillSettings;
   filters: string[];
 }
 
 const defaultFormData: BacktestFormData = {
   positionSettings: defaultPositionSettings,
   exitSettings: defaultExitSettings,
+  fillSettings: defaultFillSettings,
   filters: [],
 };
 
 /**
  * Merges a prefill request (e.g. "copy backtest") into the form defaults. Exits are
  * mandatory now, but copied records may predate that rule — fill gaps with defaults.
+ * A copied backtest that predates fill settings ran on legacy fills; the copy gets the
+ * current defaults so a re-run shows what the realistic model does to it.
  */
 function fromRequest(request: BacktestRequest): BacktestFormData {
   return {
@@ -60,6 +66,7 @@ function fromRequest(request: BacktestRequest): BacktestFormData {
         ? request.exitSettings.timedExit
         : defaultExitSettings.timedExit,
     },
+    fillSettings: { ...defaultFillSettings, ...request.fillSettings },
     filters: request.entrySettings?.filters ?? [],
   };
 }
@@ -104,7 +111,7 @@ export function BacktestCreatePage() {
     setLastPrefillSignature(signature);
   }, [lastPrefillSignature, backtestDefaults]);
 
-  const { positionSettings, exitSettings, filters } = formData;
+  const { positionSettings, exitSettings, fillSettings, filters } = formData;
 
   const handleCreateBacktest = async () => {
     if (!startDate || !endDate) {
@@ -140,6 +147,7 @@ export function BacktestCreatePage() {
       positionSettings,
       entrySettings: { filters },
       exitSettings,
+      fillSettings,
     };
 
     try {
@@ -248,7 +256,7 @@ export function BacktestCreatePage() {
                 index="02"
                 label="Exit"
                 title="Exit rules"
-                hint="Close-based fills, same semantics as live. Same-bar ties resolve to the stop."
+                hint="Stops and targets trigger intrabar and fill at the trigger price, or the open on a gap-through. Same-bar ties resolve to the stop."
               />
               <ExitSettingsForm
                 value={exitSettings}
@@ -266,6 +274,19 @@ export function BacktestCreatePage() {
               <PositionSettingsForm
                 value={positionSettings}
                 onChange={(positionSettings) => update({ positionSettings })}
+              />
+            </Card>
+
+            <Card className="p-5">
+              <SectionHeading
+                index="04"
+                label="Fills"
+                title="Fill realism"
+                hint="How entries and exits are priced. The defaults assume you cannot trade a bar's close after seeing it, and that stops slip."
+              />
+              <FillSettingsForm
+                value={fillSettings}
+                onChange={(fillSettings) => update({ fillSettings })}
               />
             </Card>
           </div>
@@ -346,6 +367,8 @@ export function BacktestCreatePage() {
                 value={exitSettings.timedExit.avoidOvernight ? 'Avoided' : 'Allowed'}
               />
             </Card>
+
+            <FillsRailCard fillSettings={fillSettings} />
           </aside>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { BacktestReport, BenchmarkBar, RailRow } from '../components/backtest/BacktestReport';
+import { FillsRailCard } from '../components/backtest/FillsRailCard';
 import { backtestApi } from '../api/backtestApi';
 import { normalizeTradingData } from '../utils/backtestNormalize';
 import { SHARE_SCHEMA_VERSION, BacktestSharePayload, ShareConfig } from '../types/share';
@@ -74,6 +75,7 @@ function ConfigRail({ config }: { config: ShareConfig }) {
     return (
       <aside className="flex flex-col gap-4 self-start lg:sticky lg:top-4">
         <MaskedConfigRail config={config} />
+        <FillsRailCard fillSettings={config.fillSettings} />
       </aside>
     );
   }
@@ -158,6 +160,8 @@ function ConfigRail({ config }: { config: ShareConfig }) {
           )}
         </Card>
       )}
+
+      <FillsRailCard fillSettings={config.fillSettings} />
     </aside>
   );
 }

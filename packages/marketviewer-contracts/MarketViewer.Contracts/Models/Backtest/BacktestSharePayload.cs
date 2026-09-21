@@ -46,6 +46,12 @@ public class BacktestShareConfig
 {
     public bool Masked { get; set; }
 
+    /// <summary>
+    /// Set on both branches: the fill model is context for reading the numbers, not
+    /// strategy IP. Null when the backtest predates fill settings (legacy fills).
+    /// </summary>
+    public BacktestFillSettings FillSettings { get; set; }
+
     // Masked == false
     public StrategyPositionSettings PositionSettings { get; set; }
     public StrategyExitSettings ExitSettings { get; set; }

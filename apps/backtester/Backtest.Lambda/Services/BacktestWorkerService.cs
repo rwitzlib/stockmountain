@@ -48,7 +48,8 @@ public class BacktestWorkerService(
                     Date = day.Date,
                     PositionSettings = request.PositionSettings,
                     EntrySettings = request.EntrySettings,
-                    ExitSettings = request.ExitSettings
+                    ExitSettings = request.ExitSettings,
+                    FillSettings = request.FillSettings
                 };
                 return Task.Run(async () => await BacktestDay(backtesterLambdaRequest));
             }).ToList();

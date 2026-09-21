@@ -4,6 +4,8 @@
  * so this file must keep rendering schemaVersion 1 for the 30-day share lifetime.
  */
 
+import type { BacktestFillSettings } from './backtest';
+
 export const SHARE_SCHEMA_VERSION = 1;
 
 export interface ShareBenchmarkPoint {
@@ -34,6 +36,9 @@ export interface ShareConfig {
     };
   };
   entrySettings?: { filters?: string[] };
+
+  /** Always present when the backtest has them: the fill model is context, not strategy IP. */
+  fillSettings?: Partial<BacktestFillSettings> | null;
 
   // masked === true
   entryFilterCount?: number;

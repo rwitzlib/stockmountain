@@ -198,6 +198,7 @@ public class BacktestShareHandler(
             return new BacktestShareConfig
             {
                 Masked = false,
+                FillSettings = request?.FillSettings,
                 PositionSettings = request?.PositionSettings,
                 ExitSettings = request?.ExitSettings,
                 EntrySettings = request?.EntrySettings
@@ -207,6 +208,7 @@ public class BacktestShareHandler(
         return new BacktestShareConfig
         {
             Masked = true,
+            FillSettings = request?.FillSettings,
             EntryFilterCount = request?.EntrySettings?.Filters?.Count ?? 0,
             HasStopLoss = request?.ExitSettings?.StopLoss is { Value: > 0 },
             HasProfitTarget = request?.ExitSettings?.TakeProfit is { Value: > 0 },

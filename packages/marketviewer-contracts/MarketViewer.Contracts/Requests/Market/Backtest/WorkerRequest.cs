@@ -1,4 +1,5 @@
 ﻿using MarketViewer.Contracts.Dtos;
+using MarketViewer.Contracts.Models.Backtest;
 using MarketViewer.Contracts.Models.Strategy;
 using System.Diagnostics.CodeAnalysis;
 
@@ -13,4 +14,5 @@ public class WorkerRequest
     public StrategyPositionSettings PositionSettings { get; set; }
     public StrategyExitSettings ExitSettings { get; set; }
     public StrategyEntrySettings EntrySettings { get; set; }
+    public BacktestFillSettings? FillSettings { get; set; }
 }

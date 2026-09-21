@@ -213,6 +213,12 @@ should be appended there when picked up.
 
 ## D. Engine and tooling work that changes what the results mean
 
+> **Status 2026-09-21 — #1 and #1b IMPLEMENTED** (ADR 0005, branch `feature/backtest-fill-realism`):
+> per-backtest fill settings, entries default to next-bar-open (`signalClose` opt-in for parity),
+> `slippagePercent` (default 0) on market fills, `stopSlippagePercent` (default 0.5) on stops.
+> Every Part A/B number above predates this and reads optimistic; re-run baselines first.
+> Follow-ups recorded in the ADR: paper-engine entry fill, second-aggregate fill pricing.
+
 1. **Model stop slippage in the backtest.** Live stop fills median −2.9% vs backtest −2.0% (finding
    A3). Options: fill stops at the next bar's open instead of the trigger price; or a configurable
    slippage in bps applied to exits (and entries) by price band. Until then, mentally haircut every

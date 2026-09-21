@@ -437,11 +437,24 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             return null;
         }
 
-        // Live fills at the snapshot price when the buy fires: the close of the last
-        // completed bar, which is the signal bar. Falling back to the fill bar's close
-        // covers signals whose bar is missing from the aggregate window.
-        var signalBar = entry.Bars?.LastOrDefault(bar => bar.Timestamp <= entry.Start.ToUnixTimeMilliseconds());
-        var entryPrice = signalBar?.Close ?? candlesWithinMarketHours.First().Close;
+        var fillSettings = request.FillSettings ?? new BacktestFillSettings();
+        var fillBar = candlesWithinMarketHours.First();
+
+        // The signal is only known once its bar completes, so the first price that can
+        // trade is the next bar's open (ADR 0005). signalClose keeps the old optimistic
+        // model (the internal paper engine's snapshot fill) for parity studies; its
+        // fill-bar-close fallback covers signals whose bar is missing from the window.
+        var rawEntryPrice = fillSettings.EntryFill switch
+        {
+            BacktestEntryFill.signalClose =>
+                entry.Bars?.LastOrDefault(bar => bar.Timestamp <= entry.Start.ToUnixTimeMilliseconds())?.Close ?? fillBar.Close,
+            _ => fillBar.Open
+        };
+
+        // Market fills slip against the trade: buys pay up, sells give up.
+        var marketSlippage = Math.Clamp(fillSettings.SlippagePercent, 0f, BacktestFillSettings.MaxSlippagePercent) / 100f;
+        var stopSlippage = Math.Clamp(fillSettings.StopSlippagePercent, 0f, BacktestFillSettings.MaxSlippagePercent) / 100f;
+        var entryPrice = rawEntryPrice * (1 + marketSlippage);
 
         if (request.PositionSettings.Model.Size < entryPrice)
         {
@@ -453,6 +466,8 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
         var hold = candlesWithinMarketHours.Last();
         var high = candlesWithinMarketHours.MaxBy(candle => candle.Close);
+        var holdExitPrice = hold.Close * (1 - marketSlippage);
+        var highExitPrice = high.Close * (1 - marketSlippage);
 
         var result = new BacktestEntryResultCollection
         {
@@ -463,7 +478,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             // Stamp the fill bar, not the signal bar: live scans a completed bar one
             // minute after its timestamp and stamps OpenedAt with that execution
             // minute, which is the same minute as the bar this entry is priced from.
-            BoughtAt = DateTimeOffset.FromUnixTimeMilliseconds(candlesWithinMarketHours.First().Timestamp).ToTimezone(TimeZone),
+            BoughtAt = DateTimeOffset.FromUnixTimeMilliseconds(fillBar.Timestamp).ToTimezone(TimeZone),
             Hold = new BacktestEntryResult
             {
                 StoppedOut = false,
@@ -472,9 +487,9 @@ public class WorkerFunction(IServiceProvider serviceProvider)
                 ExitReason = hold.Timestamp < entryEnd.AddMinutes(-1).ToUnixTimeMilliseconds()
                     ? BacktestExitReason.endOfData
                     : BacktestExitReason.timedExit,
-                EndPrice = hold.Close,
-                EndPosition = hold.Close * shares,
-                Profit = hold.Close * shares - entryPosition,
+                EndPrice = holdExitPrice,
+                EndPosition = holdExitPrice * shares,
+                Profit = holdExitPrice * shares - entryPosition,
                 SoldAt = ToExecutionMinute(hold.Timestamp),
 
             },
@@ -482,9 +497,9 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             {
                 StoppedOut = false,
                 ExitReason = BacktestExitReason.soldAtHigh,
-                EndPrice = high.Close,
-                EndPosition = high.Close * shares,
-                Profit = high.Close * shares - entryPosition,
+                EndPrice = highExitPrice,
+                EndPosition = highExitPrice * shares,
+                Profit = highExitPrice * shares - entryPosition,
                 SoldAt = ToExecutionMinute(high.Timestamp)
             }
         };
@@ -538,6 +553,8 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         {
             // Book the modeled fill: the stop price, or the open when a bar gaps through
             // the stop â€” losses can exceed the configured value, matching live behavior.
+            // A stop sells into a falling bid, so it slips further on top of that.
+            stopLossFill *= 1 - stopSlippage;
             var stopLossValue = stopLossFill * shares - entryPosition;
 
             // On a same-bar tie, assume the worst case: the stop fills before the target.
