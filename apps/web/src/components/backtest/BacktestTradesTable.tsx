@@ -39,9 +39,11 @@ function exitChip(trade: ExecutedTrade) {
     );
   }
   if (reason === 'trailingStop') {
+    // Orange, matching the trailing-stop form card: a trail exit is usually a locked-in
+    // gain, so it must not read as a loss like the red Stop chip.
     return (
       <span className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide"
-        style={{ color: 'var(--chart-loss)', background: 'color-mix(in srgb, var(--chart-loss) 12%, transparent)' }}>
+        style={{ color: 'var(--chart-trail)', background: 'color-mix(in srgb, var(--chart-trail) 12%, transparent)' }}>
         Trail
       </span>
     );

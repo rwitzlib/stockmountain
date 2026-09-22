@@ -54,6 +54,7 @@
   --chart-benchmark: #b45309;
   --chart-gain: #15803d;
   --chart-loss: #b91c1c;
+  --chart-trail: #c2410c;
 }
 
 .dark {
@@ -102,6 +103,7 @@
   --chart-benchmark: #c48117;
   --chart-gain: #2fae60;
   --chart-loss: #e05252;
+  --chart-trail: #f97316;
 }
 
 @layer base {
