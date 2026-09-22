@@ -4,6 +4,7 @@ import type {
   ExitSettings,
   Exit,
   TimedExit,
+  TrailingStop,
   ExitValueType,
   Timespan
 } from '../../../types/strategy';
@@ -31,6 +32,10 @@ export const defaultExitSettings: ExitSettings = {
   takeProfit: { type: 'percent', value: 10 },
   timedExit: { avoidOvernight: true, timeframe: { multiplier: 30, timespan: 'minute' } },
 };
+
+// Seed when the optional trailing stop is switched on: trail 2% off the high once the
+// trade is up 2%, so it locks in gains rather than replacing the fixed stop from entry.
+const defaultTrailingStop: TrailingStop = { type: 'percent', value: 2, activation: 2 };
 
 function CardLabel({ label, hint, colorClass }: { label: string; hint: string; colorClass: string }) {
   return (
@@ -171,9 +176,75 @@ function TimedExitCard({
   );
 }
 
+function TrailingStopCard({
+  value,
+  onChange,
+}: {
+  value: TrailingStop | undefined;
+  onChange: (trailingStop: TrailingStop | undefined) => void;
+}) {
+  const enabled = value !== undefined;
+  const isFlat = value?.type === 'flat';
+
+  return (
+    <div className="rounded-lg border border-border/60 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <CardLabel
+          label="Trailing Stop"
+          hint="Exit when price falls a set distance from its post-entry high. Runs alongside the stop loss; whichever sits higher fires first."
+          colorClass="text-orange-600 dark:text-orange-400"
+        />
+        <Switch
+          checked={enabled}
+          onCheckedChange={(checked) => onChange(checked ? defaultTrailingStop : undefined)}
+          aria-label="Enable trailing stop"
+        />
+      </div>
+      {enabled ? (
+        <>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <NumberInput
+                value={value.value}
+                onChange={(newValue) => onChange({ ...value, value: Math.abs(newValue || defaultTrailingStop.value) })}
+                min={0.1}
+                step={value.type === 'percent' ? 0.5 : 1}
+                defaultValue={defaultTrailingStop.value}
+                required
+              />
+            </div>
+            <UnitToggle value={value.type} onChange={(type) => onChange({ ...value, type })} />
+          </div>
+          <div className="mt-2.5 flex items-center justify-between gap-2">
+            <span
+              className="text-xs text-muted-foreground"
+              title="Gain the trade must reach before the trail arms. 0 trails from entry."
+            >
+              Arm after gain of
+            </span>
+            <div className="w-24">
+              <NumberInput
+                value={value.activation ?? 0}
+                onChange={(newValue) => onChange({ ...value, activation: Math.max(0, newValue || 0) })}
+                min={0}
+                step={isFlat ? 1 : 0.5}
+                defaultValue={0}
+                prefix={isFlat ? '$' : undefined}
+                suffix={isFlat ? undefined : '%'}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">Off — exits use the fixed stop only.</p>
+      )}
+    </div>
+  );
+}
+
 export function ExitSettingsForm({ value, onChange }: ExitSettingsFormProps) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
       <ExitCard
         value={value.stopLoss}
         onChange={(stopLoss) => onChange({ ...value, stopLoss })}
@@ -192,6 +263,11 @@ export function ExitSettingsForm({ value, onChange }: ExitSettingsFormProps) {
         colorClass="text-green-600 dark:text-green-400"
         defaultValue={10}
         isProfit={true}
+      />
+
+      <TrailingStopCard
+        value={value.trailingStop}
+        onChange={(trailingStop) => onChange({ ...value, trailingStop })}
       />
 
       <TimedExitCard

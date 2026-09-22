@@ -38,6 +38,14 @@ function exitChip(trade: ExecutedTrade) {
       </span>
     );
   }
+  if (reason === 'trailingStop') {
+    return (
+      <span className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide"
+        style={{ color: 'var(--chart-loss)', background: 'color-mix(in srgb, var(--chart-loss) 12%, transparent)' }}>
+        Trail
+      </span>
+    );
+  }
   if (reason === 'endOfData') {
     return (
       <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground/60">

@@ -30,6 +30,7 @@ export interface ShareConfig {
   exitSettings?: {
     stopLoss?: { type?: string; value?: number };
     takeProfit?: { type?: string; value?: number };
+    trailingStop?: { type?: string; value?: number; activation?: number };
     timedExit?: {
       timeframe?: { multiplier?: number; timespan?: string };
       avoidOvernight?: boolean;
@@ -43,6 +44,7 @@ export interface ShareConfig {
   // masked === true
   entryFilterCount?: number;
   hasStopLoss?: boolean;
+  hasTrailingStop?: boolean;
   hasProfitTarget?: boolean;
   hasTimedExit?: boolean;
 }

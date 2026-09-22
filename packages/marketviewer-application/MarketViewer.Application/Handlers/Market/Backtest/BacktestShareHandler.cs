@@ -212,6 +212,7 @@ public class BacktestShareHandler(
             EntryFilterCount = request?.EntrySettings?.Filters?.Count ?? 0,
             HasStopLoss = request?.ExitSettings?.StopLoss is { Value: > 0 },
             HasProfitTarget = request?.ExitSettings?.TakeProfit is { Value: > 0 },
+            HasTrailingStop = request?.ExitSettings?.TrailingStop is { Value: > 0 },
             HasTimedExit = request?.ExitSettings?.TimedExit?.Timeframe is not null
         };
     }

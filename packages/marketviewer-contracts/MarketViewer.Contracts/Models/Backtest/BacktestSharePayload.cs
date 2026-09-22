@@ -61,6 +61,7 @@ public class BacktestShareConfig
     public int? EntryFilterCount { get; set; }
     public bool? HasStopLoss { get; set; }
     public bool? HasProfitTarget { get; set; }
+    public bool? HasTrailingStop { get; set; }
     public bool? HasTimedExit { get; set; }
 }
 

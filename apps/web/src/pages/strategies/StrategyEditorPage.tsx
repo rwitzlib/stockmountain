@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Strategy, Exit, IntegrationType, Timeframe, TradeType } from '../../types/strategy';
+import { Strategy, Exit, IntegrationType, Timeframe, TradeType, TrailingStop } from '../../types/strategy';
 import { PositionSettingsForm } from '../../components/forms/strategy/PositionSettingsForm';
 import { ExitSettingsForm, defaultExitSettings } from '../../components/forms/strategy/ExitSettingsForm';
 import { EntrySettingsForm } from '../../components/forms/strategy/EntrySettingsForm';
@@ -111,6 +111,14 @@ function mergeIntoDefaults(partial: Partial<Strategy>): Strategy {
 
 const formatExit = (exit: Exit) =>
   exit.type === 'percent' ? `${exit.value}%` : `$${exit.value}`;
+
+// "2% (arms +2%)" / "$50" / "Off"
+const formatTrailingStop = (trailingStop: TrailingStop | undefined) => {
+  if (!trailingStop) return 'Off';
+  const unit = (n: number) => (trailingStop.type === 'percent' ? `${n}%` : `$${n}`);
+  const arm = trailingStop.activation ? ` (arms +${unit(trailingStop.activation)})` : '';
+  return `${unit(trailingStop.value)}${arm}`;
+};
 
 const formatTimeframe = (timeframe: Timeframe | undefined) => {
   if (!timeframe) return 'Not set';
@@ -524,6 +532,11 @@ const StrategyEditorPage = () => {
                 label="Take profit"
                 value={formatExit(exitSettings.takeProfit)}
                 valueColor="var(--chart-gain)"
+              />
+              <RailRow
+                label="Trailing stop"
+                value={formatTrailingStop(exitSettings.trailingStop)}
+                valueColor={exitSettings.trailingStop ? 'var(--chart-loss)' : undefined}
               />
               <RailRow label="Timed exit" value={formatTimeframe(exitSettings.timedExit.timeframe)} />
               <RailRow

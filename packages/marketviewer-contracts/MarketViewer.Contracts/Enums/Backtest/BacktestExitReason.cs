@@ -14,6 +14,9 @@ public enum BacktestExitReason
     /// <summary>Stop filled.</summary>
     stopLoss,
 
+    /// <summary>Trailing stop filled: price fell the configured distance from its post-entry high.</summary>
+    trailingStop,
+
     /// <summary>Candles ran out before the window closed (halt/delisting/no data).</summary>
     endOfData,
 

@@ -52,9 +52,13 @@ low washout) is not expressible: range mode (`[1m, 30, all]`) compares each bar 
 `close > highest(high, 30)`-style functions. (Partial proxy today:
 `support_resistance().resistance` uses Donchian internally.)
 
-### 6. Trailing stop exit
-Does not exist in backtest or live (`StrategyExitSettings` has no such member). Lets breakout
-and momentum variants run winners while keeping the tight-risk profile.
+### ~~6. Trailing stop exit~~ — **DONE 2026-09-21** (ADR 0006)
+Optional `StrategyExitSettings.TrailingStop { Type, Value, Activation? }`: trails the
+post-entry high-water mark, arms after an optional gain, runs alongside the fixed stop
+(higher stop fires first). Backtest `CheckTrailingStop` + live `ExitEvaluator` share
+`TrailingStopMath`; live persists `TradeRecord.HighWaterMark` via conditional update.
+New exit reason `trailingStop`. Fourth exit card in the create/edit forms. Unblocks
+plan 19 C2 (RSI-low with trail).
 
 ## Tier 2 — new strategy families
 

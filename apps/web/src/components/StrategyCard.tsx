@@ -105,6 +105,12 @@ export function StrategyCard({ strategy, onUpdate, onDelete, readOnly = false, f
             ) : (
               <div><span className="text-muted-foreground/60">Target:</span> None</div>
             )}
+            {exitSettings.trailingStop && (
+              <div>
+                <span className="text-orange-600 dark:text-orange-400">Trail:</span> {exitSettings.trailingStop.value}
+                {exitSettings.trailingStop.type === 'percent' ? '%' : '$'}
+              </div>
+            )}
             {exitSettings.timedExit?.timeframe ? (
               <div>
                 <span className="text-yellow-600 dark:text-yellow-400">Timeframe:</span> {exitSettings.timedExit.timeframe.multiplier} {exitSettings.timedExit.timeframe.timespan}

@@ -4,6 +4,7 @@ import { formatSignedCurrency } from '../../utils/formatters';
 export const EXIT_REASON_LABELS: Record<string, string> = {
   takeProfit: 'Target',
   stopLoss: 'Stop',
+  trailingStop: 'Trail',
   timedExit: 'Timed',
   endOfData: 'Ended',
   soldAtHigh: 'High',
@@ -13,6 +14,7 @@ export const EXIT_REASON_LABELS: Record<string, string> = {
 const EXIT_REASON_HINTS: Record<string, string> = {
   takeProfit: 'profit target filled',
   stopLoss: 'stop loss filled',
+  trailingStop: 'trailing stop filled',
   timedExit: 'rode the full exit window',
   endOfData: 'candles ran out early',
   soldAtHigh: 'sold at in-trade high',

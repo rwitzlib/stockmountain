@@ -42,6 +42,10 @@ interface StopConfigView {
   value?: number;
 }
 
+interface TrailingStopView extends StopConfigView {
+  activation?: number;
+}
+
 /** Request settings normalized across the current `request` and legacy `requestDetails` shapes */
 interface RequestDataView {
   positionInfo: {
@@ -54,6 +58,7 @@ interface RequestDataView {
   exitInfo: {
     stopLoss?: StopConfigView;
     profitTarget?: StopConfigView;
+    trailingStop?: TrailingStopView;
     timeframe?: { multiplier?: number; timespan?: string };
     avoidOvernight?: boolean;
   };
@@ -239,6 +244,7 @@ export function BacktestDetailPage() {
         exitInfo: {
           stopLoss: req.exitSettings?.stopLoss,
           profitTarget: req.exitSettings?.takeProfit,
+          trailingStop: req.exitSettings?.trailingStop,
           timeframe: req.exitSettings?.timedExit?.timeframe,
           avoidOvernight: req.exitSettings?.timedExit?.avoidOvernight,
         },
@@ -290,6 +296,13 @@ export function BacktestDetailPage() {
     return `${config.value} (${config.type || 'unknown type'})`;
   };
 
+  const formatTrailingStop = (config: TrailingStopView) => {
+    const arm = config.activation
+      ? ` (arms +${formatStopConfig({ type: config.type, value: config.activation })})`
+      : '';
+    return `${formatStopConfig(config)}${arm}`;
+  };
+
   const formatTimeframe = (timeframe: RequestDataView['exitInfo']['timeframe']) => {
     if (!timeframe) return 'Not set';
     return `${timeframe.multiplier} ${timeframe.timespan}${(timeframe.multiplier ?? 1) > 1 ? 's' : ''}`;
@@ -339,6 +352,9 @@ export function BacktestDetailPage() {
         // Exits are mandatory now; records predating that rule fall back to defaults.
         stopLoss: toExit(exitInfo.stopLoss) ?? defaultExitSettings.stopLoss,
         takeProfit: toExit(exitInfo.profitTarget) ?? defaultExitSettings.takeProfit,
+        trailingStop: exitInfo.trailingStop?.value
+          ? { ...toExit(exitInfo.trailingStop)!, activation: exitInfo.trailingStop.activation }
+          : undefined,
         timedExit: exitInfo.timeframe
           ? {
               avoidOvernight: exitInfo.avoidOvernight ?? true,
@@ -687,6 +703,7 @@ export function BacktestDetailPage() {
 
                   {(requestData.exitInfo.stopLoss ||
                     requestData.exitInfo.profitTarget ||
+                    requestData.exitInfo.trailingStop ||
                     requestData.exitInfo.timeframe ||
                     requestData.exitInfo.avoidOvernight !== undefined) && (
                     <Card className="p-4">
@@ -705,6 +722,13 @@ export function BacktestDetailPage() {
                           label="Take profit"
                           value={formatStopConfig(requestData.exitInfo.profitTarget)}
                           valueColor="var(--chart-gain)"
+                        />
+                      )}
+                      {requestData.exitInfo.trailingStop && (
+                        <RailRow
+                          label="Trailing stop"
+                          value={formatTrailingStop(requestData.exitInfo.trailingStop)}
+                          valueColor="var(--chart-loss)"
                         />
                       )}
                       {requestData.exitInfo.timeframe && (

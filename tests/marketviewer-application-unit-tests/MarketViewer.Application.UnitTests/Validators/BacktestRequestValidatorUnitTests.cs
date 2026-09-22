@@ -162,6 +162,43 @@ public class BacktestRequestValidatorUnitTests
     }
 
     [Fact]
+    public void Validate_TrailingStop_Passes()
+    {
+        var request = ValidRequest(r => r.ExitSettings = new StrategyExitSettings
+        {
+            StopLoss = r.ExitSettings.StopLoss,
+            TakeProfit = r.ExitSettings.TakeProfit,
+            TimedExit = r.ExitSettings.TimedExit,
+            TrailingStop = new TrailingStop { Type = ExitValueType.percent, Value = 2f, Activation = 3f },
+        });
+
+        var result = _validator.Validate(request);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Theory]
+    [InlineData(ExitValueType.percent, 0f, null, "The trailing stop distance must be greater than zero.")]
+    [InlineData(ExitValueType.percent, -2f, null, "The trailing stop distance must be greater than zero.")]
+    [InlineData(ExitValueType.percent, 2f, -1f, "The trailing stop activation cannot be negative.")]
+    [InlineData((ExitValueType)7, 2f, null, "The trailing stop type is invalid.")]
+    public void Validate_InvalidTrailingStop_Fails(ExitValueType type, float value, float? activation, string expectedMessage)
+    {
+        var request = ValidRequest(r => r.ExitSettings = new StrategyExitSettings
+        {
+            StopLoss = r.ExitSettings.StopLoss,
+            TakeProfit = r.ExitSettings.TakeProfit,
+            TimedExit = r.ExitSettings.TimedExit,
+            TrailingStop = new TrailingStop { Type = type, Value = value, Activation = activation },
+        });
+
+        var result = _validator.Validate(request);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.ErrorMessage == expectedMessage);
+    }
+
+    [Fact]
     public void Validate_EmptyFilters_Fails()
     {
         var request = ValidRequest(r => r.EntrySettings = new StrategyEntrySettings { Filters = [] });

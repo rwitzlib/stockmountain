@@ -25,6 +25,13 @@ public class TradeRecord
     /// <summary>Why the position was closed. Null while open and on records predating the field.</summary>
     public BacktestExitReason? ExitReason { get; set; }
 
+    /// <summary>
+    /// Highest price observed since entry, ratcheted by the sell worker each tick while the
+    /// position is open. Null means no price has exceeded the entry yet (or the record
+    /// predates the field); readers treat it as the entry price.
+    /// </summary>
+    public float? HighWaterMark { get; set; }
+
     /// <summary>Broker order id of the entry fill. Null on internal paper trades.</summary>
     public string EntryOrderId { get; set; }
 
