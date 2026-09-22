@@ -62,6 +62,8 @@ function fromRequest(request: BacktestRequest): BacktestFormData {
     exitSettings: {
       stopLoss: request.exitSettings?.stopLoss ?? defaultExitSettings.stopLoss,
       takeProfit: request.exitSettings?.takeProfit ?? defaultExitSettings.takeProfit,
+      // Optional: absent stays absent (the card renders off).
+      trailingStop: request.exitSettings?.trailingStop,
       timedExit: request.exitSettings?.timedExit?.timeframe
         ? request.exitSettings.timedExit
         : defaultExitSettings.timedExit,

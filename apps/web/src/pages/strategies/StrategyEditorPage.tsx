@@ -97,6 +97,7 @@ function mergeIntoDefaults(partial: Partial<Strategy>): Strategy {
       ...partial.exitSettings,
       stopLoss: partial.exitSettings?.stopLoss ?? defaultExitSettings.stopLoss,
       takeProfit: partial.exitSettings?.takeProfit ?? defaultExitSettings.takeProfit,
+      trailingStop: partial.exitSettings?.trailingStop,
       timedExit: partial.exitSettings?.timedExit?.timeframe
         ? partial.exitSettings.timedExit
         : defaultExitSettings.timedExit,
