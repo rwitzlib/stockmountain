@@ -178,17 +178,18 @@ public class BacktestRequestValidatorUnitTests
     }
 
     [Theory]
-    [InlineData(0f, null, "The trailing stop distance must be greater than zero.")]
-    [InlineData(-2f, null, "The trailing stop distance must be greater than zero.")]
-    [InlineData(2f, -1f, "The trailing stop activation cannot be negative.")]
-    public void Validate_InvalidTrailingStop_Fails(float value, float? activation, string expectedMessage)
+    [InlineData(ExitValueType.percent, 0f, null, "The trailing stop distance must be greater than zero.")]
+    [InlineData(ExitValueType.percent, -2f, null, "The trailing stop distance must be greater than zero.")]
+    [InlineData(ExitValueType.percent, 2f, -1f, "The trailing stop activation cannot be negative.")]
+    [InlineData((ExitValueType)7, 2f, null, "The trailing stop type is invalid.")]
+    public void Validate_InvalidTrailingStop_Fails(ExitValueType type, float value, float? activation, string expectedMessage)
     {
         var request = ValidRequest(r => r.ExitSettings = new StrategyExitSettings
         {
             StopLoss = r.ExitSettings.StopLoss,
             TakeProfit = r.ExitSettings.TakeProfit,
             TimedExit = r.ExitSettings.TimedExit,
-            TrailingStop = new TrailingStop { Type = ExitValueType.percent, Value = value, Activation = activation },
+            TrailingStop = new TrailingStop { Type = type, Value = value, Activation = activation },
         });
 
         var result = _validator.Validate(request);

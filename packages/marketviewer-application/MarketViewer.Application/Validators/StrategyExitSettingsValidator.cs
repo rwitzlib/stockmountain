@@ -19,8 +19,14 @@ public class StrategyExitSettingsValidator : AbstractValidator<StrategyExitSetti
             .NotNull()
             .WithMessage("A take profit is required.");
 
-        // The trailing stop is optional; when present it needs a positive trail distance
+        // The trailing stop is optional; when present it needs a known unit (an unknown
+        // enum value would silently disable it in both engines), a positive trail distance
         // (a zero trail would stop out on the first downtick) and a non-negative activation.
+        RuleFor(x => x.TrailingStop.Type)
+            .IsInEnum()
+            .When(x => x.TrailingStop is not null)
+            .WithMessage("The trailing stop type is invalid.");
+
         RuleFor(x => x.TrailingStop.Value)
             .GreaterThan(0)
             .When(x => x.TrailingStop is not null)

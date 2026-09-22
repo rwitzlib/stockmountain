@@ -246,7 +246,7 @@ public class WorkerExitLogicUnitTests
         var request = CreateRequest();
         var bars = new List<Bar> { CreateBar(1000, high: 100f, low: 1f, close: 1f) };
 
-        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out _);
+        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out _, out _);
 
         triggered.Should().BeFalse();
         candle.Should().BeNull();
@@ -265,7 +265,7 @@ public class WorkerExitLogicUnitTests
             CreateBar(3000, high: 119f, low: 113f, close: 115f, open: 118f)
         };
 
-        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out var fillPrice);
+        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out var fillPrice, out _);
 
         triggered.Should().BeTrue();
         candle.Timestamp.Should().Be(3000);
@@ -287,7 +287,7 @@ public class WorkerExitLogicUnitTests
             CreateBar(3000, high: 128f, low: 123f, close: 125f, open: 127f)
         };
 
-        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out var fillPrice);
+        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out var fillPrice, out _);
 
         triggered.Should().BeTrue();
         candle.Timestamp.Should().Be(3000);
@@ -306,7 +306,7 @@ public class WorkerExitLogicUnitTests
             CreateBar(2000, high: 99f, low: 94f, close: 96f, open: 98f)
         };
 
-        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out var fillPrice);
+        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out var fillPrice, out _);
 
         triggered.Should().BeTrue();
         candle.Timestamp.Should().Be(2000);
@@ -333,7 +333,7 @@ public class WorkerExitLogicUnitTests
             CreateBar(4000, high: 105f, low: 103f, close: 104f, open: 105f)
         };
 
-        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out var fillPrice);
+        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out var fillPrice, out _);
 
         triggered.Should().BeTrue();
         candle.Timestamp.Should().Be(4000);
@@ -352,7 +352,7 @@ public class WorkerExitLogicUnitTests
             CreateBar(2000, high: 119f, low: 114f, close: 116f, open: 118f)
         };
 
-        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out var fillPrice);
+        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out var candle, out var fillPrice, out _);
 
         triggered.Should().BeTrue();
         candle.Timestamp.Should().Be(2000);
@@ -370,7 +370,7 @@ public class WorkerExitLogicUnitTests
             CreateBar(2000, high: 112f, low: 108f, close: 110f, open: 111f)   // opens below the 114 trail
         };
 
-        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out _, out var fillPrice);
+        var triggered = WorkerFunction.CheckTrailingStop(request, Shares, EntryPrice, bars, out _, out var fillPrice, out _);
 
         triggered.Should().BeTrue();
         fillPrice.Should().Be(111f);
@@ -920,6 +920,30 @@ public class WorkerExitLogicUnitTests
 
         result.Hold.ExitReason.Should().Be(BacktestExitReason.trailingStop);
         result.Hold.EndPrice.Should().BeApproximately(114f, 0.0001f);
+    }
+
+    [Fact]
+    public void BuildEntryResult_GapThroughBothStops_AttributesToHigherStopLevel()
+    {
+        // Fixed 3% stop (97) is above the 5% trail from entry (95). A bar opens at 90,
+        // through both, so both fills are the open; the exit still belongs to the fixed
+        // stop, the level price crossed first — as ExitEvaluator reports it live.
+        var request = CreateRequest(
+            stopLoss: new Exit { Type = ExitValueType.percent, Value = 3f },
+            trailingStop: new TrailingStop { Type = ExitValueType.percent, Value = 5f });
+        var entryEnd = EntryStart.AddHours(1);
+
+        var bars = new List<Bar>
+        {
+            CreateBarAt(EntryStart.AddMinutes(1), 100f),
+            CreateBar(EntryStart.AddMinutes(10).ToUnixTimeMilliseconds(), high: 91f, low: 88f, close: 89f, open: 90f),
+            CreateBarAt(entryEnd, 100f)
+        };
+
+        var result = WorkerFunction.BuildEntryResult(request, CreateEntry(), bars, entryEnd);
+
+        result.Hold.ExitReason.Should().Be(BacktestExitReason.stopLoss);
+        result.Hold.EndPrice.Should().BeApproximately(90f, 0.0001f);
     }
 
     [Fact]

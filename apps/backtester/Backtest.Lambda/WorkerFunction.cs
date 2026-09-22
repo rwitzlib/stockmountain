@@ -551,16 +551,18 @@ public class WorkerFunction(IServiceProvider serviceProvider)
         }
 
         var hasStopLoss = CheckStopLoss(request, shares, entryPosition, entryPrice, candlesWithinMarketHours, out var stopLoss, out var stopLossFill);
-        var hasTrailingStop = CheckTrailingStop(request, shares, entryPrice, candlesWithinMarketHours, out var trailingStop, out var trailingStopFill);
+        var hasTrailingStop = CheckTrailingStop(request, shares, entryPrice, candlesWithinMarketHours, out var trailingStop, out var trailingStopFill, out var trailingStopPrice);
 
         // The fixed and trailing stops are two resting sell stops on the same position:
-        // the earlier bar wins, and on the same bar the higher stop is the one price
-        // reaches first. Once the trail has ratcheted above the fixed stop it is always
-        // the higher of the two, so late in a winning trade it takes over.
+        // the earlier bar wins, and on the same bar the higher stop *level* is the one
+        // price reaches first (the fills can tie when a bar gaps through both, so the
+        // levels decide, as they do live). Once the trail has ratcheted above the fixed
+        // stop it is always the higher of the two, so late in a winning trade it takes over.
         var trailingWins = hasTrailingStop
             && (!hasStopLoss
                 || trailingStop.Timestamp < stopLoss.Timestamp
-                || (trailingStop.Timestamp == stopLoss.Timestamp && trailingStopFill >= stopLossFill));
+                || (trailingStop.Timestamp == stopLoss.Timestamp
+                    && trailingStopPrice >= FixedStopPrice(request.ExitSettings.StopLoss, shares, entryPrice)));
 
         if (hasStopLoss || hasTrailingStop)
         {
@@ -669,13 +671,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             return false;
         }
 
-        // A stop loss is always a loss, regardless of the sign the user entered.
-        var stopPrice = stopLoss.Type switch
-        {
-            ExitValueType.percent => entryPrice * (1 - Math.Abs(stopLoss.Value) / 100),
-            ExitValueType.flat => entryPrice - Math.Abs(stopLoss.Value) / shares,
-            _ => (float?)null
-        };
+        var stopPrice = FixedStopPrice(stopLoss, shares, entryPrice);
 
         if (stopPrice is null)
         {
@@ -694,6 +690,25 @@ public class WorkerFunction(IServiceProvider serviceProvider)
 
         fillPrice = Math.Min(stopLossCandle.Open, stopPrice.Value);
         return true;
+    }
+
+    /// <summary>
+    /// The fixed stop's resting price. A stop loss is always a loss, regardless of the
+    /// sign the user entered. Null for an unknown value type or no shares.
+    /// </summary>
+    internal static float? FixedStopPrice(Exit stopLoss, int shares, float entryPrice)
+    {
+        if (stopLoss is null || shares <= 0)
+        {
+            return null;
+        }
+
+        return stopLoss.Type switch
+        {
+            ExitValueType.percent => entryPrice * (1 - Math.Abs(stopLoss.Value) / 100),
+            ExitValueType.flat => entryPrice - Math.Abs(stopLoss.Value) / shares,
+            _ => null
+        };
     }
 
     internal static bool CheckTakeProfit(WorkerRequest request, int shares, float entryPosition, float entryPrice, List<Bar> results, out Bar profitTargetCandle, out float fillPrice)
@@ -739,11 +754,12 @@ public class WorkerFunction(IServiceProvider serviceProvider)
     /// also mirrors live, where the sell worker evaluates a tick against the mark from
     /// the ticks before it. Fills follow CheckStopLoss (stop price, or the open on a gap).
     /// </summary>
-    internal static bool CheckTrailingStop(WorkerRequest request, int shares, float entryPrice, List<Bar> results, out Bar trailingStopCandle, out float fillPrice)
+    internal static bool CheckTrailingStop(WorkerRequest request, int shares, float entryPrice, List<Bar> results, out Bar trailingStopCandle, out float fillPrice, out float stopPriceAtTrigger)
     {
         var trailingStop = request.ExitSettings.TrailingStop;
         trailingStopCandle = null;
         fillPrice = 0f;
+        stopPriceAtTrigger = 0f;
 
         if (trailingStop is null || shares <= 0)
         {
@@ -759,6 +775,7 @@ public class WorkerFunction(IServiceProvider serviceProvider)
             if (stopPrice is not null && bar.Low <= stopPrice)
             {
                 trailingStopCandle = bar;
+                stopPriceAtTrigger = stopPrice.Value;
                 fillPrice = Math.Min(bar.Open, stopPrice.Value);
                 return true;
             }
